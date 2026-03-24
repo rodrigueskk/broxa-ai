@@ -1,0 +1,90 @@
+{
+  "entities": {
+    "ReleaseNote": {
+      "title": "Release Note",
+      "description": "A release note created by an administrator.",
+      "type": "object",
+      "properties": {
+        "version": { "type": "string" },
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "changes": { "type": "array", "items": { "type": "string" } },
+        "imageUrl": { "type": "string" },
+        "date": { "type": "number" },
+        "authorUid": { "type": "string" },
+        "titleRgb": { "type": "boolean" },
+        "outlineColor": { "type": "string" },
+        "backgroundColor": { "type": "string" },
+        "buttonText": { "type": "string" },
+        "buttonColor": { "type": "string" },
+        "buttonRgb": { "type": "boolean" },
+        "images": { "type": "array", "items": { "type": "object" } },
+        "badges": { "type": "array", "items": { "type": "object" } }
+      },
+      "required": ["version", "title", "date", "authorUid"]
+    },
+    "User": {
+      "title": "User",
+      "description": "User profile and settings.",
+      "type": "object",
+      "properties": {
+        "email": { "type": "string" },
+        "role": { "type": "string", "enum": ["admin", "developer", "user"] },
+        "seenReleaseNotes": { "type": "array", "items": { "type": "string" } },
+        "streakDays": { "type": "number" },
+        "lastMessageDate": { "type": ["string", "null"] },
+        "freezesAvailable": { "type": "number" },
+        "lastFreezeMonth": { "type": ["string", "null"] },
+        "hasSeenRoleNotification": { "type": "boolean" }
+      },
+      "required": ["email", "role"]
+    },
+    "Feedback": {
+      "title": "Feedback",
+      "description": "User feedback on AI responses.",
+      "type": "object",
+      "properties": {
+        "messageId": { "type": "string" },
+        "isPositive": { "type": "boolean" },
+        "comment": { "type": "string" },
+        "userEmail": { "type": "string" },
+        "model": { "type": "string" },
+        "prompt": { "type": "string" },
+        "response": { "type": "string" },
+        "date": { "type": "number" }
+      },
+      "required": ["messageId", "isPositive", "userEmail", "model", "prompt", "response", "date"]
+    },
+    "AIModel": {
+      "title": "AI Model",
+      "description": "Configuration for an AI model.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "key": { "type": "string" },
+        "name": { "type": "string" },
+        "description": { "type": "string" },
+        "badgeType": { "type": "string", "enum": ["BETA", "EM DESENVOLVIMENTO", "NOVO", "REMOVIDO", "EM BREVE", "NENHUMA"] }
+      },
+      "required": ["id", "key", "name", "description"]
+    }
+  },
+  "firestore": {
+    "/releaseNotes/{noteId}": {
+      "schema": { "$ref": "ReleaseNote" },
+      "description": "Collection of all release notes."
+    },
+    "/users/{userId}": {
+      "schema": { "$ref": "User" },
+      "description": "Collection of user profiles."
+    },
+    "/feedbacks/{feedbackId}": {
+      "schema": { "$ref": "Feedback" },
+      "description": "Collection of user feedbacks."
+    },
+    "/aiModels/{modelId}": {
+      "schema": { "$ref": "AIModel" },
+      "description": "Collection of AI models configuration."
+    }
+  }
+}

@@ -1,0 +1,205 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // ===============================================================
+    // Assumed Data Model
+    // ===============================================================
+    //
+    // Collection: releaseNotes
+    // Document ID: auto-generated
+    // Fields:
+    //   - version: string (required)
+    //   - title: string (required)
+    //   - description: string (optional)
+    //   - changes: list of strings (optional)
+    //   - imageUrl: string (optional)
+    //   - date: number (required)
+    //   - authorUid: string (required, immutable)
+    //
+    // Collection: users
+    // Document ID: user uid
+    // Fields:
+    //   - email: string (required)
+    //   - role: string (required, enum: ['admin', 'developer', 'user'])
+    //   - seenReleaseNotes: list of strings (optional)
+    //
+    // ===============================================================
+
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+    
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+    
+    function isAdmin() {
+      return isAuthenticated() && (
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin') ||
+        (request.auth.token.email == "playaxieinfinity2021@gmail.com")
+      );
+    }
+    
+    function hasOnlyAllowedFields(allowedFields) {
+      return request.resource.data.keys().hasOnly(allowedFields);
+    }
+    
+    // ===============================================================
+    // Domain Validators
+    // ===============================================================
+    
+    function isValidReleaseNote(data) {
+      return hasOnlyAllowedFields(['version', 'title', 'description', 'changes', 'imageUrl', 'date', 'authorUid', 'titleRgb', 'outlineColor', 'backgroundColor', 'buttonText', 'buttonColor', 'buttonRgb', 'images', 'badges']) &&
+             data.version is string && data.version.size() > 0 && data.version.size() < 50 &&
+             data.title is string && data.title.size() > 0 && data.title.size() < 200 &&
+             (!('description' in data) || (data.description is string && data.description.size() < 2000)) &&
+             (!('changes' in data) || (data.changes is list && data.changes.size() < 100)) &&
+             (!('imageUrl' in data) || (data.imageUrl is string && data.imageUrl.size() < 1000)) &&
+             (!('titleRgb' in data) || data.titleRgb is bool) &&
+             (!('outlineColor' in data) || (data.outlineColor is string && data.outlineColor.size() < 50)) &&
+             (!('backgroundColor' in data) || (data.backgroundColor is string && data.backgroundColor.size() < 50)) &&
+             (!('buttonText' in data) || (data.buttonText is string && data.buttonText.size() < 50)) &&
+             (!('buttonColor' in data) || (data.buttonColor is string && data.buttonColor.size() < 50)) &&
+             (!('buttonRgb' in data) || data.buttonRgb is bool) &&
+             (!('images' in data) || (data.images is list && data.images.size() < 20)) &&
+             (!('badges' in data) || (data.badges is list && data.badges.size() < 20)) &&
+             data.date is number &&
+             data.authorUid == request.auth.uid;
+    }
+    
+    function isValidUser(data) {
+      return hasOnlyAllowedFields(['email', 'role', 'seenReleaseNotes', 'streakDays', 'lastMessageDate', 'freezesAvailable', 'lastFreezeMonth', 'displayName', 'photoURL', 'hasSetProfile', 'unlockedFeatures', 'hasSeenRoleNotification']) &&
+             data.email is string && data.email.size() < 200 &&
+             data.role in ['admin', 'developer', 'user'] &&
+             (!('seenReleaseNotes' in data) || (data.seenReleaseNotes is list && data.seenReleaseNotes.size() < 1000)) &&
+             (!('streakDays' in data) || data.streakDays is number) &&
+             (!('lastMessageDate' in data) || data.lastMessageDate == null || (data.lastMessageDate is string && data.lastMessageDate.size() < 50)) &&
+             (!('freezesAvailable' in data) || data.freezesAvailable is number) &&
+             (!('lastFreezeMonth' in data) || data.lastFreezeMonth == null || (data.lastFreezeMonth is string && data.lastFreezeMonth.size() < 50)) &&
+             (!('displayName' in data) || data.displayName == null || (data.displayName is string && data.displayName.size() < 100)) &&
+             (!('photoURL' in data) || data.photoURL == null || (data.photoURL is string && data.photoURL.size() < 1048487)) &&
+             (!('hasSetProfile' in data) || data.hasSetProfile is bool) &&
+             (!('unlockedFeatures' in data) || (data.unlockedFeatures is list && data.unlockedFeatures.size() < 1000)) &&
+             (!('hasSeenRoleNotification' in data) || data.hasSeenRoleNotification is bool);
+    }
+
+    function isValidFeedback(data) {
+      return hasOnlyAllowedFields(['messageId', 'isPositive', 'comment', 'userEmail', 'model', 'prompt', 'response', 'date']) &&
+             data.messageId is string && data.messageId.size() > 0 && data.messageId.size() < 100 &&
+             data.isPositive is bool &&
+             (!('comment' in data) || (data.comment is string && data.comment.size() < 5000)) &&
+             data.userEmail is string && data.userEmail.size() > 0 && data.userEmail.size() < 200 &&
+             data.model is string && data.model.size() > 0 && data.model.size() < 100 &&
+             data.prompt is string && data.prompt.size() >= 0 && data.prompt.size() < 50000 &&
+             data.response is string && data.response.size() >= 0 && data.response.size() < 100000 &&
+             data.date is number;
+    }
+
+    function isValidAIModel(data) {
+      return hasOnlyAllowedFields(['id', 'key', 'name', 'description', 'badgeType']) &&
+             data.id is string && data.id.size() > 0 && data.id.size() < 50 &&
+             data.key is string && data.key.size() > 0 && data.key.size() < 50 &&
+             data.name is string && data.name.size() > 0 && data.name.size() < 100 &&
+             data.description is string && data.description.size() > 0 && data.description.size() < 500 &&
+             (!('badgeType' in data) || (data.badgeType is string && data.badgeType in ['BETA', 'EM DESENVOLVIMENTO', 'NOVO', 'REMOVIDO', 'EM BREVE', 'NENHUMA']));
+    }
+
+    function isValidGroup(data) {
+      return hasOnlyAllowedFields(['name', 'members', 'streakDays', 'lastMessageDate', 'createdAt', 'ownerId', 'photoURL', 'systemInstruction']) &&
+             data.name is string && data.name.size() > 0 && data.name.size() < 100 &&
+             data.members is list && data.members.size() > 0 && data.members.size() < 100 &&
+             data.streakDays is number &&
+             (!('lastMessageDate' in data) || data.lastMessageDate == null || (data.lastMessageDate is string && data.lastMessageDate.size() < 50)) &&
+             data.createdAt is number &&
+             (!('ownerId' in data) || (data.ownerId is string && data.ownerId.size() < 100)) &&
+             (!('photoURL' in data) || data.photoURL == null || (data.photoURL is string && data.photoURL.size() < 1048487)) &&
+             (!('systemInstruction' in data) || (data.systemInstruction is string && data.systemInstruction.size() < 50000));
+    }
+
+    function isValidGroupMessage(data) {
+      return hasOnlyAllowedFields(['senderId', 'senderName', 'senderPhotoURL', 'content', 'imageUrls', 'timestamp']) &&
+             data.senderId is string && data.senderId.size() > 0 && data.senderId.size() < 100 &&
+             data.senderName is string && data.senderName.size() > 0 && data.senderName.size() < 100 &&
+             (!('senderPhotoURL' in data) || data.senderPhotoURL == null || (data.senderPhotoURL is string && data.senderPhotoURL.size() < 1048487)) &&
+             data.content is string && data.content.size() >= 0 && data.content.size() < 50000 &&
+             (!('imageUrls' in data) || (data.imageUrls is list && data.imageUrls.size() < 20)) &&
+             data.timestamp is number;
+    }
+
+    function isValidNotification(data) {
+      return hasOnlyAllowedFields(['userId', 'message', 'timestamp', 'read']) &&
+             data.userId is string && data.userId.size() > 0 && data.userId.size() < 100 &&
+             data.message is string && data.message.size() > 0 && data.message.size() < 1000 &&
+             data.timestamp is number &&
+             data.read is bool;
+    }
+
+    // ===============================================================
+    // Rules
+    // ===============================================================
+
+    match /groups/{groupId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() && isValidGroup(request.resource.data) && request.auth.uid in request.resource.data.members;
+      allow update: if isAuthenticated() && isValidGroup(request.resource.data) && (
+        request.auth.uid in resource.data.members || 
+        (request.auth.uid in request.resource.data.members && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['members'])) ||
+        isAdmin()
+      );
+      allow delete: if isAuthenticated() && (
+        ('ownerId' in resource.data && resource.data.ownerId == request.auth.uid) || 
+        (resource.data.members.size() == 1 && resource.data.members[0] == request.auth.uid) ||
+        isAdmin()
+      );
+      
+      match /messages/{messageId} {
+        allow read: if isAuthenticated() && request.auth.uid in get(/databases/$(database)/documents/groups/$(groupId)).data.members;
+        allow create: if isAuthenticated() && isValidGroupMessage(request.resource.data) && (
+          request.auth.uid in get(/databases/$(database)/documents/groups/$(groupId)).data.members ||
+          request.resource.data.senderId == 'ai'
+        );
+      }
+    }
+
+    match /releaseNotes/{noteId} {
+      allow read: if true;
+      allow create: if isAdmin() && isValidReleaseNote(request.resource.data);
+      allow update: if isAdmin() && isValidReleaseNote(request.resource.data) && request.resource.data.authorUid == resource.data.authorUid;
+      allow delete: if isAdmin();
+    }
+    
+    match /users/{userId} {
+      allow read: if isOwner(userId) || isAdmin();
+      allow create: if isOwner(userId) && isValidUser(request.resource.data) && (request.resource.data.role == 'user' || isAdmin());
+      allow update: if (isOwner(userId) || isAdmin()) && isValidUser(request.resource.data) && (
+        isAdmin() || 
+        (!('role' in resource.data) && request.resource.data.role == 'user') || 
+        ('role' in resource.data && request.resource.data.role == resource.data.role)
+      );
+    }
+
+    match /feedbacks/{feedbackId} {
+      allow read: if isAdmin();
+      allow create: if true && isValidFeedback(request.resource.data); // Anyone can submit feedback
+      allow delete: if isAdmin();
+    }
+
+    match /notifications/{notificationId} {
+      allow read: if isAuthenticated() && resource.data.userId == request.auth.uid;
+      allow create: if isAuthenticated() && isValidNotification(request.resource.data);
+      allow update: if isAuthenticated() && resource.data.userId == request.auth.uid && isValidNotification(request.resource.data);
+      allow delete: if isAuthenticated() && resource.data.userId == request.auth.uid;
+    }
+
+    match /aiModels/{modelId} {
+      allow read: if true; // Anyone can read models
+      allow write: if isAdmin() && isValidAIModel(request.resource.data); // Only admins can create/update models
+    }
+  }
+}
