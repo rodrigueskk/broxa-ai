@@ -1,0 +1,29 @@
+53:const MessageItem = ({ msg, sessionId, settings, isHighlightMode, isEraserMode, highlightColor, togglePinMessage, addStroke, onStrokeStart, previousUserMessage, onRetry, aiModels, addFeedback, onSendAnswer }: any) => {
+110:  }, [msg.strokes, currentStroke, settings.theme]);
+195:        style={msg.role === 'user' ? { color: settings.userMessageColor || '#ffffff' } : {}}
+229:            <div className={`prose ${settings.theme === 'dark' ? 'prose-invert' : ''} max-w-none highlight-strong-no-effect ${msg.role === 'user' ? 'prose-p:leading-relaxed' : 'prose-p:leading-relaxed prose-pre:bg-[var(--bg-input)] prose-pre:border prose-pre:border-[var(--border-strong)] prose-pre:rounded-2xl'}`}>
+236:                    strong: ({node, ...props}) => <strong style={{ color: settings.secondaryColor }} {...props} />,
+707:  const { settings, updateSettings } = useSettingsStore();
+788:  const [settingsError, setSettingsError] = useState<string | null>(null);
+789:  const [tempSettings, setTempSettings] = useState(settings);
+1116:    if (JSON.stringify(tempSettings) !== JSON.stringify(settings)) {
+1167:      setTempSettings(settings);
+1176:      setTempSettings(settings);
+1178:  }, [isSettingsOpen, settings]);
+1216:    document.documentElement.style.setProperty('--color-sec', settings.secondaryColor);
+1217:    document.documentElement.style.setProperty('--selection-color', settings.selectionColor || '#3b82f6');
+1218:    if (settings.theme === 'light') {
+1223:  }, [settings.secondaryColor, settings.theme, settings.selectionColor]);
+1560:        const customInstruction = group?.systemInstruction || settings.customInstruction;
+1654:          settings.customInstruction,
+1782:      {settings.backgroundImage && (
+1785:          style={{ backgroundImage: `url(${settings.backgroundImage})` }}
+3132:                    className={`w-full bg-[var(--bg-input)] text-[var(--text-base)] border ${settingsError ? 'border-red-500' : 'border-[var(--border-subtle)]'} rounded-xl p-3 min-h-[100px] resize-y focus:outline-none focus:border-[var(--color-sec)] disabled:opacity-50 disabled:cursor-not-allowed`}
+3137:                  {settingsError && (
+3144:                      <span>{settingsError}</span>
+3289:          <div className={`flex items-center gap-3 text-lg font-bold ${settings.enableEffects ? 'broxa-title' : 'text-[var(--text-base)]'}`}>
+3291:            {settings.customTitleFont || 'BROXA AI'}
+3449:                <div className={`md:hidden flex items-center gap-2 text-[var(--text-base)] font-bold ${settings.enableEffects ? 'broxa-title' : ''}`}>
+3451:                  {settings.customTitleFont || 'BROXA AI'}
+3729:                          <div className={`prose prose-sm ${settings.theme === 'dark' ? 'prose-invert prose-p:text-white prose-headings:text-white' : 'prose-p:text-black prose-headings:text-black'} max-w-none break-words`}>
+3761:                    settings={settings} 

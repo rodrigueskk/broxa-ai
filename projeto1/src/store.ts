@@ -209,6 +209,21 @@ export function useSettingsStore() {
   });
 
   useEffect(() => {
+    const unsubscribe = auth.onAuthStateChanged((user) => {
+      if (user) {
+        const userRef = doc(db, 'users', user.uid);
+        const unsubscribeDoc = onSnapshot(userRef, (docSnap) => {
+          if (docSnap.exists() && docSnap.data().settings) {
+            setSettings(docSnap.data().settings);
+          }
+        });
+        return () => unsubscribeDoc();
+      }
+    });
+    return () => unsubscribe();
+  }, []);
+
+  useEffect(() => {
     try {
       localStorage.setItem('broxa_ai_settings', JSON.stringify(settings));
     } catch (e) {
@@ -217,7 +232,13 @@ export function useSettingsStore() {
   }, [settings]);
 
   const updateSettings = (newSettings: Partial<typeof settings>) => {
-    setSettings((s: any) => ({ ...s, ...newSettings }));
+    setSettings((s: any) => {
+      const updated = { ...s, ...newSettings };
+      if (auth.currentUser) {
+        updateDoc(doc(db, 'users', auth.currentUser.uid), { settings: updated }).catch(console.error);
+      }
+      return updated;
+    });
   };
 
   return { settings, updateSettings };

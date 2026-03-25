@@ -1,0 +1,78 @@
+.mindmap-tree {
+  display: flex;
+  justify-content: center;
+}
+
+.mindmap-tree ul {
+  padding-top: 20px; 
+  position: relative;
+  display: flex;
+  justify-content: center;
+  padding-left: 0;
+}
+
+.mindmap-tree > ul {
+  padding-top: 0;
+}
+
+.mindmap-tree li {
+  float: left; 
+  text-align: center;
+  list-style-type: none;
+  position: relative;
+  padding: 20px 10px 0 10px;
+}
+
+/* Connectors */
+.mindmap-tree li::before, .mindmap-tree li::after {
+  content: '';
+  position: absolute; 
+  top: 0; 
+  right: 50%;
+  border-top: 2px solid var(--border-strong);
+  width: 50%; 
+  height: 20px;
+}
+
+.mindmap-tree li::after {
+  right: auto; 
+  left: 50%;
+  border-left: 2px solid var(--border-strong);
+}
+
+/* Remove left-right connectors from elements without any siblings */
+.mindmap-tree li:only-child::after, .mindmap-tree li:only-child::before {
+  display: none;
+}
+
+/* Remove space from the top of single children */
+.mindmap-tree li:only-child { 
+  padding-top: 0;
+}
+
+/* Remove left connector from first child and right connector from last child */
+.mindmap-tree li:first-child::before, .mindmap-tree li:last-child::after {
+  border: 0 none;
+}
+
+/* Adding back the vertical connector to the last nodes */
+.mindmap-tree li:last-child::before {
+  border-right: 2px solid var(--border-strong);
+  border-radius: 0 5px 0 0;
+}
+
+.mindmap-tree li:first-child::after {
+  border-radius: 5px 0 0 0;
+}
+
+/* Downward connectors from parents */
+.mindmap-tree li ul::before {
+  content: '';
+  position: absolute; 
+  top: 0; 
+  left: 50%;
+  border-left: 2px solid var(--border-strong);
+  width: 0; 
+  height: 20px;
+  transform: translateX(-50%);
+}

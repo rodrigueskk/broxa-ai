@@ -14,6 +14,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { Rnd } from 'react-rnd';
 import { v4 as uuidv4 } from 'uuid';
 import { Message, Point } from '../types';
+import { MindMap } from '../components/MindMap';
 
 const RespostaOptions = ({ disabled }: { disabled: boolean }) => {
   const [selected, setSelected] = useState<string | null>(null);
@@ -50,7 +51,7 @@ const Logo = ({ className, color }: { className?: string, color?: string }) => (
   <Cpu className={className} strokeWidth={1.5} color={color || "currentColor"} />
 );
 
-const MessageItem = ({ msg, sessionId, settings, isHighlightMode, isEraserMode, highlightColor, togglePinMessage, addStroke, onStrokeStart, previousUserMessage, onRetry, aiModels, addFeedback, onSendAnswer }: any) => {
+const MessageItem = React.memo(({ msg, sessionId, settings, isHighlightMode, isEraserMode, highlightColor, togglePinMessage, addStroke, onStrokeStart, previousUserMessage, onRetry, aiModels, addFeedback, onSendAnswer }: any) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [isDrawing, setIsDrawing] = useState(false);
@@ -236,14 +237,32 @@ const MessageItem = ({ msg, sessionId, settings, isHighlightMode, isEraserMode, 
                     strong: ({node, ...props}) => <strong style={{ color: settings.secondaryColor }} {...props} />,
                     pre: ({node, children, ...props}: any) => {
                       let isResposta = false;
+                      let isMindmap = false;
+                      let mindmapData = null;
+                      
                       React.Children.forEach(children, (child: any) => {
-                        if (React.isValidElement(child) && typeof (child.props as any).className === 'string' && (child.props as any).className.includes('language-resposta')) {
-                          isResposta = true;
+                        if (React.isValidElement(child) && typeof (child.props as any).className === 'string') {
+                          if ((child.props as any).className.includes('language-resposta')) {
+                            isResposta = true;
+                          } else if ((child.props as any).className.includes('language-mindmap')) {
+                            isMindmap = true;
+                            try {
+                              mindmapData = JSON.parse((child.props as any).children);
+                            } catch (e) {
+                              console.error("Failed to parse mindmap JSON", e);
+                            }
+                          }
                         }
                       });
+                      
                       if (isResposta) {
                         return <RespostaOptions disabled={answersSubmitted} />
                       }
+                      
+                      if (isMindmap && mindmapData) {
+                        return <MindMap data={mindmapData} />
+                      }
+                      
                       return <pre {...props}>{children}</pre>
                     }
                   }}
@@ -476,7 +495,69 @@ const MessageItem = ({ msg, sessionId, settings, isHighlightMode, isEraserMode, 
       </AnimatePresence>
     </motion.div>
   );
-};
+}, (prevProps, nextProps) => {
+  return (
+    prevProps.msg === nextProps.msg &&
+    prevProps.sessionId === nextProps.sessionId &&
+    prevProps.settings === nextProps.settings &&
+    prevProps.isHighlightMode === nextProps.isHighlightMode &&
+    prevProps.isEraserMode === nextProps.isEraserMode &&
+    prevProps.highlightColor === nextProps.highlightColor &&
+    prevProps.previousUserMessage === nextProps.previousUserMessage &&
+    prevProps.aiModels === nextProps.aiModels
+  );
+});
+
+const GroupMessageItem = React.memo(({ msg, settings, isCurrentUser }: any) => {
+  return (
+    <motion.div 
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      className={`flex gap-4 ${isCurrentUser ? 'flex-row-reverse' : 'flex-row'}`}
+    >
+      <div className="flex-shrink-0">
+        {msg.senderId === 'ai' ? (
+          <div className="w-10 h-10 rounded-full bg-[var(--color-sec)] flex items-center justify-center shadow-md">
+            <Logo className="w-6 h-6 text-white" />
+          </div>
+        ) : msg.senderPhotoURL ? (
+          <img src={msg.senderPhotoURL} alt={msg.senderName} className="w-10 h-10 rounded-full object-cover shadow-md" />
+        ) : (
+          <div className="w-10 h-10 rounded-full bg-[var(--bg-surface)] border border-[var(--border-strong)] flex items-center justify-center shadow-md">
+            <User className="w-5 h-5 text-[var(--text-muted)]" />
+          </div>
+        )}
+      </div>
+      <div className={`flex flex-col max-w-[80%] ${isCurrentUser ? 'items-end' : 'items-start'}`}>
+        <span className="text-xs text-[var(--text-muted)] mb-1 font-medium px-1">
+          {msg.senderName}
+        </span>
+        <div className={`p-4 rounded-2xl ${
+          isCurrentUser 
+            ? 'bg-[var(--color-sec)] text-white rounded-tr-sm' 
+            : msg.senderId === 'ai'
+              ? 'bg-[var(--bg-surface)] border border-[var(--border-strong)] rounded-tl-sm'
+              : 'bg-[var(--bg-input)] border border-[var(--border-strong)] rounded-tl-sm'
+        }`}>
+          {msg.imageUrls && msg.imageUrls.length > 0 && (
+            <div className="flex flex-wrap gap-2 mb-3">
+              {msg.imageUrls.map((url: string, i: number) => (
+                <img key={i} src={url} alt="Attachment" className="max-w-xs rounded-lg object-cover" />
+              ))}
+            </div>
+          )}
+          <div className={`prose prose-sm ${settings.theme === 'dark' ? 'prose-invert prose-p:text-white prose-headings:text-white' : 'prose-p:text-black prose-headings:text-black'} max-w-none break-words`}>
+            <ReactMarkdown remarkPlugins={[remarkGfm]}>
+              {msg.content}
+            </ReactMarkdown>
+          </div>
+        </div>
+      </div>
+    </motion.div>
+  );
+}, (prevProps, nextProps) => {
+  return prevProps.msg === nextProps.msg && prevProps.settings === nextProps.settings && prevProps.isCurrentUser === nextProps.isCurrentUser;
+});
 
 const TypingTitle = ({ text }: { text: string }) => {
   const [displayedText, setDisplayedText] = useState('');
@@ -1616,6 +1697,8 @@ export default function ChatPage() {
     
     setTimeout(scrollToBottom, 100);
 
+    let aiMessageId: string | null = null;
+
     try {
       if (modelToUse === 'search') {
         setIsSearching(true);
@@ -1638,7 +1721,7 @@ export default function ChatPage() {
 
       abortControllerRef.current = new AbortController();
       
-      const aiMessageId = addMessage(sessionId, {
+      aiMessageId = addMessage(sessionId, {
         role: 'ai',
         content: '',
         model: modelToUse,
@@ -1710,13 +1793,21 @@ export default function ChatPage() {
         errorMessage = `Desculpe, ocorreu um erro ao processar sua solicitação. Detalhes do erro: ${errorString}`;
       }
 
-      addMessage(sessionId, {
-        role: 'ai',
-        content: errorMessage,
-        isError: true,
-        errorMessage: errorString,
-        model: modelToUse,
-      });
+      if (aiMessageId) {
+        updateMessage(sessionId, aiMessageId, {
+          content: errorMessage,
+          isError: true,
+          errorMessage: errorString,
+        });
+      } else {
+        addMessage(sessionId, {
+          role: 'ai',
+          content: errorMessage,
+          isError: true,
+          errorMessage: errorString,
+          model: modelToUse,
+        });
+      }
     } finally {
       setIsLoading(false);
       setIsSearching(false);
@@ -3144,6 +3235,12 @@ export default function ChatPage() {
                       <span>{settingsError}</span>
                     </motion.div>
                   )}
+                  <button
+                    onClick={() => setTempSettings({ ...tempSettings, customInstruction: '' })}
+                    className="text-sm text-[var(--color-sec)] hover:underline text-left mt-2"
+                  >
+                    Não curtiu o comportamento da IA? Clique aqui para redefinir.
+                  </button>
                 </div>
                 
                 {auth.currentUser && (
@@ -3689,51 +3786,12 @@ export default function ChatPage() {
               ) : (
                 <AnimatePresence initial={false}>
                   {groupMessages.map((msg, index) => (
-                    <motion.div
-                      key={msg.id}
-                      initial={{ opacity: 0, y: 20 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      className={`flex gap-4 ${msg.senderId === auth.currentUser?.uid ? 'flex-row-reverse' : 'flex-row'}`}
-                    >
-                      <div className="flex-shrink-0">
-                        {msg.senderId === 'ai' ? (
-                          <div className="w-10 h-10 rounded-full bg-[var(--color-sec)] flex items-center justify-center shadow-md">
-                            <Logo className="w-6 h-6 text-white" />
-                          </div>
-                        ) : msg.senderPhotoURL ? (
-                          <img src={msg.senderPhotoURL} alt={msg.senderName} className="w-10 h-10 rounded-full object-cover shadow-md" />
-                        ) : (
-                          <div className="w-10 h-10 rounded-full bg-[var(--bg-surface)] border border-[var(--border-strong)] flex items-center justify-center shadow-md">
-                            <User className="w-5 h-5 text-[var(--text-muted)]" />
-                          </div>
-                        )}
-                      </div>
-                      <div className={`flex flex-col max-w-[80%] ${msg.senderId === auth.currentUser?.uid ? 'items-end' : 'items-start'}`}>
-                        <span className="text-xs text-[var(--text-muted)] mb-1 font-medium px-1">
-                          {msg.senderName}
-                        </span>
-                        <div className={`p-4 rounded-2xl ${
-                          msg.senderId === auth.currentUser?.uid 
-                            ? 'bg-[var(--color-sec)] text-white rounded-tr-sm' 
-                            : msg.senderId === 'ai'
-                              ? 'bg-[var(--bg-surface)] border border-[var(--border-strong)] rounded-tl-sm'
-                              : 'bg-[var(--bg-input)] border border-[var(--border-strong)] rounded-tl-sm'
-                        }`}>
-                          {msg.imageUrls && msg.imageUrls.length > 0 && (
-                            <div className="flex flex-wrap gap-2 mb-3">
-                              {msg.imageUrls.map((url, i) => (
-                                <img key={i} src={url} alt="Attachment" className="max-w-xs rounded-lg object-cover" />
-                              ))}
-                            </div>
-                          )}
-                          <div className={`prose prose-sm ${settings.theme === 'dark' ? 'prose-invert prose-p:text-white prose-headings:text-white' : 'prose-p:text-black prose-headings:text-black'} max-w-none break-words`}>
-                            <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                              {msg.content}
-                            </ReactMarkdown>
-                          </div>
-                        </div>
-                      </div>
-                    </motion.div>
+                    <GroupMessageItem 
+                      key={msg.id} 
+                      msg={msg} 
+                      settings={settings} 
+                      isCurrentUser={msg.senderId === auth.currentUser?.uid} 
+                    />
                   ))}
                 </AnimatePresence>
               )
@@ -3774,7 +3832,7 @@ export default function ChatPage() {
                 ))}
               </AnimatePresence>
             )}
-            {isLoading && selectedModel !== 'search' && (
+            {isLoading && selectedGroupId && (
               <motion.div 
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
@@ -4531,12 +4589,12 @@ export default function ChatPage() {
                 <div className="p-4 rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] flex items-center justify-between opacity-50 cursor-not-allowed">
                   <div>
                     <div className="font-bold text-[var(--text-base)] flex items-center gap-2">
-                      Broxa 2.0 Pro
+                      Totó 1.0
                       <span className="text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wide bg-purple-500/20 text-purple-400">
                         EM BREVE
                       </span>
                     </div>
-                    <div className="text-xs text-[var(--text-muted)]">Modelo avançado com raciocínio profundo</div>
+                    <div className="text-xs text-[var(--text-muted)]">Respostas mais precisas que o comum</div>
                   </div>
                   <Lock className="w-5 h-5 text-[var(--text-muted)]" />
                 </div>
@@ -4544,12 +4602,12 @@ export default function ChatPage() {
                 <div className="p-4 rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] flex items-center justify-between opacity-50 cursor-not-allowed">
                   <div>
                     <div className="font-bold text-[var(--text-base)] flex items-center gap-2">
-                      Broxa Vision
+                      Lux 1.0
                       <span className="text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wide bg-blue-500/20 text-blue-400">
                         EM BREVE
                       </span>
                     </div>
-                    <div className="text-xs text-[var(--text-muted)]">Especializado em análise de imagens</div>
+                    <div className="text-xs text-[var(--text-muted)]">Sistema integrado com o PositivoOn e Cambridge</div>
                   </div>
                   <Lock className="w-5 h-5 text-[var(--text-muted)]" />
                 </div>
