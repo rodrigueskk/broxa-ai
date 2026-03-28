@@ -71,7 +71,8 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
 
             <h1 className="text-3xl font-bold mb-3">Ops! Algo deu errado</h1>
             <p className="text-[var(--text-muted)] mb-8">
-              Encontramos um erro inesperado. Nossa equipe de macacos treinados já foi notificada.
+              Encontramos um erro inesperado. Nossa equipe de macacos treinados já foi notificada.<br/>
+              Atualizar a página deve resolver isso.
             </p>
 
             <div className="flex flex-col sm:flex-row gap-4 justify-center mb-8">

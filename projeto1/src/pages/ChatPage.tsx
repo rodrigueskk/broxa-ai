@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import { Menu, Plus, MessageSquare, Trash2, Send, Image as ImageIcon, X, Settings, Pin, Highlighter, AlertTriangle, Undo2, Redo2, Eraser, Copy, Check, ChevronDown, ShieldAlert, LogIn, LogOut, Search, GitCompare, Edit, Edit2, ThumbsUp, ThumbsDown, AlertCircle, ChevronUp, RefreshCw, Cpu, Flame, Snowflake, Bot, User, Lock, ChevronRight } from 'lucide-react';
 import { useChatStore, useSettingsStore, useAdminStore, useUserStore, useGroupStore, ReleaseNote, ReleaseNoteImage, ReleaseNoteBadge } from '../store';
@@ -456,54 +457,57 @@ const MessageItem = React.memo(({ msg, sessionId, settings, isHighlightMode, isE
         )}
       </div>
 
-      <AnimatePresence>
-        {isFeedbackModalOpen && (
-          <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/80 backdrop-blur-md p-4">
-            <motion.div 
-              initial={{ scale: 0.9, opacity: 0, y: 20 }}
-              animate={{ scale: 1, opacity: 1, y: 0 }}
-              exit={{ scale: 0.9, opacity: 0, y: 20 }}
-              className="bg-[var(--bg-panel)] rounded-3xl border border-[var(--border-strong)] w-full max-w-md shadow-2xl overflow-hidden"
-            >
-              <div className="flex justify-between items-center p-6 border-b border-[var(--border-subtle)]">
-                <h3 className="text-xl font-bold text-[var(--text-base)] flex items-center gap-2">
-                  {feedbackType === 'like' ? <ThumbsUp className="w-5 h-5 text-green-500" /> : <ThumbsDown className="w-5 h-5 text-red-500" />}
-                  {feedbackType === 'like' ? 'O que a IA acertou?' : 'O que a IA errou?'}
-                </h3>
-                <button onClick={() => setIsFeedbackModalOpen(false)} className="p-2 hover:bg-[var(--bg-surface)] rounded-full transition-colors text-[var(--text-muted)] hover:text-[var(--text-base)]">
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
-              <div className="p-6">
-                <p className="text-sm text-[var(--text-muted)] mb-4">
-                  Seu feedback ajuda a melhorar o modelo <span className="font-medium text-[var(--text-base)]">{aiModels?.find(m => m.key === msg.model)?.name || msg.model || 'A.S'}</span>.
-                </p>
-                <textarea
-                  value={feedbackText}
-                  onChange={(e) => setFeedbackText(e.target.value)}
-                  placeholder={feedbackType === 'like' ? "Ex: A resposta foi clara e direta ao ponto..." : "Ex: A IA não entendeu o contexto ou deu uma informação errada..."}
-                  className="w-full h-32 bg-[var(--bg-input)] text-[var(--text-base)] border border-[var(--border-subtle)] rounded-xl p-4 focus:outline-none focus:border-[var(--color-sec)] resize-none mb-4"
-                />
-                <div className="flex justify-end gap-3">
-                  <button 
-                    onClick={() => setIsFeedbackModalOpen(false)}
-                    className="px-4 py-2 rounded-xl text-[var(--text-muted)] hover:bg-[var(--bg-surface)] transition-colors"
-                  >
-                    Cancelar
-                  </button>
-                  <button 
-                    onClick={handleFeedbackSubmit}
-                    disabled={!feedbackText.trim()}
-                    className="px-6 py-2 bg-[var(--color-sec)] text-white rounded-xl hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium"
-                  >
-                    Enviar Feedback
+      {createPortal(
+        <AnimatePresence>
+          {isFeedbackModalOpen && (
+            <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/80 backdrop-blur-md p-4">
+              <motion.div 
+                initial={{ scale: 0.9, opacity: 0, y: 20 }}
+                animate={{ scale: 1, opacity: 1, y: 0 }}
+                exit={{ scale: 0.9, opacity: 0, y: 20 }}
+                className="bg-[var(--bg-panel)] rounded-3xl border border-[var(--border-strong)] w-full max-w-md shadow-2xl overflow-hidden"
+              >
+                <div className="flex justify-between items-center p-6 border-b border-[var(--border-subtle)]">
+                  <h3 className="text-xl font-bold text-[var(--text-base)] flex items-center gap-2">
+                    {feedbackType === 'like' ? <ThumbsUp className="w-5 h-5 text-green-500" /> : <ThumbsDown className="w-5 h-5 text-red-500" />}
+                    {feedbackType === 'like' ? 'O que a IA acertou?' : 'O que a IA errou?'}
+                  </h3>
+                  <button onClick={() => setIsFeedbackModalOpen(false)} className="p-2 hover:bg-[var(--bg-surface)] rounded-full transition-colors text-[var(--text-muted)] hover:text-[var(--text-base)]">
+                    <X className="w-5 h-5" />
                   </button>
                 </div>
-              </div>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
+                <div className="p-6">
+                  <p className="text-sm text-[var(--text-muted)] mb-4">
+                    Seu feedback ajuda a melhorar o modelo <span className="font-medium text-[var(--text-base)]">{aiModels?.find(m => m.key === msg.model)?.name || msg.model || 'A.S'}</span>.
+                  </p>
+                  <textarea
+                    value={feedbackText}
+                    onChange={(e) => setFeedbackText(e.target.value)}
+                    placeholder={feedbackType === 'like' ? "Ex: A resposta foi clara e direta ao ponto..." : "Ex: A IA não entendeu o contexto ou deu uma informação errada..."}
+                    className="w-full h-32 bg-[var(--bg-input)] text-[var(--text-base)] border border-[var(--border-subtle)] rounded-xl p-4 focus:outline-none focus:border-[var(--color-sec)] resize-none mb-4"
+                  />
+                  <div className="flex justify-end gap-3">
+                    <button 
+                      onClick={() => setIsFeedbackModalOpen(false)}
+                      className="px-4 py-2 rounded-xl text-[var(--text-muted)] hover:bg-[var(--bg-surface)] transition-colors"
+                    >
+                      Cancelar
+                    </button>
+                    <button 
+                      onClick={handleFeedbackSubmit}
+                      disabled={!feedbackText.trim()}
+                      className="px-6 py-2 bg-[var(--color-sec)] text-white rounded-xl hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium"
+                    >
+                      Enviar Feedback
+                    </button>
+                  </div>
+                </div>
+              </motion.div>
+            </div>
+          )}
+        </AnimatePresence>,
+        document.body
+      )}
     </motion.div>
   );
 }, (prevProps, nextProps) => {
@@ -520,6 +524,16 @@ const MessageItem = React.memo(({ msg, sessionId, settings, isHighlightMode, isE
 });
 
 const GroupMessageItem = React.memo(({ msg, settings, isCurrentUser, onFeedbackRequest }: any) => {
+  const [isFeedbackModalOpen, setIsFeedbackModalOpen] = useState(false);
+  const [feedbackType, setFeedbackType] = useState<'like' | 'dislike' | null>(null);
+  const [feedbackText, setFeedbackText] = useState('');
+
+  const handleFeedbackSubmit = () => {
+    setIsFeedbackModalOpen(false);
+    const event = new CustomEvent('show-error', { detail: 'Feedback enviado com sucesso! Obrigado.' });
+    window.dispatchEvent(event);
+  };
+
   return (
     <motion.div 
       initial={{ opacity: 0, y: 20 }}
@@ -539,11 +553,11 @@ const GroupMessageItem = React.memo(({ msg, settings, isCurrentUser, onFeedbackR
           </div>
         )}
       </div>
-      <div className={`flex flex-col max-w-[80%] ${isCurrentUser ? 'items-end' : 'items-start'}`}>
+      <div className={`flex flex-col max-w-[90%] md:max-w-[75%] ${isCurrentUser ? 'items-end' : 'items-start'}`}>
         <span className="text-xs text-[var(--text-muted)] mb-1 font-medium px-1">
           {msg.senderName}
         </span>
-        <div className={`p-4 rounded-2xl ${
+        <div className={`p-4 rounded-2xl w-full ${
           isCurrentUser 
             ? 'bg-[var(--color-sec)] text-white rounded-tr-sm' 
             : msg.senderId === 'ai'
@@ -557,7 +571,7 @@ const GroupMessageItem = React.memo(({ msg, settings, isCurrentUser, onFeedbackR
               ))}
             </div>
           )}
-          <div className={`prose prose-sm ${settings.theme === 'dark' ? 'prose-invert prose-p:text-white prose-headings:text-white' : 'prose-p:text-black prose-headings:text-black'} max-w-none break-words`}>
+          <div className={`prose ${settings.theme === 'dark' ? 'prose-invert' : ''} max-w-none break-words prose-p:leading-relaxed prose-pre:bg-[var(--bg-input)] prose-pre:border prose-pre:border-[var(--border-strong)] prose-pre:rounded-2xl`}>
             <ReactMarkdown 
               remarkPlugins={[remarkGfm]}
               components={{
@@ -588,7 +602,7 @@ const GroupMessageItem = React.memo(({ msg, settings, isCurrentUser, onFeedbackR
                   
                   if (isMindmap) {
                     if (mindmapData) {
-                      return <MindMap data={mindmapData} onFeedbackRequest={onFeedbackRequest} />
+                      return <MindMap data={mindmapData} onFeedbackRequest={() => { setFeedbackType('like'); setIsFeedbackModalOpen(true); }} />
                     } else {
                       return (
                         <div className="flex items-center justify-center p-8 bg-[var(--bg-input)] rounded-2xl border border-[var(--border-strong)] my-4">
@@ -610,6 +624,58 @@ const GroupMessageItem = React.memo(({ msg, settings, isCurrentUser, onFeedbackR
           </div>
         </div>
       </div>
+
+      {createPortal(
+        <AnimatePresence>
+          {isFeedbackModalOpen && (
+            <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/80 backdrop-blur-md p-4">
+              <motion.div 
+                initial={{ scale: 0.9, opacity: 0, y: 20 }}
+                animate={{ scale: 1, opacity: 1, y: 0 }}
+                exit={{ scale: 0.9, opacity: 0, y: 20 }}
+                className="bg-[var(--bg-panel)] rounded-3xl border border-[var(--border-strong)] w-full max-w-md shadow-2xl overflow-hidden"
+              >
+                <div className="flex justify-between items-center p-6 border-b border-[var(--border-subtle)]">
+                  <h3 className="text-xl font-bold text-[var(--text-base)] flex items-center gap-2">
+                    {feedbackType === 'like' ? <ThumbsUp className="w-5 h-5 text-green-500" /> : <ThumbsDown className="w-5 h-5 text-red-500" />}
+                    {feedbackType === 'like' ? 'O que a IA acertou?' : 'O que a IA errou?'}
+                  </h3>
+                  <button onClick={() => setIsFeedbackModalOpen(false)} className="p-2 hover:bg-[var(--bg-surface)] rounded-full transition-colors text-[var(--text-muted)] hover:text-[var(--text-base)]">
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+                <div className="p-6">
+                  <p className="text-sm text-[var(--text-muted)] mb-4">
+                    Seu feedback ajuda a melhorar o modelo.
+                  </p>
+                  <textarea
+                    value={feedbackText}
+                    onChange={(e) => setFeedbackText(e.target.value)}
+                    placeholder={feedbackType === 'like' ? "Ex: A resposta foi clara e direta ao ponto..." : "Ex: A IA não entendeu o contexto ou deu uma informação errada..."}
+                    className="w-full h-32 bg-[var(--bg-input)] text-[var(--text-base)] border border-[var(--border-subtle)] rounded-xl p-4 focus:outline-none focus:border-[var(--color-sec)] resize-none mb-4"
+                  />
+                  <div className="flex justify-end gap-3">
+                    <button 
+                      onClick={() => setIsFeedbackModalOpen(false)}
+                      className="px-4 py-2 rounded-xl text-[var(--text-muted)] hover:bg-[var(--bg-surface)] transition-colors"
+                    >
+                      Cancelar
+                    </button>
+                    <button 
+                      onClick={handleFeedbackSubmit}
+                      disabled={!feedbackText.trim()}
+                      className="px-6 py-2 bg-[var(--color-sec)] text-white rounded-xl hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium"
+                    >
+                      Enviar Feedback
+                    </button>
+                  </div>
+                </div>
+              </motion.div>
+            </div>
+          )}
+        </AnimatePresence>,
+        document.body
+      )}
     </motion.div>
   );
 }, (prevProps, nextProps) => {
@@ -841,6 +907,20 @@ const ImageUpload = ({ value, onChange, label }: { value: string, onChange: (val
 
 export default function ChatPage() {
   const navigate = useNavigate();
+  const [historyLoadStatus, setHistoryLoadStatus] = useState<'loading' | 'success' | 'loaded' | 'error'>('loading');
+
+  useEffect(() => {
+    // Simulate loading for history to show the animation the user requested
+    const timer1 = setTimeout(() => {
+      setHistoryLoadStatus('success');
+      const timer2 = setTimeout(() => {
+        setHistoryLoadStatus('loaded');
+      }, 1500);
+      return () => clearTimeout(timer2);
+    }, 1500);
+    return () => clearTimeout(timer1);
+  }, []);
+
   const { sessions, currentSessionId, setCurrentSessionId, currentSession, createSession, addMessage, updateMessage, deleteSession, togglePinSession, togglePinMessage, addPinnedText, removePinnedText, addStroke, setStrokes, updateSessionTitle } = useChatStore();
   const { settings, updateSettings } = useSettingsStore();
   const { groups, createGroup, joinGroup, renameGroup, updateGroupStreak, updateGroup, removeMember, deleteGroup } = useGroupStore();
@@ -3517,9 +3597,46 @@ export default function ChatPage() {
 
           <div className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider px-4 mb-2">Histórico</div>
           <div className="space-y-1">
-            <AnimatePresence>
-              {unpinnedSessions.map(renderSession)}
-            </AnimatePresence>
+            {historyLoadStatus === 'loading' && (
+              <div className="flex flex-col items-center justify-center p-6 text-center">
+                <div className="w-8 h-8 border-4 border-[var(--color-sec)] border-t-transparent rounded-full animate-spin mb-3"></div>
+                <span className="text-sm font-medium text-[var(--text-muted)]">As mensagens estão carregando...</span>
+              </div>
+            )}
+            {historyLoadStatus === 'success' && (
+              <motion.div 
+                initial={{ scale: 0 }}
+                animate={{ scale: [0, 1.2, 1] }}
+                transition={{ type: "spring", stiffness: 300, damping: 15 }}
+                className="flex flex-col items-center justify-center p-6 text-center mt-2 overflow-hidden"
+              >
+                <div className="w-12 h-12 bg-[#1ed760] rounded-full flex items-center justify-center mb-2 shadow-lg">
+                  <Check className="w-6 h-6 text-black stroke-[3]" />
+                </div>
+                <span className="text-sm font-bold text-[#1ed760]">Carregado com sucesso</span>
+              </motion.div>
+            )}
+            {historyLoadStatus === 'error' && (
+              <div className="flex flex-col items-center justify-center p-6 text-center">
+                <div className="w-12 h-12 bg-red-500 rounded-full flex items-center justify-center mb-4 shadow-lg">
+                  <X className="w-6 h-6 text-white" />
+                </div>
+                <span className="text-sm font-bold text-red-500 mb-2">Ocorreu um erro</span>
+                <button 
+                  onClick={() => window.location.reload()}
+                  className="p-3 bg-[var(--bg-surface)] hover:bg-[var(--border-strong)] rounded-full transition-all group"
+                  title="Atualizar página"
+                >
+                  <RefreshCw className="w-5 h-5 text-[var(--text-base)] group-hover:animate-spin" />
+                </button>
+              </div>
+            )}
+            
+            {(historyLoadStatus === 'success' || historyLoadStatus === 'loaded') && (
+              <AnimatePresence>
+                {unpinnedSessions.map(renderSession)}
+              </AnimatePresence>
+            )}
           </div>
         </div>
 
