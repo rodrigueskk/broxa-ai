@@ -249,7 +249,7 @@ const MessageItem = React.memo(({ msg, sessionId, settings, isHighlightMode, isE
                             try {
                               mindmapData = JSON.parse((child.props as any).children);
                             } catch (e) {
-                              console.error("Failed to parse mindmap JSON", e);
+                              // Ignore parse errors during streaming
                             }
                           }
                         }
@@ -259,8 +259,19 @@ const MessageItem = React.memo(({ msg, sessionId, settings, isHighlightMode, isE
                         return <RespostaOptions disabled={answersSubmitted} />
                       }
                       
-                      if (isMindmap && mindmapData) {
-                        return <MindMap data={mindmapData} />
+                      if (isMindmap) {
+                        if (mindmapData) {
+                          return <MindMap data={mindmapData} onFeedbackRequest={() => { setFeedbackType('like'); setIsFeedbackModalOpen(true); }} />
+                        } else {
+                          return (
+                            <div className="flex items-center justify-center p-8 bg-[var(--bg-input)] rounded-2xl border border-[var(--border-strong)] my-4">
+                              <div className="flex flex-col items-center gap-3">
+                                <div className="w-8 h-8 border-4 border-[var(--color-sec)] border-t-transparent rounded-full animate-spin"></div>
+                                <span className="text-[var(--text-muted)] font-medium">Gerando mapa mental...</span>
+                              </div>
+                            </div>
+                          );
+                        }
                       }
                       
                       return <pre {...props}>{children}</pre>
@@ -508,7 +519,7 @@ const MessageItem = React.memo(({ msg, sessionId, settings, isHighlightMode, isE
   );
 });
 
-const GroupMessageItem = React.memo(({ msg, settings, isCurrentUser }: any) => {
+const GroupMessageItem = React.memo(({ msg, settings, isCurrentUser, onFeedbackRequest }: any) => {
   return (
     <motion.div 
       initial={{ opacity: 0, y: 20 }}
@@ -547,7 +558,53 @@ const GroupMessageItem = React.memo(({ msg, settings, isCurrentUser }: any) => {
             </div>
           )}
           <div className={`prose prose-sm ${settings.theme === 'dark' ? 'prose-invert prose-p:text-white prose-headings:text-white' : 'prose-p:text-black prose-headings:text-black'} max-w-none break-words`}>
-            <ReactMarkdown remarkPlugins={[remarkGfm]}>
+            <ReactMarkdown 
+              remarkPlugins={[remarkGfm]}
+              components={{
+                strong: ({node, ...props}) => <strong style={{ color: settings.secondaryColor }} {...props} />,
+                pre: ({node, children, ...props}: any) => {
+                  let isResposta = false;
+                  let isMindmap = false;
+                  let mindmapData = null;
+                  
+                  React.Children.forEach(children, (child: any) => {
+                    if (React.isValidElement(child) && typeof (child.props as any).className === 'string') {
+                      if ((child.props as any).className.includes('language-resposta')) {
+                        isResposta = true;
+                      } else if ((child.props as any).className.includes('language-mindmap')) {
+                        isMindmap = true;
+                        try {
+                          mindmapData = JSON.parse((child.props as any).children);
+                        } catch (e) {
+                          // Ignore parse errors during streaming
+                        }
+                      }
+                    }
+                  });
+                  
+                  if (isResposta) {
+                    return <RespostaOptions disabled={false} />
+                  }
+                  
+                  if (isMindmap) {
+                    if (mindmapData) {
+                      return <MindMap data={mindmapData} onFeedbackRequest={onFeedbackRequest} />
+                    } else {
+                      return (
+                        <div className="flex items-center justify-center p-8 bg-[var(--bg-input)] rounded-2xl border border-[var(--border-strong)] my-4">
+                          <div className="flex flex-col items-center gap-3">
+                            <div className="w-8 h-8 border-4 border-[var(--color-sec)] border-t-transparent rounded-full animate-spin"></div>
+                            <span className="text-[var(--text-muted)] font-medium">Gerando mapa mental...</span>
+                          </div>
+                        </div>
+                      );
+                    }
+                  }
+                  
+                  return <pre {...props}>{children}</pre>
+                }
+              }}
+            >
               {msg.content}
             </ReactMarkdown>
           </div>
@@ -4052,6 +4109,9 @@ export default function ChatPage() {
                   )}
                 </button>
               </div>
+            </div>
+            <div className="text-center mt-3 text-[11px] text-[var(--text-muted)] opacity-70 font-medium">
+              BroxaAI pode cometer erros. Confira informações importantes.
             </div>
           </div>
         </div>

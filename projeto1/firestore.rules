@@ -55,22 +55,9 @@ service cloud.firestore {
     // ===============================================================
     
     function isValidReleaseNote(data) {
-      return hasOnlyAllowedFields(['version', 'title', 'description', 'changes', 'imageUrl', 'date', 'authorUid', 'titleRgb', 'outlineColor', 'backgroundColor', 'buttonText', 'buttonColor', 'buttonRgb', 'images', 'badges']) &&
-             data.version is string && data.version.size() > 0 && data.version.size() < 50 &&
+      return data.version is string && data.version.size() > 0 && data.version.size() < 50 &&
              data.title is string && data.title.size() > 0 && data.title.size() < 200 &&
-             (!('description' in data) || (data.description is string && data.description.size() < 2000)) &&
-             (!('changes' in data) || (data.changes is list && data.changes.size() < 100)) &&
-             (!('imageUrl' in data) || (data.imageUrl is string && data.imageUrl.size() < 1000)) &&
-             (!('titleRgb' in data) || data.titleRgb is bool) &&
-             (!('outlineColor' in data) || (data.outlineColor is string && data.outlineColor.size() < 50)) &&
-             (!('backgroundColor' in data) || (data.backgroundColor is string && data.backgroundColor.size() < 50)) &&
-             (!('buttonText' in data) || (data.buttonText is string && data.buttonText.size() < 50)) &&
-             (!('buttonColor' in data) || (data.buttonColor is string && data.buttonColor.size() < 50)) &&
-             (!('buttonRgb' in data) || data.buttonRgb is bool) &&
-             (!('images' in data) || (data.images is list && data.images.size() < 20)) &&
-             (!('badges' in data) || (data.badges is list && data.badges.size() < 20)) &&
-             data.date is number &&
-             data.authorUid == request.auth.uid;
+             data.date is number;
     }
     
     function isValidUser(data) {
@@ -169,8 +156,8 @@ service cloud.firestore {
 
     match /releaseNotes/{noteId} {
       allow read: if true;
-      allow create: if isAdmin() && isValidReleaseNote(request.resource.data);
-      allow update: if isAdmin() && isValidReleaseNote(request.resource.data) && request.resource.data.authorUid == resource.data.authorUid;
+      allow create: if isAdmin() && isValidReleaseNote(request.resource.data) && request.resource.data.authorUid == request.auth.uid;
+      allow update: if isAdmin() && isValidReleaseNote(request.resource.data);
       allow delete: if isAdmin();
     }
     

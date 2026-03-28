@@ -110,7 +110,8 @@ export async function* generateResponseStream(
     systemInstruction = `Você é a BROXA 0.5 A.S. Seu objetivo é receber um texto ou imagem sobre um conteúdo de estudo e gerar um resumo excepcional e conciso, focado especificamente em preparar o usuário para uma prova de múltipla escolha. Organize o resumo em tópicos claros e bem estruturados.\nAlém do resumo, você DEVE criar 5 questões de múltipla escolha (com alternativas A, B, C, D, E) baseadas no conteúdo. Abaixo de CADA questão, você DEVE adicionar EXATAMENTE este bloco de código para criar uma caixa de texto para o aluno responder:\n\n\`\`\`resposta\n\n\`\`\`\n\nNÃO coloque o gabarito no final. O usuário irá responder nas caixas de texto e enviar para você corrigir depois. Não fale sobre hacking nem programação e não fuja do conteúdo sem ser da escola. ${baseSafetyRule}`;
   }
 
-  if (prompt.toLowerCase().includes('mapa mental')) {
+  const promptLower = prompt.toLowerCase();
+  if (promptLower.includes('mapa mental') || promptLower.includes('mindmap') || promptLower.includes('mapa-mental')) {
     systemInstruction += "\n\nO usuário solicitou um mapa mental. Você DEVE incluir na sua resposta um bloco de código markdown com a linguagem 'mindmap' contendo um JSON que representa o mapa mental. O JSON deve ter a seguinte estrutura: { \"title\": \"Tema Central\", \"children\": [ { \"title\": \"Subtema 1\", \"children\": [...] }, { \"title\": \"Subtema 2\" } ] }. IMPORTANTE: Os textos de cada nó (title) DEVEM ser extremamente curtos (no máximo 3 a 5 palavras). Certifique-se de que o JSON seja válido. Exemplo:\n```mindmap\n{\n  \"title\": \"Raiz\",\n  \"children\": [\n    { \"title\": \"Filho 1\" }\n  ]\n}\n```\n";
   }
 
@@ -216,7 +217,8 @@ export async function generateResponse(
     systemInstruction = `Você é a BROXA 0.5 A.S. Seu objetivo é receber um texto ou imagem sobre um conteúdo de estudo e gerar um resumo excepcional e conciso, focado especificamente em preparar o usuário para uma prova de múltipla escolha. Organize o resumo em tópicos claros e bem estruturados.\nAlém do resumo, você DEVE criar 5 questões de múltipla escolha (com alternativas A, B, C, D, E) baseadas no conteúdo. Abaixo de CADA questão, você DEVE adicionar EXATAMENTE este bloco de código para criar uma caixa de texto para o aluno responder:\n\n\`\`\`resposta\n\n\`\`\`\n\nNÃO coloque o gabarito no final. O usuário irá responder nas caixas de texto e enviar para você corrigir depois. Não fale sobre hacking nem programação e não fuja do conteúdo sem ser da escola. ${baseSafetyRule}`;
   }
 
-  if (prompt.toLowerCase().includes('mapa mental')) {
+  const promptLower = prompt.toLowerCase();
+  if (promptLower.includes('mapa mental') || promptLower.includes('mindmap') || promptLower.includes('mapa-mental')) {
     systemInstruction += "\n\nO usuário solicitou um mapa mental. Você DEVE incluir na sua resposta um bloco de código markdown com a linguagem 'mindmap' contendo um JSON que representa o mapa mental. O JSON deve ter a seguinte estrutura: { \"title\": \"Tema Central\", \"children\": [ { \"title\": \"Subtema 1\", \"children\": [...] }, { \"title\": \"Subtema 2\" } ] }. IMPORTANTE: Os textos de cada nó (title) DEVEM ser extremamente curtos (no máximo 3 a 5 palavras). Certifique-se de que o JSON seja válido. Exemplo:\n```mindmap\n{\n  \"title\": \"Raiz\",\n  \"children\": [\n    { \"title\": \"Filho 1\" }\n  ]\n}\n```\n";
   }
 
