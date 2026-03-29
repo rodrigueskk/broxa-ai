@@ -210,8 +210,8 @@ const MessageItem = React.memo(({ msg, sessionId, settings, isHighlightMode, isE
       )}
       <div 
         ref={containerRef}
-        className={`relative max-w-[90%] md:max-w-[75%] rounded-3xl px-4 py-3 md:px-6 md:py-4 shadow-sm group ${msg.role === 'user' ? 'bg-[var(--bg-surface)] rounded-tr-sm border border-[var(--border-subtle)]' : 'bg-transparent text-[var(--text-base)]'}`}
-        style={msg.role === 'user' ? { color: settings.userMessageColor || '#ffffff' } : {}}
+        className={`relative max-w-[90%] md:max-w-[75%] rounded-3xl px-4 py-3 md:px-6 md:py-4 shadow-sm group ${msg.role === 'user' ? 'rounded-tr-sm border border-[var(--border-subtle)]' : 'bg-transparent text-[var(--text-base)]'}`}
+        style={msg.role === 'user' ? { backgroundColor: settings.userMessageColor && settings.userMessageColor !== '#ffffff' ? settings.userMessageColor : 'var(--bg-surface)', color: settings.userMessageColor && settings.userMessageColor !== '#ffffff' ? '#ffffff' : 'var(--text-base)' } : {}}
       >
         {msg.role === 'ai' && (
           <canvas
@@ -578,13 +578,16 @@ const GroupMessageItem = React.memo(({ msg, settings, isCurrentUser, onFeedbackR
         <span className="text-xs text-[var(--text-muted)] mb-1 font-medium px-1">
           {msg.senderName}
         </span>
-        <div className={`p-4 rounded-2xl w-full ${
-          isCurrentUser 
-            ? 'bg-[var(--color-sec)] text-white rounded-tr-sm' 
-            : msg.senderId === 'ai'
-              ? 'bg-[var(--bg-surface)] border border-[var(--border-strong)] rounded-tl-sm'
-              : 'bg-[var(--bg-input)] border border-[var(--border-strong)] rounded-tl-sm'
-        }`}>
+        <div 
+          className={`p-4 rounded-2xl w-full ${
+            isCurrentUser 
+              ? 'rounded-tr-sm' 
+              : msg.senderId === 'ai'
+                ? 'bg-[var(--bg-surface)] border border-[var(--border-strong)] rounded-tl-sm text-[var(--text-base)]'
+                : 'bg-[var(--bg-input)] border border-[var(--border-strong)] rounded-tl-sm text-[var(--text-base)]'
+          }`}
+          style={isCurrentUser ? { backgroundColor: settings.userMessageColor && settings.userMessageColor !== '#ffffff' ? settings.userMessageColor : 'var(--color-sec)', color: '#ffffff' } : {}}
+        >
           {msg.imageUrls && msg.imageUrls.length > 0 && (
             <div className="flex flex-wrap gap-2 mb-3">
               {msg.imageUrls.map((url: string, i: number) => (
@@ -1078,10 +1081,14 @@ export default function ChatPage() {
 
   useEffect(() => {
     if (auth.currentUser && lastMessageDate) {
-      checkStreak();
+      checkStreak().then((broken) => {
+        if (broken) {
+          setErrorToast('Sua ofensiva zerou... 😢');
+          setToastType('error');
+        }
+      });
     }
-  }, [auth.currentUser, lastMessageDate]);
-
+  }, [auth.currentUser, lastMessageDate, checkStreak]);
   useEffect(() => {
     let unsubscribe: () => void = () => {};
 
@@ -1149,7 +1156,8 @@ export default function ChatPage() {
       const curr = streakDays;
       
       let feature = null;
-      if (prev < 3 && curr >= 3) feature = { name: 'Cor de Seleção', days: 3 };
+      if (prev < 2 && curr >= 2) feature = { name: 'Cor do Balão', days: 2 };
+      else if (prev < 3 && curr >= 3) feature = { name: 'Cor de Seleção', days: 3 };
       else if (prev < 10 && curr >= 10) feature = { name: 'Fonte do Título', days: 10 };
       else if (prev < 15 && curr >= 15) feature = { name: 'Imagem de Fundo', days: 15 };
       else if (prev < 20 && curr >= 20) feature = { name: 'Comportamento da IA', days: 20 };
@@ -2152,12 +2160,12 @@ export default function ChatPage() {
               initial={{ opacity: 0, y: -50 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -50 }}
-              className="fixed top-4 left-1/2 -translate-x-1/2 z-[100] flex flex-col gap-2 w-72 sm:w-[350px] text-[10px] sm:text-xs"
+              className="fixed top-4 left-1/2 -translate-x-1/2 z-[100] flex flex-col gap-2 w-max max-w-[90vw] sm:max-w-[400px]"
             >
               <div
-                className="error-alert flex items-center justify-between w-full h-auto min-h-[56px] py-2 px-3 rounded-xl bg-[#232531] shadow-2xl border border-white/5"
+                className="error-alert flex items-center justify-between w-full h-auto min-h-[56px] py-2 px-3 sm:px-4 rounded-xl bg-[#232531] shadow-2xl border border-white/5 gap-4"
               >
-                <div className="flex gap-3 items-center w-full">
+                <div className="flex gap-3 items-center">
                   <div className={`p-1.5 rounded-lg bg-white/5 backdrop-blur-xl flex-shrink-0 ${toastType === 'success' ? 'text-green-500' : 'text-[#d65563]'}`}>
                     {toastType === 'success' ? (
                       <Check className="w-6 h-6" />
@@ -2167,7 +2175,7 @@ export default function ChatPage() {
                       </svg>
                     )}
                   </div>
-                  <div className="flex flex-col text-left overflow-hidden">
+                  <div className="flex flex-col text-left">
                     <p className="text-white font-medium text-sm">
                       {toastType === 'success' ? 'Sucesso' : 'Algo deu errado'}
                     </p>
@@ -2178,7 +2186,7 @@ export default function ChatPage() {
                 </div>
                 <button
                   onClick={() => setErrorToast(null)}
-                  className="text-gray-500 hover:text-white hover:bg-white/10 p-1.5 rounded-lg transition-colors ml-2 flex-shrink-0"
+                  className="text-gray-500 hover:text-white hover:bg-white/10 p-1.5 rounded-lg transition-colors flex-shrink-0"
                 >
                   <X className="w-5 h-5" />
                 </button>
@@ -3244,6 +3252,7 @@ export default function ChatPage() {
                 
                 <div className="space-y-2">
                   {[
+                    { days: 2, name: 'Cor do Balão' },
                     { days: 3, name: 'Cor de Seleção' },
                     { days: 10, name: 'Fonte do Título' },
                     { days: 15, name: 'Imagem de Fundo' },
@@ -3386,37 +3395,55 @@ export default function ChatPage() {
                   </div>
                 </div>
 
-                <div className="flex justify-between items-center">
+                <div className="flex flex-col gap-3">
                   <span className="text-[var(--text-base)] font-medium">Cor Secundária</span>
-                  <input 
-                    type="color" 
-                    value={tempSettings.secondaryColor}
-                    onChange={e => setTempSettings({ ...tempSettings, secondaryColor: e.target.value })}
-                    className="w-10 h-10 rounded-xl cursor-pointer bg-transparent border-0"
-                  />
+                  <div className="flex items-center gap-2 bg-[var(--bg-surface)] rounded-full px-3 py-2 border border-[var(--border-strong)] w-max max-w-full overflow-x-auto shadow-sm">
+                    {['#22c55e', '#eab308', '#ec4899', '#3b82f6', '#a855f7'].map(color => (
+                      <button
+                        key={'sec' + color}
+                        onClick={() => setTempSettings({ ...tempSettings, secondaryColor: color })}
+                        className={`w-6 h-6 rounded-full transition-transform hover:scale-110 flex-shrink-0 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[var(--text-base)] focus:ring-offset-[var(--bg-surface)] ${tempSettings.secondaryColor === color ? 'ring-2 ring-offset-2 ring-[var(--text-base)] ring-offset-[var(--bg-surface)]' : ''}`}
+                        style={{ backgroundColor: color }}
+                        aria-label={`Cor ${color}`}
+                      />
+                    ))}
+                  </div>
                 </div>
 
-                <div className="flex justify-between items-center">
-                  <span className="text-[var(--text-base)] font-medium">Cor das Suas Mensagens</span>
-                  <input 
-                    type="color" 
-                    value={tempSettings.userMessageColor || '#ffffff'}
-                    onChange={e => setTempSettings({ ...tempSettings, userMessageColor: e.target.value })}
-                    className="w-10 h-10 rounded-xl cursor-pointer bg-transparent border-0"
-                  />
+                <div className={`flex flex-col gap-3 ${streakDays < 2 ? 'opacity-50 pointer-events-none' : ''}`}>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[var(--text-base)] font-medium">Cor das Suas Mensagens</span>
+                    {streakDays < 2 && <span className="text-xs text-orange-500 flex items-center gap-1 font-bold"><Flame className="w-3 h-3" /> 2 dias</span>}
+                  </div>
+                  <div className="flex items-center gap-2 bg-[var(--bg-surface)] rounded-full px-3 py-2 border border-[var(--border-strong)] w-max max-w-full overflow-x-auto shadow-sm">
+                    {['#ffffff', '#22c55e', '#eab308', '#ec4899', '#3b82f6', '#a855f7'].map(color => (
+                      <button
+                        key={'msg' + color}
+                        onClick={() => setTempSettings({ ...tempSettings, userMessageColor: color })}
+                        className={`w-6 h-6 rounded-full transition-transform hover:scale-110 flex-shrink-0 border border-white/10 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[var(--text-base)] focus:ring-offset-[var(--bg-surface)] ${tempSettings.userMessageColor === color || (!tempSettings.userMessageColor && color === '#ffffff') ? 'ring-2 ring-offset-2 ring-[var(--text-base)] ring-offset-[var(--bg-surface)]' : ''}`}
+                        style={{ backgroundColor: color }}
+                        aria-label={`Cor ${color}`}
+                      />
+                    ))}
+                  </div>
                 </div>
 
-                <div className={`flex justify-between items-center ${streakDays < 3 ? 'opacity-50 pointer-events-none' : ''}`}>
+                <div className={`flex flex-col gap-3 ${streakDays < 3 ? 'opacity-50 pointer-events-none' : ''}`}>
                   <div className="flex items-center gap-2">
                     <span className="text-[var(--text-base)] font-medium">Cor de Seleção</span>
                     {streakDays < 3 && <span className="text-xs text-orange-500 flex items-center gap-1 font-bold"><Flame className="w-3 h-3" /> 3 dias</span>}
                   </div>
-                  <input 
-                    type="color" 
-                    value={tempSettings.selectionColor || '#3b82f6'}
-                    onChange={e => setTempSettings({ ...tempSettings, selectionColor: e.target.value })}
-                    className="w-10 h-10 rounded-xl cursor-pointer bg-transparent border-0"
-                  />
+                  <div className="flex items-center gap-2 bg-[var(--bg-surface)] rounded-full px-3 py-2 border border-[var(--border-strong)] w-max max-w-full overflow-x-auto shadow-sm">
+                    {['#22c55e', '#eab308', '#ec4899', '#3b82f6', '#a855f7'].map(color => (
+                      <button
+                        key={'sel' + color}
+                        onClick={() => setTempSettings({ ...tempSettings, selectionColor: color })}
+                        className={`w-6 h-6 rounded-full transition-transform hover:scale-110 flex-shrink-0 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[var(--text-base)] focus:ring-offset-[var(--bg-surface)] ${tempSettings.selectionColor === color ? 'ring-2 ring-offset-2 ring-[var(--text-base)] ring-offset-[var(--bg-surface)]' : ''}`}
+                        style={{ backgroundColor: color }}
+                        aria-label={`Cor ${color}`}
+                      />
+                    ))}
+                  </div>
                 </div>
 
                 <div className={`flex flex-col gap-2 ${streakDays < 15 ? 'opacity-50 pointer-events-none' : ''}`}>

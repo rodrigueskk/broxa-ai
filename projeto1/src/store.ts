@@ -602,7 +602,7 @@ export function useUserStore() {
   };
 
   const checkStreak = async () => {
-    if (!auth.currentUser || !lastMessageDate) return;
+    if (!auth.currentUser || !lastMessageDate) return false;
     
     const today = new Date();
     const todayStr = today.toISOString().slice(0, 10);
@@ -631,11 +631,13 @@ export function useUserStore() {
             freezesAvailable: newFreezes,
             lastFreezeMonth: newLastFreezeMonth
           });
+          return true;
         } catch (error) {
           console.error("Error updating broken streak:", error);
         }
       }
     }
+    return false;
   };
 
   const updateStreak = async () => {
