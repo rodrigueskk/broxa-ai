@@ -212,8 +212,8 @@ const MessageItem = React.memo(({ msg, sessionId, settings, isHighlightMode, isE
         ref={containerRef}
         className={`relative max-w-[90%] md:max-w-[75%] rounded-3xl px-4 py-3 md:px-6 md:py-4 shadow-sm group ${msg.role === 'user' ? 'rounded-tr-sm border border-[var(--border-subtle)]' : 'bg-transparent text-[var(--text-base)]'}`}
         style={msg.role === 'user' ? { 
-          backgroundColor: settings.userMessageColor === '#000000' ? '#000000' : '#ffffff', 
-          color: settings.userMessageColor === '#000000' ? '#ffffff' : '#000000' 
+          backgroundColor: settings.userMessageColor || '#ffffff', 
+          color: ['#000000', '#4b5563', '#4c1d95', '#1d4ed8'].includes(settings.userMessageColor) ? '#ffffff' : '#000000' 
         } : {}}
       >
         {msg.role === 'ai' && (
@@ -590,8 +590,8 @@ const GroupMessageItem = React.memo(({ msg, settings, isCurrentUser, onFeedbackR
                 : 'bg-[var(--bg-input)] border border-[var(--border-strong)] rounded-tl-sm text-[var(--text-base)]'
           }`}
           style={isCurrentUser ? { 
-            backgroundColor: settings.userMessageColor === '#000000' ? '#000000' : '#ffffff', 
-            color: settings.userMessageColor === '#000000' ? '#ffffff' : '#000000' 
+            backgroundColor: settings.userMessageColor || '#ffffff', 
+            color: ['#000000', '#4b5563', '#4c1d95', '#1d4ed8'].includes(settings.userMessageColor) ? '#ffffff' : '#000000' 
           } : {}}
         >
           {msg.imageUrls && msg.imageUrls.length > 0 && (
@@ -3478,7 +3478,7 @@ export default function ChatPage() {
                     <span className="text-[var(--text-base)] font-medium">Cor das Suas Mensagens</span>
                   </div>
                   <div className="flex items-center gap-2 bg-[var(--bg-surface)] rounded-full px-3 py-2 border border-[var(--border-strong)] w-max max-w-full overflow-x-auto shadow-sm">
-                    {['#ffffff', '#000000'].map(color => (
+                    {['#ffffff', '#000000', '#4b5563', '#4c1d95', '#1d4ed8'].map(color => (
                       <button
                         key={'msg' + color}
                         onClick={() => setTempSettings({ ...tempSettings, userMessageColor: color })}
@@ -3514,11 +3514,11 @@ export default function ChatPage() {
                   </div>
                   <div className="flex flex-wrap items-center gap-3">
                     {[
-                      { name: 'Drácula', theme: 'dark', secondary: '#ff79c6', userMsg: '#ffffff', selection: '#bd93f9' },
-                      { name: 'Hacker', theme: 'dark', secondary: '#22c55e', userMsg: '#22c55e', selection: '#22c55e' },
-                      { name: 'Oceano', theme: 'dark', secondary: '#3b82f6', userMsg: '#ffffff', selection: '#3b82f6' },
-                      { name: 'Por do Sol', theme: 'light', secondary: '#eab308', userMsg: '#000000', selection: '#f97316' },
-                      { name: 'Lavanda', theme: 'light', secondary: '#a855f7', userMsg: '#000000', selection: '#c084fc' }
+                      { name: 'Drácula', theme: 'dark', secondary: '#ff79c6', userMsg: '#4c1d95', selection: '#bd93f9' },
+                      { name: 'Hacker', theme: 'dark', secondary: '#22c55e', userMsg: '#000000', selection: '#22c55e' },
+                      { name: 'Oceano', theme: 'dark', secondary: '#0ea5e9', userMsg: '#1d4ed8', selection: '#3b82f6' },
+                      { name: 'Cinza Metálico', theme: 'dark', secondary: '#9ca3af', userMsg: '#4b5563', selection: '#6b7280' },
+                      { name: 'Lavanda', theme: 'light', secondary: '#a855f7', userMsg: '#ffffff', selection: '#c084fc' }
                     ].map(t => (
                       <button
                         key={t.name}
