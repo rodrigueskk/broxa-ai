@@ -769,17 +769,28 @@ const HoldButton = ({ onConfirm, onCancel, children, className, holdTime = 2000 
     setIsHolding(true);
     setProgress(0);
     
+    // Initial light vibration
+    if (navigator.vibrate) navigator.vibrate(10);
+    
     const startTime = Date.now();
     intervalRef.current = setInterval(() => {
       const elapsed = Date.now() - startTime;
       setProgress(Math.min((elapsed / holdTime) * 100, 100));
-    }, 50);
+      
+      // Increasing vibration intensity (duration)
+      if (navigator.vibrate) {
+        const intensity = 5 + Math.floor((elapsed / holdTime) * 25);
+        navigator.vibrate(intensity);
+      }
+    }, 100);
 
     timerRef.current = setTimeout(() => {
       clearInterval(intervalRef.current!);
       setProgress(100);
       onConfirm();
       setIsHolding(false);
+      // Success vibration pattern
+      if (navigator.vibrate) navigator.vibrate([30, 50, 30]);
     }, holdTime);
   };
 
@@ -791,6 +802,8 @@ const HoldButton = ({ onConfirm, onCancel, children, className, holdTime = 2000 
     if (intervalRef.current) clearInterval(intervalRef.current);
     setIsHolding(false);
     setProgress(0);
+    // Stop vibration immediately
+    if (navigator.vibrate) navigator.vibrate(0);
   };
 
   return (
@@ -800,6 +813,7 @@ const HoldButton = ({ onConfirm, onCancel, children, className, holdTime = 2000 
       onMouseLeave={cancelHold}
       onTouchStart={startHold}
       onTouchEnd={cancelHold}
+      onTouchCancel={cancelHold}
       className={`relative overflow-hidden ${className}`}
     >
       <div 
@@ -3797,8 +3811,8 @@ export default function ChatPage() {
               </div>
             ) : (
               <>
-                <div className="flex items-center w-full max-w-full overflow-hidden">
-                  <div className="relative w-full max-w-[90%] md:max-w-none">
+                <div className="flex items-center w-full max-w-full min-w-0">
+                  <div className="relative w-full max-w-[95%] md:max-w-none">
                     <button 
                       onClick={() => setIsModelDropdownOpen(!isModelDropdownOpen)}
                       className="flex items-center gap-2 text-[var(--text-base)] font-bold text-base md:text-lg hover:bg-[var(--bg-surface)] px-3 py-2 rounded-xl transition-colors truncate w-full"
