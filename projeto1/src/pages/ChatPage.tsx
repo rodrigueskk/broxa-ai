@@ -2036,7 +2036,8 @@ export default function ChatPage() {
         
         setIsLoading(true);
         const group = groups.find(g => g.id === groupId);
-        const customInstruction = group?.systemInstruction || settings.customInstruction;
+        const customInstruction = (group?.systemInstruction || settings.customInstruction) + 
+          "\n\nIMPORTANTE: Você nunca deve gerar conteúdo relacionado a: sexo, pornografia, abuso, racismo, homofobia, machismo, drogas pesadas ou qualquer ato carnal/sexual. Se solicitado, recuse educadamente dizendo que o conteúdo não é tolerado.";
         const history = groupMessages.map(m => ({
           role: m.senderId === 'ai' ? 'ai' : 'user' as 'ai' | 'user',
           content: m.content,
@@ -2187,11 +2188,14 @@ export default function ChatPage() {
       let fullResponse = '';
       
       try {
+        const customInstruction = (settings.customInstruction || '') + 
+          "\n\nIMPORTANTE: Você nunca deve gerar conteúdo relacionado a: sexo, pornografia, abuso, racismo, homofobia, machismo, drogas pesadas ou qualquer ato carnal/sexual. Se solicitado, recuse educadamente dizendo que o conteúdo não é tolerado.";
+
         const stream = await generateResponseStream(
           userMessageContent, 
           imagesToProcess, 
           modelToUse, 
-          settings.customInstruction,
+          customInstruction,
           currentSession?.messages
         );
 
@@ -2355,8 +2359,8 @@ export default function ChatPage() {
           <MessageSquare className="w-4 h-4 shrink-0" />
           <TypingTitle text={session.title} />
         </div>
-        {drafts[session.id] && (
-          <span className="text-[10px] font-bold text-yellow-500 ml-7 animate-pulse">
+        {drafts[session.id] && currentSessionId !== session.id && (
+          <span className="text-[10px] font-bold text-yellow-500 ml-7">
             Rascunho salvo
           </span>
         )}
@@ -2653,6 +2657,12 @@ export default function ChatPage() {
                 <button 
                   onClick={() => {
                     if (newSessionName.trim() && sessionToRename) {
+                      if (!checkContent(newSessionName.trim())) {
+                        incrementViolations();
+                        setRateLimitWarning("O título da conversa contém termos não permitidos e viola nossas diretrizes.");
+                        setTimeout(() => setRateLimitWarning(null), 5000);
+                        return;
+                      }
                       updateSessionTitle(sessionToRename.id, newSessionName.trim());
                       setSessionToRename(null);
                     }
@@ -4320,8 +4330,8 @@ export default function ChatPage() {
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="truncate font-medium text-sm">{group.name}</div>
-                      {drafts[group.id] ? (
-                        <div className="text-[10px] font-bold text-yellow-500 animate-pulse">
+                      {drafts[group.id] && selectedGroupId !== group.id ? (
+                        <div className="text-[10px] font-bold text-yellow-500">
                           Rascunho salvo
                         </div>
                       ) : (
@@ -5292,6 +5302,12 @@ export default function ChatPage() {
                   <button 
                     onClick={async () => {
                       if (newGroupName.trim()) {
+                        if (!checkContent(newGroupName.trim())) {
+                          incrementViolations();
+                          setRateLimitWarning("O nome do grupo contém termos não permitidos e viola nossas diretrizes.");
+                          setTimeout(() => setRateLimitWarning(null), 5000);
+                          return;
+                        }
                         const groupId = await createGroup(newGroupName.trim());
                         if (groupId) {
                           const inviterName = encodeURIComponent(displayName || auth.currentUser?.displayName || 'Um usuário');
@@ -5366,6 +5382,12 @@ export default function ChatPage() {
                 <button 
                   onClick={() => {
                     if (newRenameValue.trim() && renameGroupId) {
+                      if (!checkContent(newRenameValue.trim())) {
+                        incrementViolations();
+                        setRateLimitWarning("O novo nome do grupo contém termos não permitidos.");
+                        setTimeout(() => setRateLimitWarning(null), 5000);
+                        return;
+                      }
                       renameGroup(renameGroupId, newRenameValue.trim());
                       setIsRenameGroupModalOpen(false);
                     }
@@ -5515,6 +5537,12 @@ export default function ChatPage() {
                   <button 
                     onClick={() => {
                       if (groupSettingsData.name.trim() && selectedGroupId) {
+                        if (!checkContent(groupSettingsData.name.trim())) {
+                          incrementViolations();
+                          setRateLimitWarning("O nome do grupo contém termos não permitidos.");
+                          setTimeout(() => setRateLimitWarning(null), 5000);
+                          return;
+                        }
                         updateGroup(selectedGroupId, {
                           name: groupSettingsData.name.trim(),
                           photoURL: groupSettingsData.photoURL,
