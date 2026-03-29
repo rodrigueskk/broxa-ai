@@ -515,6 +515,8 @@ export function useUserStore() {
   const [photoURL, setPhotoURL] = useState<string | null>(null);
   const [hasSetProfile, setHasSetProfile] = useState<boolean>(false);
   const [unlockedFeatures, setUnlockedFeatures] = useState<string[]>([]);
+  const [hasPassword, setHasPassword] = useState<boolean>(true);
+  const [isGoogleUser, setIsGoogleUser] = useState<boolean>(false);
   const [isUserLoaded, setIsUserLoaded] = useState<boolean>(false);
 
   useEffect(() => {
@@ -525,6 +527,9 @@ export function useUserStore() {
         const userRef = doc(db, 'users', user.uid);
         
         unsubscribeDoc = onSnapshot(userRef, (docSnap) => {
+          setIsGoogleUser(user.providerData.some(p => p.providerId === 'google.com'));
+          setHasPassword(user.providerData.some(p => p.providerId === 'password'));
+
           if (docSnap.exists()) {
             const data = docSnap.data();
             setSeenReleaseNotes(data.seenReleaseNotes || []);
@@ -552,7 +557,8 @@ export function useUserStore() {
               displayName: user.displayName || null,
               photoURL: user.photoURL || null,
               hasSetProfile: false,
-              unlockedFeatures: []
+              unlockedFeatures: [],
+              hasPassword: user.providerData.some(p => p.providerId === 'password')
             }).then(() => {
               setIsUserLoaded(true);
             }).catch(console.error);
@@ -572,6 +578,8 @@ export function useUserStore() {
         setPhotoURL(null);
         setHasSetProfile(false);
         setUnlockedFeatures([]);
+        setHasPassword(true);
+        setIsGoogleUser(false);
         setIsUserLoaded(false);
       }
     });
@@ -744,7 +752,7 @@ export function useUserStore() {
     }
   };
 
-  return { seenReleaseNotes, markAsSeen, userRole, hasSeenRoleNotification, markRoleNotificationAsSeen, streakDays, lastMessageDate, freezesAvailable, updateStreak, checkStreak, displayName, photoURL, hasSetProfile, updateProfile, unlockedFeatures, markFeatureAsSeen, isUserLoaded };
+  return { seenReleaseNotes, markAsSeen, userRole, hasSeenRoleNotification, markRoleNotificationAsSeen, streakDays, lastMessageDate, freezesAvailable, updateStreak, checkStreak, displayName, photoURL, hasSetProfile, updateProfile, unlockedFeatures, markFeatureAsSeen, isUserLoaded, hasPassword, isGoogleUser };
 }
 
 export function useGroupStore() {

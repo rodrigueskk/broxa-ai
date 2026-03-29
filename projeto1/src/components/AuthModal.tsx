@@ -1,6 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { X, Mail, Lock, User, ArrowLeft, Eye, EyeOff, ShieldCheck, RefreshCw } from 'lucide-react';
+import { X, Mail, Lock, User, ArrowLeft, Eye, EyeOff, ShieldCheck, RefreshCw, Check } from 'lucide-react';
 import { auth, signInWithGoogle, db } from '../firebase';
 import { fetchSignInMethodsForEmail, signInWithEmailAndPassword, createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
 import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
@@ -22,6 +22,7 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [showWeakWarning, setShowWeakWarning] = useState(false);
+  const [isSuccess, setIsSuccess] = useState(false);
 
   // OTP State
   const [otpInputs, setOtpInputs] = useState(['', '', '', '']);
@@ -296,7 +297,11 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
             }
           }
         }
-        onClose();
+        setIsSuccess(true);
+        setTimeout(() => {
+          onClose();
+          setIsSuccess(false);
+        }, 2000);
       } catch(err: any) {
         setError('Falha de sistema interno. Tente novamente mais tarde.');
       } finally {
@@ -312,18 +317,8 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
 
   const handleGoogleLogin = async () => {
     try {
-      const result = await signInWithGoogle();
-      if (!result) return;
-      const user = result.user;
-      
-      const hasPassword = user.providerData.some((p: any) => p.providerId === 'password');
-      
-      if (!hasPassword) {
-        setEmail(user.email || '');
-        setStep('create_google_password');
-      } else {
-        onClose();
-      }
+      await signInWithGoogle();
+      onClose();
     } catch (err) {
       setError('Erro ao fazer login com Google.');
     }
@@ -695,6 +690,31 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
                   </button>
                 </div>
               </div>
+            )}
+            
+            {isSuccess && (
+              <motion.div 
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                className="absolute inset-0 z-[210] bg-[var(--bg-panel)] flex flex-col items-center justify-center p-6 text-center"
+              >
+                <motion.div 
+                  initial={{ scale: 0 }}
+                  animate={{ scale: [0, 1.2, 1] }}
+                  transition={{ type: "spring", stiffness: 300, damping: 15 }}
+                  className="w-20 h-20 bg-[#1ed760] rounded-full flex items-center justify-center mb-4 shadow-lg"
+                >
+                  <Check className="w-10 h-10 text-black stroke-[4]" />
+                </motion.div>
+                <motion.span 
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.2 }}
+                  className="text-xl font-bold text-[#1ed760]"
+                >
+                  Verificado com Sucesso
+                </motion.span>
+              </motion.div>
             )}
           </div>
         </motion.div>
