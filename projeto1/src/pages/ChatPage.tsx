@@ -7,7 +7,6 @@ import { Group, GroupMessage } from '../types';
 import { db } from '../firebase';
 import { collection, doc, onSnapshot, query, orderBy, addDoc, serverTimestamp, getDoc, where, updateDoc } from 'firebase/firestore';
 import { auth, signInWithGoogle, logOut, handleFirestoreError, OperationType } from '../firebase';
-import { EmailAuthProvider, linkWithCredential } from 'firebase/auth';
 import { AuthModal } from '../components/AuthModal';
 import { generateResponse, generateResponseStream, generateTitle } from '../services/ai';
 import ReactMarkdown from 'react-markdown';
@@ -969,7 +968,6 @@ export default function ChatPage() {
   const { sessions, currentSessionId, setCurrentSessionId, currentSession, createSession, addMessage, updateMessage, deleteSession, togglePinSession, togglePinMessage, addPinnedText, removePinnedText, addStroke, setStrokes, updateSessionTitle } = useChatStore();
   const { settings, updateSettings } = useSettingsStore();
   const { groups, createGroup, joinGroup, renameGroup, updateGroupStreak, updateGroup, removeMember, deleteGroup } = useGroupStore();
-  const { seenReleaseNotes, markAsSeen, userRole, hasSeenRoleNotification, markRoleNotificationAsSeen, streakDays, lastMessageDate, freezesAvailable, updateStreak, checkStreak, displayName, photoURL, hasSetProfile, updateProfile, unlockedFeatures, markFeatureAsSeen, isUserLoaded, hasPassword, isGoogleUser } = useUserStore();
   
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -1049,89 +1047,6 @@ export default function ChatPage() {
   
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [showSettingsConfirm, setShowSettingsConfirm] = useState(false);
-
-  // Security Banner States
-  const [showSecurityBanner, setShowSecurityBanner] = useState(false);
-  const [showSecurityWarningModal, setShowSecurityWarningModal] = useState(false);
-  const [securityPassword, setSecurityPassword] = useState('');
-  const [securityConfirmPassword, setSecurityConfirmPassword] = useState('');
-  const [isUpdatingPassword, setIsUpdatingPassword] = useState(false);
-  const [securityError, setSecurityError] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (isUserLoaded && isGoogleUser && !hasPassword) {
-      const today = new Date().toISOString().slice(0, 10);
-      const hiddenDate = localStorage.getItem('broxa_security_banner_hidden_date');
-      if (hiddenDate !== today) {
-        setShowSecurityBanner(true);
-      }
-    } else {
-      setShowSecurityBanner(false);
-    }
-  }, [isUserLoaded, isGoogleUser, hasPassword]);
-
-  const handleCloseSecurityBanner = () => {
-    setShowSecurityWarningModal(true);
-  };
-
-  const handleDismissSecurityBannerCompletely = () => {
-    const today = new Date().toISOString().slice(0, 10);
-    localStorage.setItem('broxa_security_banner_hidden_date', today);
-    setShowSecurityBanner(false);
-    setShowSecurityWarningModal(false);
-  };
-
-  const handleGoToSecuritySettings = () => {
-    setIsSettingsOpen(true);
-    setShowSecurityWarningModal(false);
-    // The security section will be at the top if !hasPassword
-  };
-
-  const handleUpdateSecurityPassword = async () => {
-    if (securityPassword !== securityConfirmPassword) {
-      setSecurityError('As senhas não coincidem.');
-      return;
-    }
-    if (securityPassword.length < 6) {
-      setSecurityError('A senha deve ter pelo menos 6 caracteres.');
-      return;
-    }
-    
-    setIsUpdatingPassword(true);
-    setSecurityError(null);
-    try {
-      if (auth.currentUser) {
-        const credential = EmailAuthProvider.credential(auth.currentUser.email!, securityPassword);
-        await linkWithCredential(auth.currentUser, credential);
-        showError('Segurança atualizada com sucesso!', 'success');
-        setSecurityPassword('');
-        setSecurityConfirmPassword('');
-      }
-    } catch (err: any) {
-      console.error(err);
-      if (err.code === 'auth/credential-already-in-use') {
-        setSecurityError('Este e-mail já possui uma senha associada.');
-      } else {
-        setSecurityError('Erro ao atualizar segurança. Tente novamente.');
-      }
-    } finally {
-      setIsUpdatingPassword(false);
-    }
-  };
-
-  const getPasswordStrength = (pass: string) => {
-    if (pass.length === 0) return { label: '', color: 'bg-transparent' };
-    if (pass.length < 6) return { label: 'Fraca', color: 'bg-red-500' };
-    const hasLetters = /[a-zA-Z]/.test(pass);
-    const hasNumbers = /[0-9]/.test(pass);
-    const hasSpecial = /[^a-zA-Z0-9]/.test(pass);
-    
-    if (hasLetters && hasNumbers && hasSpecial && pass.length >= 8) return { label: 'Forte', color: 'bg-green-500' };
-    if (hasLetters && hasNumbers) return { label: 'Média', color: 'bg-yellow-500' };
-    return { label: 'Fraca', color: 'bg-red-500' };
-  };
-
-  const securityStrength = getPasswordStrength(securityPassword);
   const [settingsError, setSettingsError] = useState<string | null>(null);
   const [tempSettings, setTempSettings] = useState(settings);
   const [isPinnedMessagesOpen, setIsPinnedMessagesOpen] = useState(false);
@@ -1167,6 +1082,7 @@ export default function ChatPage() {
   const [tempDisplayName, setTempDisplayName] = useState('');
   const [tempPhotoURL, setTempPhotoURL] = useState('');
 
+  const { seenReleaseNotes, markAsSeen, userRole, hasSeenRoleNotification, markRoleNotificationAsSeen, streakDays, lastMessageDate, freezesAvailable, updateStreak, checkStreak, displayName, photoURL, hasSetProfile, updateProfile, unlockedFeatures, markFeatureAsSeen, isUserLoaded } = useUserStore();
   const prevStreakRef = useRef(streakDays);
 
   useEffect(() => {
@@ -3449,65 +3365,6 @@ export default function ChatPage() {
               </div>
               
               <div className="p-6 space-y-6 overflow-y-auto custom-scrollbar">
-                {isGoogleUser && !hasPassword && (
-                  <div className="p-4 bg-[var(--color-sec)]/10 border border-[var(--color-sec)]/20 rounded-2xl mb-2">
-                    <div className="flex items-center gap-2 text-[var(--color-sec)] mb-2">
-                      <ShieldAlert className="w-5 h-5" />
-                      <span className="font-bold">Segurança Necessária</span>
-                    </div>
-                    <p className="text-sm text-[var(--text-muted)] mb-4">
-                      Estamos atualizando a segurança do site e melhorando os sistemas. Para proteger sua conta, por favor defina uma senha de acesso.
-                    </p>
-                    <div className="space-y-4">
-                      {securityError && (
-                        <div className="p-2 bg-red-500/10 border border-red-500/20 rounded-lg text-red-500 text-xs text-center">
-                          {securityError}
-                        </div>
-                      )}
-                      <div>
-                        <label className="block text-xs font-medium text-[var(--text-muted)] mb-1">Nova Senha</label>
-                        <div className="relative">
-                          <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--text-muted)]" />
-                          <input 
-                            type="password"
-                            value={securityPassword}
-                            onChange={(e) => setSecurityPassword(e.target.value)}
-                            placeholder="Mínimo 6 caracteres"
-                            className="w-full bg-[var(--bg-input)] text-[var(--text-base)] border border-[var(--border-subtle)] rounded-xl py-2 pl-9 pr-4 text-sm focus:outline-none focus:border-[var(--color-sec)]"
-                          />
-                        </div>
-                        {securityPassword && (
-                          <div className="mt-2 flex items-center gap-2 px-1">
-                            <div className="flex-1 h-1 bg-[var(--bg-input)] rounded-full overflow-hidden">
-                              <div className={`h-full ${securityStrength.color} transition-all duration-300`} style={{ width: securityStrength.label === 'Fraca' ? '33%' : securityStrength.label === 'Média' ? '66%' : '100%' }}></div>
-                            </div>
-                            <span className={`text-[10px] font-bold ${securityStrength.color.replace('bg-', 'text-')}`}>{securityStrength.label}</span>
-                          </div>
-                        )}
-                      </div>
-                      <div>
-                        <label className="block text-xs font-medium text-[var(--text-muted)] mb-1">Confirmar Senha</label>
-                        <div className="relative">
-                          <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--text-muted)]" />
-                          <input 
-                            type="password"
-                            value={securityConfirmPassword}
-                            onChange={(e) => setSecurityConfirmPassword(e.target.value)}
-                            placeholder="Confirme sua senha"
-                            className="w-full bg-[var(--bg-input)] text-[var(--text-base)] border border-[var(--border-subtle)] rounded-xl py-2 pl-9 pr-4 text-sm focus:outline-none focus:border-[var(--color-sec)]"
-                          />
-                        </div>
-                      </div>
-                      <button 
-                        onClick={handleUpdateSecurityPassword}
-                        disabled={isUpdatingPassword || !securityPassword || !securityConfirmPassword}
-                        className="w-full py-2.5 bg-[var(--color-sec)] text-white rounded-xl font-bold text-sm shadow-md hover:opacity-90 transition-all disabled:opacity-50"
-                      >
-                        {isUpdatingPassword ? 'Salvando...' : 'Definir Senha e Proteger Conta'}
-                      </button>
-                    </div>
-                  </div>
-                )}
                 <div className={`flex flex-col gap-2 ${streakDays < 10 ? 'opacity-50 pointer-events-none' : ''}`}>
                   <div className="flex justify-between items-center">
                     <span className="text-[var(--text-base)] font-medium">Fonte do Título (BROXA AI)</span>
@@ -4156,25 +4013,6 @@ export default function ChatPage() {
       </div>
 
       <div className="flex-1 flex flex-col min-w-0 bg-[var(--bg-base)] relative z-0 rounded-none md:rounded-l-[40px] md:border-l border-[var(--border-subtle)] shadow-2xl overflow-hidden">
-        {showSecurityBanner && (
-          <div className="bg-yellow-500/10 border-b border-yellow-500/20 px-4 py-3 flex items-center justify-between gap-4 z-[45] animate-in fade-in slide-in-from-top duration-500 shrink-0">
-            <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-full bg-yellow-500/20 flex items-center justify-center shrink-0">
-                <AlertTriangle className="w-5 h-5 text-yellow-600" />
-              </div>
-              <div className="text-sm font-medium text-yellow-700">
-                Você ainda não concluiu as configurações necessárias do site. 
-                <button onClick={handleGoToSecuritySettings} className="ml-2 font-bold underline hover:text-yellow-800 transition-colors">
-                  Ir para as configurações
-                </button>
-              </div>
-            </div>
-            <button onClick={handleCloseSecurityBanner} className="p-1 hover:bg-yellow-500/20 rounded-full transition-colors text-yellow-700">
-              <X className="w-5 h-5" />
-            </button>
-          </div>
-        )}
-
         <header className="flex items-center justify-between p-4 bg-[var(--bg-base)]/80 backdrop-blur-md sticky top-0 z-40">
           <div className="flex items-center gap-4">
             <button onClick={() => setIsSidebarOpen(true)} className="md:hidden p-3 -ml-2 text-[var(--text-muted)] hover:text-[var(--text-base)]">
@@ -5390,41 +5228,6 @@ export default function ChatPage() {
               </svg>
             </button>
           </motion.div>
-        )}
-      </AnimatePresence>
-
-      <AnimatePresence>
-        {showSecurityWarningModal && (
-          <div className="fixed inset-0 z-[300] flex items-center justify-center bg-black/80 backdrop-blur-md p-4">
-            <motion.div 
-              initial={{ scale: 0.9, opacity: 0, y: 20 }}
-              animate={{ scale: 1, opacity: 1, y: 0 }}
-              exit={{ scale: 0.9, opacity: 0, y: 20 }}
-              className="bg-[var(--bg-base)] border border-[var(--border-strong)] rounded-3xl p-8 max-w-sm w-full shadow-2xl text-center"
-            >
-              <div className="w-20 h-20 bg-red-500/10 rounded-full flex items-center justify-center mx-auto mb-6">
-                <ShieldAlert className="w-10 h-10 text-red-500" />
-              </div>
-              <h3 className="text-2xl font-black text-[var(--text-base)] mb-3">Atenção!</h3>
-              <p className="text-[var(--text-muted)] mb-8 leading-relaxed">
-                Se você não fizer a configuração, sua conta pode ser suspensa de alguns recursos do site futuramente.
-              </p>
-              <div className="flex flex-col gap-3">
-                <button 
-                  onClick={handleGoToSecuritySettings}
-                  className="w-full py-4 bg-[var(--color-sec)] text-white rounded-2xl font-black shadow-lg hover:opacity-90 transition-all"
-                >
-                  Ir para as Configurações
-                </button>
-                <button 
-                  onClick={handleDismissSecurityBannerCompletely}
-                  className="w-full py-4 bg-[var(--bg-card)] text-[var(--text-muted)] hover:text-[var(--text-base)] rounded-2xl font-bold transition-all"
-                >
-                  Fechar mesmo assim
-                </button>
-              </div>
-            </motion.div>
-          </div>
         )}
       </AnimatePresence>
     </div>
