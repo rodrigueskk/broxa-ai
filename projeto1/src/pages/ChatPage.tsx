@@ -167,6 +167,23 @@ const MessageItem = React.memo(({ msg, sessionId, settings, isHighlightMode, isE
     setCurrentStroke(prev => [...prev, { x: e.clientX - rect.left, y: e.clientY - rect.top }]);
   };
 
+  const handleTouchStart = (e: React.TouchEvent) => {
+    if (!isHighlightMode || msg.role !== 'ai') return;
+    const rect = canvasRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    setIsDrawing(true);
+    const touch = e.touches[0];
+    setCurrentStroke([{ x: touch.clientX - rect.left, y: touch.clientY - rect.top }]);
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (!isDrawing || !isHighlightMode) return;
+    const rect = canvasRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    const touch = e.touches[0];
+    setCurrentStroke(prev => [...prev, { x: touch.clientX - rect.left, y: touch.clientY - rect.top }]);
+  };
+
   const handleMouseUp = () => {
     if (!isDrawing) return;
     setIsDrawing(false);
@@ -203,7 +220,11 @@ const MessageItem = React.memo(({ msg, sessionId, settings, isHighlightMode, isE
             onMouseMove={handleMouseMove}
             onMouseUp={handleMouseUp}
             onMouseLeave={handleMouseUp}
-            className={`absolute inset-0 z-10 ai-message-canvas rounded-3xl ${isHighlightMode ? 'cursor-crosshair pointer-events-auto' : 'pointer-events-none'}`}
+            onTouchStart={handleTouchStart}
+            onTouchMove={handleTouchMove}
+            onTouchEnd={handleMouseUp}
+            onTouchCancel={handleMouseUp}
+            className={`absolute inset-0 z-10 ai-message-canvas rounded-3xl ${isHighlightMode ? 'cursor-crosshair pointer-events-auto touch-none' : 'pointer-events-none'}`}
           />
         )}
         
@@ -1039,6 +1060,8 @@ export default function ChatPage() {
   const [newChatTimestamps, setNewChatTimestamps] = useState<number[]>([]);
   const [rateLimitWarning, setRateLimitWarning] = useState<string | null>(null);
   const [sessionToDelete, setSessionToDelete] = useState<string | null>(null);
+  const [sessionToRename, setSessionToRename] = useState<any | null>(null);
+  const [newSessionName, setNewSessionName] = useState("");
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false);
   const [noteToDelete, setNoteToDelete] = useState<string | null>(null);
@@ -1371,7 +1394,7 @@ export default function ChatPage() {
           canvas.height = height;
           const ctx = canvas.getContext('2d');
           ctx?.drawImage(img, 0, 0, width, height);
-          setTempSettings({ ...tempSettings, backgroundImage: canvas.toDataURL('image/jpeg', 0.6) });
+          setTempSettings(prev => ({ ...prev, backgroundImage: canvas.toDataURL('image/jpeg', 0.6) }));
         };
         img.src = reader.result as string;
       };
@@ -2002,6 +2025,7 @@ export default function ChatPage() {
       onTouchStart={(e) => {
         if (window.innerWidth < 768) {
           longPressTimeoutRef.current = setTimeout(() => {
+            if (navigator.vibrate) navigator.vibrate(10);
             setMobileSessionOptions(session);
           }, 500);
         }
@@ -2013,10 +2037,8 @@ export default function ChatPage() {
         if (longPressTimeoutRef.current) clearTimeout(longPressTimeoutRef.current);
       }}
       onContextMenu={(e) => {
-        if (window.innerWidth < 768) {
-          e.preventDefault();
-          setMobileSessionOptions(session);
-        }
+        e.preventDefault();
+        setMobileSessionOptions(session);
       }}
       className={`group flex items-center justify-between p-3 rounded-2xl cursor-pointer transition-colors overflow-hidden ${currentSessionId === session.id ? 'bg-[var(--bg-surface)] text-[var(--text-base)]' : 'text-[var(--text-muted)] hover:bg-[var(--bg-surface)] hover:text-[var(--text-base)]'}`}
     >
@@ -2024,20 +2046,9 @@ export default function ChatPage() {
         <MessageSquare className="w-4 h-4 shrink-0" />
         <TypingTitle text={session.title} />
       </div>
-      <div className="hidden md:flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-        <button 
-          onClick={(e) => { e.stopPropagation(); togglePinSession(session.id); }}
-          className={`p-1 transition-colors ${session.isPinned ? 'text-[var(--color-sec)]' : 'hover:text-[var(--text-base)]'}`}
-        >
-          <Pin className="w-4 h-4" />
-        </button>
-        <button 
-          onClick={(e) => { e.stopPropagation(); setSessionToDelete(session.id); }}
-          className="p-1 hover:text-red-400 transition-colors"
-        >
-          <Trash2 className="w-4 h-4" />
-        </button>
-      </div>
+      {session.isPinned && (
+        <Pin className="w-3.5 h-3.5 text-[var(--color-sec)]" />
+      )}
     </motion.div>
   );
 
@@ -2054,8 +2065,8 @@ export default function ChatPage() {
     >
       {settings.backgroundImage && (
         <div 
-          className="absolute inset-0 z-0 opacity-30 blur-sm pointer-events-none bg-cover bg-center bg-no-repeat mix-blend-overlay"
-          style={{ backgroundImage: `url(${settings.backgroundImage})` }}
+          className="absolute inset-0 z-0 opacity-20 pointer-events-none bg-cover bg-center bg-no-repeat"
+          style={{ backgroundImage: `url("${settings.backgroundImage}")` }}
         />
       )}
       <div className="flex w-full h-full relative z-10">
@@ -3569,6 +3580,19 @@ export default function ChatPage() {
               className="bg-[var(--bg-panel)] w-full sm:max-w-xs rounded-t-3xl sm:rounded-3xl border sm:border-t-0 border-t border-[var(--border-strong)] shadow-[0_-10px_40px_rgba(0,0,0,0.3)] pb-8 pt-4 px-4 flex flex-col gap-2"
             >
               <div className="w-12 h-1.5 bg-[var(--border-strong)] rounded-full mx-auto mb-4" />
+              
+              <button 
+                onClick={() => {
+                  setSessionToRename(mobileSessionOptions);
+                  setNewSessionName(mobileSessionOptions.title || "");
+                  setMobileSessionOptions(null);
+                }}
+                className="w-full flex items-center justify-center gap-3 py-4 bg-[var(--bg-surface)] hover:bg-[var(--border-subtle)] rounded-2xl transition-colors font-medium text-[var(--text-base)]"
+              >
+                <Edit2 className="w-5 h-5" />
+                Renomear Conversa
+              </button>
+
               <button 
                 onClick={() => {
                   togglePinSession(mobileSessionOptions.id);
