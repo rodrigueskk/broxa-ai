@@ -4,7 +4,6 @@ import { X, Mail, Lock, User, ArrowLeft, Eye, EyeOff, ShieldCheck, RefreshCw } f
 import { auth, signInWithGoogle, db } from '../firebase';
 import { fetchSignInMethodsForEmail, signInWithEmailAndPassword, createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
 import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
-import emailjs from '@emailjs/browser';
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -134,20 +133,31 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
       console.log(`%c [🔒 BROXA AI SECURITY] NOVO CÓDIGO OTP ENVIADO PARA ${email}: ${code} `, 'background: #111; color: #00ff00; font-size: 16px; font-weight: bold; border: 1px solid #00ff00;');
       
       try {
-        await emailjs.send(
-          'service_5nwu12y',
-          'template_tcwsuoa',
-          {
+        const emailData = {
+          service_id: 'service_5nwu12y',
+          template_id: 'template_tcwsuoa',
+          user_id: 'q_U44pH0ejGEKSepN',
+          template_params: {
             to_email: email,
             reply_to: 'suporte@broxa.ai',
             message: `O seu código de verificação BROXA AI é: ${code}`,
             code: code 
-          },
-          'q_U44pH0ejGEKSepN'
-        );
-      } catch (emailErr) {
-        console.error('Erro ao enviar e-mail via EmailJS:', emailErr);
-        throw new Error('Falha ao enviar e-mail. Tente novamente mais tarde.');
+          }
+        };
+
+        const res = await fetch('https://api.emailjs.com/api/v1.0/email/send', {
+          method: 'POST',
+          body: JSON.stringify(emailData),
+          headers: { 'Content-Type': 'application/json' }
+        });
+
+        if (!res.ok) {
+          const textError = await res.text();
+          throw new Error(textError || 'Erro desconhecido da API do EmailJS');
+        }
+      } catch (emailErr: any) {
+        console.error('Erro ao enviar e-mail via fetch:', emailErr);
+        throw new Error(`EmailJS: ${emailErr.message}`);
       }
 
     } catch (err: any) {
