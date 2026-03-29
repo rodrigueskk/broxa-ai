@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
-import { Menu, Plus, MessageSquare, Trash2, Send, Image as ImageIcon, X, Settings, Pin, Highlighter, AlertTriangle, Undo2, Redo2, Eraser, Copy, Check, ChevronDown, ShieldAlert, LogIn, LogOut, Search, GitCompare, Edit, Edit2, ThumbsUp, ThumbsDown, AlertCircle, ChevronUp, RefreshCw, Cpu, Flame, Snowflake, Bot, User, Lock, ChevronRight, ShieldCheck } from 'lucide-react';
+import { Menu, Plus, MessageSquare, Trash2, Send, Image as ImageIcon, X, Settings, Pin, Highlighter, AlertTriangle, Undo2, Redo2, Eraser, Copy, Check, ChevronDown, ShieldAlert, LogIn, LogOut, Search, GitCompare, Edit, Edit2, ThumbsUp, ThumbsDown, AlertCircle, ChevronUp, RefreshCw, Cpu, Flame, Snowflake, Bot, User, Lock, ChevronRight, ShieldCheck, LayoutDashboard, Globe, Dog } from 'lucide-react';
 import { useChatStore, useSettingsStore, useAdminStore, useUserStore, useGroupStore, ReleaseNote, ReleaseNoteImage, ReleaseNoteBadge } from '../store';
 import { Group, GroupMessage } from '../types';
 import { db } from '../firebase';
@@ -1057,6 +1057,10 @@ export default function ChatPage() {
   const [selectedModel, setSelectedModel] = useState<'thinking' | 'fast' | 'search' | 'as' | 'toto'>('thinking');
   const [isTotoVerificationOpen, setIsTotoVerificationOpen] = useState(false);
   const [isExtensionDetected, setIsExtensionDetected] = useState<boolean | null>(null);
+  const [isTotoAutoMode, setIsTotoAutoMode] = useState(false);
+  const [totoStream, setTotoStream] = useState<MediaStream | null>(null);
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const totoIntervalRef = useRef<any>(null);
   const [isModelDropdownOpen, setIsModelDropdownOpen] = useState(false);
   const [isDevModelsModalOpen, setIsDevModelsModalOpen] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
@@ -1082,8 +1086,6 @@ export default function ChatPage() {
   const [tempDisplayName, setTempDisplayName] = useState('');
   const [tempPhotoURL, setTempPhotoURL] = useState('');
   const [activeSettingsTab, setActiveSettingsTab] = useState<'profile' | 'security'>('profile');
-  const [retryCount, setRetryCount] = useState(0);
-  const [retryTimer, setRetryTimer] = useState<number | null>(null);
   const [drafts, setDrafts] = useState<Record<string, string>>(() => {
     try {
       const saved = localStorage.getItem('broxa_ai_drafts');
@@ -1093,7 +1095,6 @@ export default function ChatPage() {
     }
   });
   const [currentUser, setCurrentUser] = useState(auth.currentUser);
-  const lastFailedMessage = useRef<{ text: string, images: any[], model: any } | null>(null);
   
   useEffect(() => {
     const unsubscribe = auth.onAuthStateChanged((user) => {
@@ -1170,46 +1171,7 @@ export default function ChatPage() {
     }
   }, [isUserSettingsOpen, isGoogleUserWithoutPassword]);
 
-  // AI Retry Timer logic
-  useEffect(() => {
-    let interval: any;
-    if (retryTimer !== null && retryTimer > 0) {
-      interval = setInterval(() => {
-        setRetryTimer(prev => {
-          const newValue = prev !== null ? prev - 1 : null;
-          // Update the message content with the live countdown
-          if (newValue !== null && newValue > 0) {
-            const id = selectedGroupId || currentSessionId;
-            const lastAiMsg = selectedGroupId 
-              ? groupMessages.filter(m => m.senderId === 'ai').pop()
-              : sessions.find(s => s.id === currentSessionId)?.messages.filter(m => m.role === 'ai').pop();
-            
-            if (lastAiMsg && id) {
-              const retryMsg = `Alta demanda detectada. Tentando novamente em ${newValue} segundos... (Tentativa ${retryCount}/20)`;
-              if (selectedGroupId) {
-                updateGroupMessage(selectedGroupId, lastAiMsg.id, { content: retryMsg, isError: true });
-              } else {
-                updateMessage(id, lastAiMsg.id, { content: retryMsg, isError: true });
-              }
-            }
-          }
-          return newValue;
-        });
-      }, 1000);
-    } else if (retryTimer === 0) {
-      setRetryTimer(null);
-      if (lastFailedMessage.current) {
-        handleSend(
-          lastFailedMessage.current.text,
-          lastFailedMessage.current.images,
-          lastFailedMessage.current.model
-        );
-      } else {
-        handleSend();
-      }
-    }
-    return () => clearInterval(interval);
-  }, [retryTimer]);
+
 
   const { 
     seenReleaseNotes, markAsSeen, userRole, hasSeenRoleNotification, 
@@ -1253,6 +1215,93 @@ export default function ChatPage() {
     };
     checkIpBan();
   }, []);
+
+  const playIphoneSound = useCallback(() => {
+    try {
+      const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+      const playTone = (freq: number, start: number, duration: number) => {
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(freq, start);
+        gain.gain.setValueAtTime(0.1, start);
+        gain.gain.exponentialRampToValueAtTime(0.0001, start + duration);
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start(start);
+        osc.stop(start + duration);
+      };
+      // Simulação do Tri-tone do iPhone
+      const now = audioCtx.currentTime;
+      playTone(1050, now, 0.15);
+      playTone(850, now + 0.15, 0.15);
+      playTone(1250, now + 0.3, 0.3);
+    } catch (e) {
+      console.error("Audio failed", e);
+    }
+  }, []);
+
+  const stopTotoAuto = useCallback(() => {
+    if (totoIntervalRef.current) clearInterval(totoIntervalRef.current);
+    if (totoStream) {
+      totoStream.getTracks().forEach(track => track.stop());
+    }
+    setTotoStream(null);
+    setIsTotoAutoMode(false);
+  }, [totoStream]);
+
+  const captureAndAskToto = async () => {
+    if (!totoStream || !canvasRef.current || isLoading) return;
+    
+    try {
+      const video = document.createElement('video');
+      video.srcObject = totoStream;
+      await video.play();
+      
+      const canvas = canvasRef.current;
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      const ctx = canvas.getContext('2d');
+      if (ctx) {
+        ctx.drawImage(video, 0, 0);
+        canvas.toBlob(async (blob) => {
+          if (blob) {
+            handleSend("Totó, analise a tela por favor e responda qualquer questão de inglês que encontrar. Se não houver nada, apenas diga que está aguardando uma questão aparecer.", [{ url: URL.createObjectURL(blob), mimeType: "image/png" }], 'toto');
+          }
+        }, 'image/png');
+      }
+      video.pause();
+      video.srcObject = null;
+    } catch (err) {
+      console.error("Capture failed", err);
+    }
+  };
+
+  const startTotoWeb = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getDisplayMedia({ 
+        video: { displaySurface: 'browser' } 
+      });
+      setTotoStream(stream);
+      setIsTotoAutoMode(true);
+      setIsTotoVerificationOpen(false);
+      
+      stream.getVideoTracks()[0].onended = () => stopTotoAuto();
+
+      totoIntervalRef.current = setInterval(() => {
+        captureAndAskToto();
+      }, 30000); // 30 segundos para economizar tokens, mas ainda ser automático
+
+    } catch (err) {
+      console.error("Failed to share screen", err);
+    }
+  };
+
+  useEffect(() => {
+    if (selectedModel === 'toto' && !isTotoAutoMode) {
+      setIsTotoVerificationOpen(true);
+    }
+  }, [selectedModel, isTotoAutoMode]);
   const prevStreakRef = useRef(streakDays);
 
   useEffect(() => {
@@ -2011,7 +2060,7 @@ export default function ChatPage() {
     setSelectedImages(prev => prev.filter((_, i) => i !== index));
   };
 
-  const handleSend = async (overrideInput?: string, overrideImages?: {url: string, mimeType: string}[], overrideModel?: 'thinking' | 'fast' | 'search' | 'as') => {
+  const handleSend = async (overrideInput?: string, overrideImages?: {url: string, mimeType: string}[], overrideModel?: 'thinking' | 'fast' | 'search' | 'as' | 'toto') => {
     const textToSend = overrideInput !== undefined ? overrideInput : input.trim();
     const imagesToSend = overrideImages !== undefined ? overrideImages : selectedImages;
     const modelToUse = overrideModel !== undefined ? overrideModel : selectedModel;
@@ -2058,14 +2107,21 @@ export default function ChatPage() {
         
         setIsLoading(true);
         const group = groups.find(g => g.id === groupId);
-        const customInstruction = (group?.systemInstruction || settings.customInstruction) + 
+        let customInstruction = (group?.systemInstruction || settings.customInstruction) + 
           "\n\nIMPORTANTE: Você nunca deve gerar conteúdo relacionado a: sexo, pornografia, abuso, racismo, homofobia, machismo, drogas pesadas ou qualquer ato carnal/sexual. Se solicitado, recuse educadamente dizendo que o conteúdo não é tolerado.";
+        
+        const modelToUseApi = modelToUse === 'toto' ? 'gemini-1.5-pro' : modelToUse;
+
+        if (modelToUse === 'toto') {
+          customInstruction = "Você é o Totó, um assistente especializado em resolver questões de inglês. Analise a imagem fornecida, identifique a questão e forneça a resposta correta de forma curta e objetiva, justificando brevemente em português.";
+        }
+
         const history = groupMessages.map(m => ({
           role: m.senderId === 'ai' ? 'ai' : 'user' as 'ai' | 'user',
           content: m.content,
           imageUrls: m.imageUrls
         }));
-        const aiResponse = await generateResponse(textToSend, imagesToSend, modelToUse, customInstruction, history);
+        const aiResponse = await generateResponse(textToSend, imagesToSend, modelToUseApi as any, customInstruction, history);
         
         const aiMessage: Omit<GroupMessage, 'id'> = {
           senderId: 'ai',
@@ -2091,42 +2147,39 @@ export default function ChatPage() {
           errorString.includes("quota") ||
           errorString.includes("RESOURCE_EXHAUSTED");
 
-        if (isQuotaError && retryCount < 20) {
-          const nextRetry = retryCount + 1;
-          setRetryCount(nextRetry);
-          setRetryTimer(nextRetry);
-          
-          const retryMsg = `Alta demanda detectada. Tentando novamente em ${nextRetry} segundos... (Tentativa ${nextRetry}/20)`;
-          
-          const lastAiMsg = groupMessages.filter(m => m.senderId === 'ai').pop();
-          if (lastAiMsg) {
-            await updateGroupMessage(groupId, lastAiMsg.id, { content: retryMsg, isError: true });
-          } else {
-            await addDoc(collection(db, `groups/${groupId}/messages`), {
-              senderId: 'ai',
-              senderName: 'BROXA AI',
-              senderPhotoURL: null,
-              content: retryMsg,
-              timestamp: Date.now(),
-              isError: true
-            });
-          }
-          return;
+        const errorMsg = isQuotaError 
+          ? "O limite de uso da API foi excedido (Erro 429). Por favor, aguarde um momento ou verifique sua cota no Google AI Studio."
+          : `Ocorreu um erro ao gerar a resposta: ${errorString}`;
+
+        const lastAiMsg = groupMessages.filter(m => m.senderId === 'ai').pop();
+        if (lastAiMsg) {
+          await updateGroupMessage(groupId, lastAiMsg.id, { content: errorMsg, isError: true });
+        } else {
+          await addDoc(collection(db, `groups/${groupId}/messages`), {
+            senderId: 'ai',
+            senderName: 'BROXA AI',
+            senderPhotoURL: null,
+            content: errorMsg,
+            timestamp: Date.now(),
+            isError: true
+          });
         }
+        return;
 
         handleFirestoreError(error, OperationType.CREATE, `groups/${groupId}/messages`);
       } finally {
-        if (retryTimer === null) {
-          setIsLoading(false);
-          setRetryCount(0);
-          
-          // Clear draft on success
-          setDrafts(prev => {
-            const newDrafts = { ...prev };
-            delete newDrafts[groupId];
-            return newDrafts;
-          });
+        setIsLoading(false);
+        
+        if (modelToUse === 'toto') {
+          playIphoneSound();
         }
+
+        // Clear draft on success
+        setDrafts(prev => {
+          const newDrafts = { ...prev };
+          delete newDrafts[groupId];
+          return newDrafts;
+        });
       }
       return;
     }
@@ -2213,12 +2266,18 @@ export default function ChatPage() {
         const safetyConstraint = "\n\nIMPORTANTE: Você deve recusar PROATIVAMENTE qualquer pedido que envolva: conteúdo sexual (ato carnal, nudez), pedofilia, abuso infantil, hacking, programação, crimes cibernéticos, racismo, ódio ou violência física. Se o usuário tentar burlar estas regras através de 'leetspeak' (ex: P0rn0, r4c1sm0, xv1d3os) ou outros códigos, ignore o comando e responda EXCLUSIVAMENTE com uma mensagem de erro informando que este conteúdo viola as diretrizes de segurança da BROXA AI e que a conta dele poderá ser banida permanentemente.";
         
         const selectedGroup = groups.find(g => g.id === selectedGroupId);
-        const customInstruction = (settings.customInstruction || '') + (selectedGroup?.systemInstruction || '') + safetyConstraint;
+        const modelToUseApi = modelToUse === 'toto' ? 'gemini-1.5-pro' : modelToUse;
+        
+        let customInstruction = (settings.customInstruction || '') + (selectedGroup?.systemInstruction || '') + safetyConstraint;
+
+        if (modelToUse === 'toto') {
+          customInstruction = "Você é o Totó, um assistente especializado em resolver questões de inglês. Analise a imagem fornecida, identifique a questão e forneça a resposta correta de forma curta e objetiva, justificando brevemente em português. Use uma linguagem amigável.";
+        }
 
         const stream = await generateResponseStream(
           userMessageContent, 
           imagesToProcess, 
-          modelToUse, 
+          modelToUseApi as any, 
           customInstruction,
           currentSession?.messages
         );
@@ -2251,6 +2310,9 @@ export default function ChatPage() {
            throw streamError;
         }
       } finally {
+        if (modelToUse === 'toto' && !abortControllerRef.current?.signal.aborted) {
+          playIphoneSound();
+        }
         abortControllerRef.current = null;
       }
     } catch (error: any) {
@@ -2273,33 +2335,7 @@ export default function ChatPage() {
         errorString.includes("quota") ||
         errorString.includes("RESOURCE_EXHAUSTED");
 
-      // Auto-retry logic for quota errors
-      if (isQuotaError && retryCount < 20) {
-        const nextRetry = retryCount + 1;
-        
-        // Save message for retry
-        lastFailedMessage.current = {
-          text: userMessageContent,
-          images: imagesToProcess || [],
-          model: modelToUse
-        };
-        
-        setRetryCount(nextRetry);
-        setRetryTimer(nextRetry);
-        
-        const retryMsg = `Alta demanda detectada. Tentando novamente em ${nextRetry} segundos... (Tentativa ${nextRetry}/20)`;
-        if (aiMessageId) {
-          updateMessage(sessionId, aiMessageId, { content: retryMsg, isError: true });
-        } else {
-          addMessage(sessionId, { role: 'ai', content: retryMsg, isError: true, model: modelToUse });
-        }
-        setIsLoading(false);
-        setIsSearching(false);
-        return;
-      }
-      
-      // Clear last failed message on actual error or other cases
-      lastFailedMessage.current = null;
+
 
       let errorMessage = "Desculpe, ocorreu um erro ao processar sua solicitação. Por favor, tente novamente.";
       
@@ -2329,21 +2365,21 @@ export default function ChatPage() {
         });
       }
     } finally {
-      if (retryTimer === null) {
-        setIsLoading(false);
-        setIsSearching(false);
-        setSearchStatus(null);
-        setRetryCount(0); // Reset retry count on finish (success or final error)
-        
-        // Clear draft on successful send
-        const id = selectedGroupId || currentSessionId;
-        if (id && !aiMessageId?.includes('error')) { // Rough check for success
-           setDrafts(prev => {
-             const newDrafts = { ...prev };
-             delete newDrafts[id];
-             return newDrafts;
-           });
-        }
+      setIsLoading(false);
+      setIsSearching(false);
+      setSearchStatus(null);
+      
+      if (selectedModel === 'toto') {
+        playIphoneSound();
+      }
+
+      const id = selectedGroupId || currentSessionId;
+      if (id && !aiMessageId?.includes('error')) { 
+         setDrafts(prev => {
+           const newDrafts = { ...prev };
+           delete newDrafts[id];
+           return newDrafts;
+         });
       }
       setTimeout(scrollToBottom, 100);
     }
@@ -4529,7 +4565,7 @@ export default function ChatPage() {
                       onClick={() => setIsModelDropdownOpen(!isModelDropdownOpen)}
                       className="flex items-center gap-2 text-[var(--text-base)] font-bold text-base md:text-lg hover:bg-[var(--bg-surface)] px-3 py-2 rounded-xl transition-colors truncate w-full"
                     >
-                      BROXA {aiModels?.find(m => m.key === selectedModel)?.name || (selectedModel === 'thinking' ? '1.1 Thinking' : selectedModel === 'fast' ? '1.1 Fast' : selectedModel === 'search' ? '0.8 Search' : '0.5 A.S')}
+                      BROXA {aiModels?.find(m => m.key === selectedModel)?.name || (selectedModel === 'thinking' ? '1.1 Thinking' : selectedModel === 'fast' ? '1.1 Fast' : selectedModel === 'search' ? '0.8 Search' : selectedModel === 'toto' ? 'Totó (Dev)' : '0.5 A.S')}
                       <ChevronDown className="w-5 h-5 text-[var(--text-muted)] shrink-0" />
                     </button>
 
@@ -5393,6 +5429,18 @@ export default function ChatPage() {
         )}
       </AnimatePresence>
 
+      {isTotoAutoMode && (
+        <div className="fixed top-20 right-4 z-[100] flex items-center gap-3 bg-[var(--bg-panel)] p-3 rounded-2xl border border-[var(--color-sec)]/30 shadow-[0_0_20px_rgba(234,179,8,0.2)] animate-pulse">
+           <div className="w-2 h-2 rounded-full bg-[var(--color-sec)] shadow-[0_0_10px_var(--color-sec)]" />
+           <span className="text-xs font-bold text-[var(--text-base)]">Totó Monitorando Tela</span>
+           <button onClick={stopTotoAuto} className="ml-2 hover:bg-red-500/10 p-1 rounded-lg">
+             <X className="w-4 h-4 text-red-500" />
+           </button>
+        </div>
+      )}
+
+      <canvas ref={canvasRef} className="hidden" />
+
       <AnimatePresence>
         {isRenameGroupModalOpen && (
           <motion.div 
@@ -5730,18 +5778,24 @@ export default function ChatPage() {
               </div>
 
               <div className="space-y-4 mb-6">
-                <div className="p-4 rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] flex items-center justify-between opacity-50 cursor-not-allowed">
-                  <div>
+                <button 
+                  onClick={() => {
+                    setSelectedModel('toto');
+                    setIsDevModelsModalOpen(false);
+                  }}
+                  className={`p-4 rounded-xl border transition-all flex items-center justify-between w-full ${selectedModel === 'toto' ? 'border-[var(--color-sec)] bg-[var(--color-sec)]/10' : 'border-[var(--border-subtle)] bg-[var(--bg-surface)] hover:border-[var(--color-sec)]/50'}`}
+                >
+                  <div className="text-left">
                     <div className="font-bold text-[var(--text-base)] flex items-center gap-2">
-                      Totó 1.0
-                      <span className="text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wide bg-purple-500/20 text-purple-400">
-                        EM BREVE
+                      Totó 1.0 (Beta)
+                      <span className="text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wide bg-[var(--color-sec)]/20 text-[var(--color-sec)]">
+                        DISPONÍVEL
                       </span>
                     </div>
-                    <div className="text-xs text-[var(--text-muted)]">Respostas mais precisas que o comum</div>
+                    <div className="text-xs text-[var(--text-muted)]">Respostas ultra-rápidas para Inglês via Extensão</div>
                   </div>
-                  <Lock className="w-5 h-5 text-[var(--text-muted)]" />
-                </div>
+                  <Cpu className="w-5 h-5 text-[var(--color-sec)]" />
+                </button>
                 
                 <div className="p-4 rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] flex items-center justify-between opacity-50 cursor-not-allowed">
                   <div>
@@ -5868,7 +5922,59 @@ export default function ChatPage() {
         )}
       </AnimatePresence>
 
+      <AnimatePresence>
+        {isTotoVerificationOpen && (
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[300] flex items-center justify-center p-4 bg-black/90 backdrop-blur-lg"
+          >
+            <motion.div 
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="bg-[var(--bg-panel)] border border-[var(--border-strong)] rounded-[40px] p-8 max-w-md w-full shadow-[0_0_50px_rgba(0,0,0,0.5)] text-center relative overflow-hidden"
+            >
+              <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-[var(--color-sec)] to-transparent opacity-50"></div>
+              
+              <div className="w-24 h-24 bg-[var(--color-sec)]/10 rounded-full flex items-center justify-center mx-auto mb-6 border border-[var(--color-sec)]/20 shadow-[0_0_30px_rgba(234,179,8,0.1)]">
+                <LayoutDashboard className="w-12 h-12 text-[var(--color-sec)] animate-pulse" />
+              </div>
 
+              <h2 className="text-3xl font-black mb-4 text-white tracking-tight italic uppercase">Modelo Totó <Dog className="inline-block w-8 h-8 ml-1" /></h2>
+              
+              <p className="text-[var(--text-muted)] mb-8 text-lg leading-relaxed">
+                Este modelo de desenvolvedor exige a <strong className="text-[var(--color-sec)]">Extensão Broxa AI</strong> para visualizar sua tela e responder questões de inglês automaticamente.
+              </p>
+
+              <div className="space-y-4">
+                <button 
+                  onClick={startTotoWeb}
+                  className="w-full py-5 bg-[var(--color-sec)] text-black rounded-3xl font-black text-xl shadow-[0_10px_30px_rgba(234,179,8,0.3)] hover:scale-[1.02] active:scale-[0.98] transition-all uppercase tracking-widest flex items-center justify-center gap-3"
+                >
+                  <Search className="w-6 h-6" />
+                  Conectar Tela
+                </button>
+
+                <p className="text-[10px] text-[var(--text-muted)] italic">
+                  Compartilhe a aba de exercícios para o Totó começar a monitorar automático.
+                </p>
+
+                <button 
+                  onClick={() => {
+                    setIsTotoVerificationOpen(false);
+                    setSelectedModel('thinking');
+                  }}
+                  className="w-full py-2 text-[var(--text-muted)] hover:text-white transition-colors text-sm font-medium"
+                >
+                  Cancelar e voltar
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
     </div>
   );

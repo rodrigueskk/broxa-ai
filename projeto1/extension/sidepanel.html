@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Broxa AI - Totó</title>
+  <link rel="stylesheet" href="sidepanel.css">
+</head>
+<body>
+  <div id="app">
+    <header>
+      <div class="logo-area">
+        <span class="logo-icon">🐾</span>
+        <h1>BROXA AI <span class="badge">TOTÓ</span></h1>
+      </div>
+      <p class="subtitle">Seu assistente de Inglês avançado</p>
+    </header>
+
+    <main>
+      <div id="status-card" class="card">
+        <div class="card-header">
+          <span class="icon">🔍</span>
+          <h2>Analisar Questão</h2>
+        </div>
+        <p>Clique no botão abaixo e selecione a área da questão na sua aba atual.</p>
+        <button id="capture-btn" class="primary-btn">
+          <span class="btn-icon">📸</span>
+          CAPTURAR TELA
+        </button>
+      </div>
+
+      <div id="result-area" class="hidden">
+        <div class="divider"></div>
+        <div class="result-card card">
+          <div class="card-header">
+            <span class="icon">💡</span>
+            <h2>Resposta do Totó</h2>
+          </div>
+          <div id="ai-response" class="response-content">
+            Pensei aqui... a resposta correta parece ser a **B**.
+          </div>
+          <button id="clear-btn" class="secondary-btn">Limpar</button>
+        </div>
+      </div>
+    </main>
+
+    <footer>
+      <p>Desenvolvido pela Equipe Broxa AI</p>
+    </footer>
+  </div>
+  <script src="sidepanel.js"></script>
+</body>
+</html>
