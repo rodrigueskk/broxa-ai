@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
-import { Menu, Plus, MessageSquare, Trash2, Send, Image as ImageIcon, X, Settings, Pin, Highlighter, AlertTriangle, Undo2, Redo2, Eraser, Copy, Check, ChevronDown, ShieldAlert, LogIn, LogOut, Search, GitCompare, Edit, Edit2, ThumbsUp, ThumbsDown, AlertCircle, ChevronUp, RefreshCw, Cpu, Flame, Snowflake, Bot, User, Lock, ChevronRight } from 'lucide-react';
+import { Menu, Plus, MessageSquare, Trash2, Send, Image as ImageIcon, X, Settings, Pin, Highlighter, AlertTriangle, Undo2, Redo2, Eraser, Copy, Check, ChevronDown, ShieldAlert, LogIn, LogOut, Search, GitCompare, Edit, Edit2, ThumbsUp, ThumbsDown, AlertCircle, ChevronUp, RefreshCw, Cpu, Flame, Snowflake, Bot, User, Lock, ChevronRight, ShieldCheck } from 'lucide-react';
 import { useChatStore, useSettingsStore, useAdminStore, useUserStore, useGroupStore, ReleaseNote, ReleaseNoteImage, ReleaseNoteBadge } from '../store';
 import { Group, GroupMessage } from '../types';
 import { db } from '../firebase';
@@ -1072,6 +1072,8 @@ export default function ChatPage() {
   const [sessionToRename, setSessionToRename] = useState<any | null>(null);
   const [newSessionName, setNewSessionName] = useState("");
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [authModalStep, setAuthModalStep] = useState<'email' | 'password' | 'signup' | 'otp' | 'create_google_password' | undefined>(undefined);
+  const [authModalPassword, setAuthModalPassword] = useState<string | undefined>(undefined);
   const [isOutdated, setIsOutdated] = useState(false);
   const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false);
   const [noteToDelete, setNoteToDelete] = useState<string | null>(null);
@@ -1081,6 +1083,43 @@ export default function ChatPage() {
   const [isUserSettingsOpen, setIsUserSettingsOpen] = useState(false);
   const [tempDisplayName, setTempDisplayName] = useState('');
   const [tempPhotoURL, setTempPhotoURL] = useState('');
+  const [activeSettingsTab, setActiveSettingsTab] = useState<'profile' | 'security'>('profile');
+  
+  // Security Banner & Warning States
+  const [isSecurityBannerDismissed, setIsSecurityBannerDismissed] = useState(() => {
+    try {
+      const lastDismissed = localStorage.getItem('security_banner_dismissed_time');
+      if (lastDismissed) {
+        const timeDiff = Date.now() - parseInt(lastDismissed, 10);
+        return timeDiff < 86400000;
+      }
+    } catch (e) {
+      console.warn('localStorage is not available', e);
+    }
+    return false;
+  });
+  const [showSuspensionWarning, setShowSuspensionWarning] = useState(false);
+
+  // Security Tab Form States
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmNewPassword, setConfirmNewPassword] = useState('');
+  const [isSecurityLoading, setIsSecurityLoading] = useState(false);
+  const [securityOtpStep, setSecurityOtpStep] = useState(false);
+
+  const isGoogleUserWithoutPassword = useMemo(() => {
+    if (!auth.currentUser) return false;
+    const hasGoogle = auth.currentUser.providerData.some(p => p.providerId === 'google.com');
+    const hasPassword = auth.currentUser.providerData.some(p => p.providerId === 'password');
+    return hasGoogle && !hasPassword;
+  }, [auth.currentUser]);
+
+  useEffect(() => {
+    if (isUserSettingsOpen && isGoogleUserWithoutPassword) {
+      setActiveSettingsTab('security');
+    } else if (isUserSettingsOpen) {
+      setActiveSettingsTab('profile');
+    }
+  }, [isUserSettingsOpen, isGoogleUserWithoutPassword]);
 
   const { seenReleaseNotes, markAsSeen, userRole, hasSeenRoleNotification, markRoleNotificationAsSeen, streakDays, lastMessageDate, freezesAvailable, updateStreak, checkStreak, displayName, photoURL, hasSetProfile, updateProfile, unlockedFeatures, markFeatureAsSeen, isUserLoaded } = useUserStore();
   const prevStreakRef = useRef(streakDays);
@@ -2213,6 +2252,83 @@ export default function ChatPage() {
       </AnimatePresence>
 
       <AnimatePresence>
+        {isGoogleUserWithoutPassword && !isSecurityBannerDismissed && (
+          <motion.div 
+            initial={{ y: -100, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            exit={{ y: -100, opacity: 0 }}
+            className="fixed top-0 left-0 right-0 z-[150] bg-yellow-500 text-black px-4 py-3 flex items-center justify-between shadow-2xl"
+          >
+            <div className="flex items-center gap-3">
+              <AlertTriangle className="w-5 h-5 shrink-0" />
+              <div>
+                <span className="font-bold text-sm">Atenção:</span>
+                <span className="text-sm ml-1 font-medium">Você ainda não concluiu as configurações necessárias do site.</span>
+                <button 
+                  onClick={() => setIsUserSettingsOpen(true)}
+                  className="ml-3 text-sm font-bold underline hover:no-underline"
+                >
+                  Ir para as configurações
+                </button>
+              </div>
+            </div>
+            <button 
+              onClick={() => setShowSuspensionWarning(true)}
+              className="p-1.5 hover:bg-black/10 rounded-full transition-all"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {showSuspensionWarning && (
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[250] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md"
+          >
+            <motion.div 
+              initial={{ scale: 0.95, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.95, opacity: 0, y: 20 }}
+              className="bg-[var(--bg-panel)] rounded-3xl border border-[var(--border-strong)] w-full max-w-sm shadow-2xl flex flex-col overflow-hidden p-6"
+            >
+              <div className="flex flex-col items-center text-center mb-6">
+                <div className="w-12 h-12 rounded-full bg-yellow-500/10 flex items-center justify-center mb-4">
+                  <ShieldAlert className="w-6 h-6 text-yellow-500" />
+                </div>
+                <h3 className="text-xl font-bold mb-2 text-[var(--text-base)]">Aviso Importante</h3>
+                <p className="text-sm text-[var(--text-muted)]">
+                  Se você não concluir a configuração de segurança agora, sua conta pode ser <strong>suspensa</strong> de alguns recursos do site em breve.
+                </p>
+              </div>
+              <div className="flex flex-col gap-3">
+                <button 
+                  onClick={() => setIsUserSettingsOpen(true)}
+                  className="w-full py-3 bg-[var(--color-sec)] text-white rounded-xl font-bold hover:opacity-90 transition-all"
+                >
+                  Ir para as configurações
+                </button>
+                <button 
+                  onClick={() => {
+                    localStorage.setItem('security_banner_dismissed_time', Date.now().toString());
+                    setIsSecurityBannerDismissed(true);
+                    setShowSuspensionWarning(false);
+                  }}
+                  className="w-full py-3 bg-[var(--bg-surface)] text-[var(--text-muted)] hover:text-[var(--text-base)] rounded-xl font-medium transition-all text-sm"
+                >
+                  Fechar mesmo assim
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
         {rateLimitWarning && (
           <motion.div 
             initial={{ y: -50, opacity: 0 }}
@@ -3183,7 +3299,17 @@ export default function ChatPage() {
         )}
       </AnimatePresence>
 
-      <AuthModal isOpen={isAuthModalOpen} onClose={() => setIsAuthModalOpen(false)} />
+      <AuthModal 
+        isOpen={isAuthModalOpen} 
+        onClose={() => {
+          setIsAuthModalOpen(false);
+          setAuthModalStep(undefined);
+          setAuthModalPassword(undefined);
+          // If the auth was successful (banner might have disappeared already due to auth state change)
+        }} 
+        initialStep={authModalStep}
+        initialPassword={authModalPassword}
+      />
 
       <AnimatePresence>
         {noteToDelete && (
@@ -4633,52 +4759,184 @@ export default function ChatPage() {
               exit={{ scale: 0.95, opacity: 0 }}
               className="bg-[var(--bg-base)] border border-[var(--border-strong)] rounded-3xl p-6 max-w-sm w-full shadow-2xl"
             >
-              <div className="flex items-center justify-between mb-6">
-                <h2 className="text-xl font-bold">Perfil de Usuário</h2>
-                <button onClick={() => setIsUserSettingsOpen(false)} className="p-2 text-[var(--text-muted)] hover:text-[var(--text-base)] hover:bg-[var(--bg-surface)] rounded-full transition-colors">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-xl font-bold">Configurações</h2>
+                <button 
+                  onClick={() => {
+                    setIsUserSettingsOpen(false);
+                    setSecurityOtpStep(false);
+                  }} 
+                  className="p-2 text-[var(--text-muted)] hover:text-[var(--text-base)] hover:bg-[var(--bg-surface)] rounded-full transition-colors"
+                >
                   <X className="w-5 h-5" />
                 </button>
               </div>
-              
-              <div className="space-y-4 mb-6">
-                <ImageUpload 
-                  value={tempPhotoURL} 
-                  onChange={setTempPhotoURL} 
-                  label="Foto de Perfil (Opcional)" 
-                />
-                
-                <div>
-                  <label className="block text-sm font-medium text-[var(--text-muted)] mb-1">Nome</label>
-                  <input 
-                    type="text" 
-                    value={tempDisplayName}
-                    onChange={(e) => setTempDisplayName(e.target.value)}
-                    placeholder="Seu nome"
-                    maxLength={50}
-                    className="w-full bg-[var(--bg-input)] border border-[var(--border-strong)] rounded-xl px-4 py-3 text-[var(--text-base)] focus:outline-none focus:border-[var(--color-sec)] transition-colors"
+
+              <div className="flex gap-1 p-1 bg-[var(--bg-surface)] rounded-2xl mb-6 border border-[var(--border-strong)]">
+                <button 
+                  onClick={() => setActiveSettingsTab('profile')}
+                  className={`flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-xl transition-all font-medium text-sm ${activeSettingsTab === 'profile' ? 'bg-[var(--bg-base)] text-[var(--text-base)] shadow-sm' : 'text-[var(--text-muted)] hover:text-[var(--text-base)]'}`}
+                >
+                  <User className="w-4 h-4" /> Perfil
+                </button>
+                <button 
+                  onClick={() => setActiveSettingsTab('security')}
+                  className={`flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-xl transition-all font-medium text-sm ${activeSettingsTab === 'security' ? 'bg-[var(--bg-base)] text-[var(--text-base)] shadow-sm' : 'text-[var(--text-muted)] hover:text-[var(--text-base)]'}`}
+                >
+                  <Lock className="w-4 h-4" /> Segurança
+                </button>
+              </div>
+
+              {activeSettingsTab === 'profile' ? (
+                <div className="space-y-4 mb-6">
+                  <ImageUpload 
+                    value={tempPhotoURL} 
+                    onChange={setTempPhotoURL} 
+                    label="Foto de Perfil (Opcional)" 
                   />
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-[var(--text-muted)] mb-1">Nome</label>
+                    <input 
+                      type="text" 
+                      value={tempDisplayName}
+                      onChange={(e) => setTempDisplayName(e.target.value)}
+                      placeholder="Seu nome"
+                      maxLength={50}
+                      className="w-full bg-[var(--bg-input)] border border-[var(--border-strong)] rounded-xl px-4 py-3 text-[var(--text-base)] focus:outline-none focus:border-[var(--color-sec)] transition-colors"
+                    />
+                  </div>
                 </div>
-              </div>
-              <div className="flex justify-end gap-3">
-                <button 
-                  onClick={() => setIsUserSettingsOpen(false)}
-                  className="px-4 py-2 rounded-xl text-[var(--text-muted)] hover:bg-[var(--bg-surface)] transition-colors"
-                >
-                  Cancelar
-                </button>
-                <button 
-                  onClick={() => {
-                    if (tempDisplayName.trim()) {
-                      updateProfile(tempDisplayName.trim(), tempPhotoURL);
+              ) : (
+                <div className="space-y-4 mb-6">
+                  {isGoogleUserWithoutPassword && (
+                    <div className="p-3 bg-yellow-500/10 border border-yellow-500/20 rounded-xl mb-4">
+                      <p className="text-xs text-yellow-600 font-medium">
+                        Estamos atualizando a segurança do site e melhorando os sistemas. Defina sua senha agora!
+                      </p>
+                    </div>
+                  )}
+
+                  {!securityOtpStep ? (
+                    <>
+                      <div>
+                        <label className="block text-sm font-medium text-[var(--text-muted)] mb-1">Nova Senha</label>
+                        <input 
+                          type="password"
+                          value={newPassword}
+                          onChange={(e) => setNewPassword(e.target.value)}
+                          placeholder="Mínimo 6 caracteres"
+                          className="w-full bg-[var(--bg-input)] border border-[var(--border-strong)] rounded-xl px-4 py-3 text-[var(--text-base)] focus:outline-none focus:border-[var(--color-sec)] transition-colors"
+                        />
+                        {newPassword && (
+                          <div className="mt-2 flex items-center gap-2">
+                            <div className="flex-1 h-1.5 bg-[var(--bg-surface)] rounded-full overflow-hidden">
+                              <div 
+                                className={`h-full transition-all duration-300 ${(() => {
+                                  const pass = newPassword;
+                                  if (pass.length < 6) return 'bg-red-500 w-1/3';
+                                  const hasLetters = /[a-zA-Z]/.test(pass);
+                                  const hasNumbers = /[0-9]/.test(pass);
+                                  const hasSpecial = /[^a-zA-Z0-9]/.test(pass);
+                                  if (hasLetters && hasNumbers && hasSpecial && pass.length >= 8) return 'bg-green-500 w-full';
+                                  if (hasLetters && hasNumbers) return 'bg-yellow-500 w-2/3';
+                                  return 'bg-red-500 w-1/3';
+                                })()}`}
+                              ></div>
+                            </div>
+                            <span className="text-[10px] uppercase font-bold text-[var(--text-muted)]">
+                              {(() => {
+                                const pass = newPassword;
+                                if (pass.length < 6) return 'Fraca';
+                                const hasLetters = /[a-zA-Z]/.test(pass);
+                                const hasNumbers = /[0-9]/.test(pass);
+                                const hasSpecial = /[^a-zA-Z0-9]/.test(pass);
+                                if (hasLetters && hasNumbers && hasSpecial && pass.length >= 8) return 'Forte';
+                                if (hasLetters && hasNumbers) return 'Média';
+                                return 'Fraca';
+                              })()}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-[var(--text-muted)] mb-1">Confirmar Senha</label>
+                        <input 
+                          type="password"
+                          value={confirmNewPassword}
+                          onChange={(e) => setConfirmNewPassword(e.target.value)}
+                          placeholder="Confirmar sua nova senha"
+                          className="w-full bg-[var(--bg-input)] border border-[var(--border-strong)] rounded-xl px-4 py-3 text-[var(--text-base)] focus:outline-none focus:border-[var(--color-sec)] transition-colors"
+                        />
+                      </div>
+                    </>
+                  ) : (
+                    <div className="text-center py-4">
+                      <ShieldCheck className="w-12 h-12 text-[var(--color-sec)] mx-auto mb-4" />
+                      <p className="text-sm text-[var(--text-base)] mb-4">
+                        Um código de verificação foi enviado para seu e-mail para validar a nova senha.
+                      </p>
+                      <button 
+                        onClick={() => {
+                          setSecurityOtpStep(false);
+                          setAuthModalStep('create_google_password');
+                          setAuthModalPassword(newPassword);
+                          setIsAuthModalOpen(true);
+                          setIsUserSettingsOpen(false);
+                        }}
+                        className="w-full py-3 bg-[var(--color-sec)] text-white rounded-xl font-bold shadow-lg hover:opacity-90 transition-opacity"
+                      >
+                        Abrir Verificador de Código
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+              
+              {!securityOtpStep && (
+                <div className="flex justify-end gap-3">
+                  <button 
+                    onClick={() => {
                       setIsUserSettingsOpen(false);
-                    }
-                  }}
-                  disabled={!tempDisplayName.trim()}
-                  className="px-6 py-2 bg-[var(--color-sec)] text-white rounded-xl hover:opacity-90 transition-opacity font-medium disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  Salvar
-                </button>
-              </div>
+                    }}
+                    className="px-4 py-2 rounded-xl text-[var(--text-muted)] hover:bg-[var(--bg-surface)] transition-colors text-sm"
+                  >
+                    Fechar
+                  </button>
+                  {activeSettingsTab === 'profile' ? (
+                    <button 
+                      onClick={() => {
+                        if (tempDisplayName.trim()) {
+                          updateProfile(tempDisplayName.trim(), tempPhotoURL);
+                          setIsUserSettingsOpen(false);
+                        }
+                      }}
+                      disabled={!tempDisplayName.trim()}
+                      className="px-6 py-2 bg-[var(--color-sec)] text-white rounded-xl hover:opacity-90 transition-opacity font-medium disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+                    >
+                      Salvar Perfil
+                    </button>
+                  ) : (
+                    <button 
+                      onClick={() => {
+                        if (newPassword.length >= 6 && newPassword === confirmNewPassword) {
+                          setSecurityOtpStep(true);
+                        } else if (newPassword !== confirmNewPassword) {
+                          setErrorToast('As senhas não coincidem');
+                          setToastType('error');
+                        } else {
+                          setErrorToast('Senha muito curta');
+                          setToastType('error');
+                        }
+                      }}
+                      disabled={!newPassword || !confirmNewPassword}
+                      className="px-6 py-2 bg-[var(--color-sec)] text-white rounded-xl hover:opacity-90 transition-opacity font-medium disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+                    >
+                      Continuar
+                    </button>
+                  )}
+                </div>
+              )}
             </motion.div>
           </motion.div>
         )}

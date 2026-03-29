@@ -4,15 +4,18 @@ import { X, Mail, Lock, User, ArrowLeft, Eye, EyeOff, ShieldCheck, RefreshCw } f
 import { auth, signInWithGoogle, db } from '../firebase';
 import { fetchSignInMethodsForEmail, signInWithEmailAndPassword, createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
 import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
+import { SpotifySuccess } from './SpotifySuccess';
 
 interface AuthModalProps {
   isOpen: boolean;
   onClose: () => void;
+  initialStep?: 'email' | 'password' | 'signup' | 'otp' | 'create_google_password';
+  initialPassword?: string;
 }
 
 type AuthStep = 'email' | 'password' | 'signup' | 'otp' | 'create_google_password';
 
-export function AuthModal({ isOpen, onClose }: AuthModalProps) {
+export function AuthModal({ isOpen, onClose, initialStep, initialPassword }: AuthModalProps) {
   const [step, setStep] = useState<AuthStep>('email');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -27,7 +30,8 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
   const [otpInputs, setOtpInputs] = useState(['', '', '', '']);
   const [generatedOtp, setGeneratedOtp] = useState('');
   const [otpCooldown, setOtpCooldown] = useState(0);
-  const [otpAction, setOtpAction] = useState<{type: 'login' | 'signup'} | null>(null);
+  const [otpAction, setOtpAction] = useState<{type: 'login' | 'signup' | 'google_link'} | null>(null);
+  const [isSuccess, setIsSuccess] = useState(false);
 
   const getPasswordStrength = (pass: string) => {
     if (pass.length === 0) return { label: '', color: 'bg-transparent' };
@@ -53,17 +57,25 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
 
   React.useEffect(() => {
     if (isOpen) {
-      setStep('email');
-      setPassword('');
-      setConfirmPassword('');
+      setStep(initialStep || 'email');
+      setEmail(auth.currentUser?.email || '');
+      setPassword(initialPassword || '');
+      setConfirmPassword(initialPassword || '');
       setShowPassword(false);
-      setName('');
+      setName(auth.currentUser?.displayName || '');
       setError('');
       setShowWeakWarning(false);
       setOtpInputs(['', '', '', '']);
       setOtpCooldown(0);
+      setIsSuccess(false);
+
+      if (initialStep === 'create_google_password' && auth.currentUser) {
+        // Se estamos vindo das configurações com um passo inicial, 
+        // podemos querer disparar o envio de OTP imediatamente.
+        // O usuário definirá a senha na tela 'create_google_password' e iniciará o OTP lá.
+      }
     }
-  }, [isOpen]);
+  }, [isOpen, initialStep, initialPassword]);
 
   React.useEffect(() => {
     if (otpCooldown > 0) {
@@ -282,24 +294,17 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
           await updateProfile(userCredential.user, { displayName: name });
         } else if (otpAction?.type === 'google_link') {
           if (auth.currentUser) {
-            const EmailAuthProvider = (await import('firebase/auth')).EmailAuthProvider;
-            const linkWithCredential = (await import('firebase/auth')).linkWithCredential;
-            try {
-              const credential = EmailAuthProvider.credential(auth.currentUser.email || email, password);
-              await linkWithCredential(auth.currentUser, credential);
-            } catch (e: any) {
-              if (e.code === 'auth/credential-already-in-use') {
-                // already fully linked, proceed
-              } else {
-                throw e;
-              }
-            }
+            const updatePasswordContent = (await import('firebase/auth')).updatePassword;
+            await updatePasswordContent(auth.currentUser, password);
           }
         }
-        onClose();
+        setIsSuccess(true);
+        setTimeout(() => {
+          onClose();
+        }, 2000);
       } catch(err: any) {
+        console.error('OTP Verification Error:', err);
         setError('Falha de sistema interno. Tente novamente mais tarde.');
-      } finally {
         setIsLoading(false);
       }
     } else {
@@ -662,38 +667,46 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
                 </div>
                 
                 <div className="flex items-center justify-center gap-3 my-4">
-                  {[0, 1, 2, 3].map((index) => (
-                    <input
-                      key={index}
-                      id={`otp-${index}`}
-                      type="text"
-                      inputMode="numeric"
-                      maxLength={1}
-                      value={otpInputs[index]}
-                      onChange={(e) => handleOtpChange(index, e.target.value)}
-                      onKeyDown={(e) => handleOtpKeyDown(index, e)}
-                      autoFocus={index === 0}
-                      disabled={isLoading}
-                      className="w-14 h-16 text-center text-2xl font-black bg-[var(--bg-input)] text-[var(--text-base)] border border-[var(--border-subtle)] rounded-2xl focus:outline-none focus:border-[var(--color-sec)] focus:ring-2 focus:ring-[var(--color-sec)]/20 transition-all disabled:opacity-50"
-                    />
-                  ))}
+                  {isSuccess ? (
+                    <div className="flex flex-col items-center justify-center p-4 min-h-[100px]">
+                      <SpotifySuccess />
+                    </div>
+                  ) : (
+                    [0, 1, 2, 3].map((index) => (
+                      <input
+                        key={index}
+                        id={`otp-${index}`}
+                        type="text"
+                        inputMode="numeric"
+                        maxLength={1}
+                        value={otpInputs[index]}
+                        onChange={(e) => handleOtpChange(index, e.target.value)}
+                        onKeyDown={(e) => handleOtpKeyDown(index, e)}
+                        autoFocus={index === 0}
+                        disabled={isLoading}
+                        className="w-14 h-16 text-center text-2xl font-black bg-[var(--bg-input)] text-[var(--text-base)] border border-[var(--border-subtle)] rounded-2xl focus:outline-none focus:border-[var(--color-sec)] focus:ring-2 focus:ring-[var(--color-sec)]/20 transition-all disabled:opacity-50"
+                      />
+                    ))
+                  )}
                 </div>
 
-                {isLoading && (
+                {isLoading && !isSuccess && (
                   <div className="flex items-center justify-center gap-2 text-[var(--color-sec)] font-medium">
                     <RefreshCw className="w-5 h-5 animate-spin" /> Verificando...
                   </div>
                 )}
 
-                <div className="pt-4 border-t border-[var(--border-subtle)] w-full text-center">
-                  <button
-                    onClick={() => startOtpFlow(otpAction!)}
-                    disabled={otpCooldown > 0 || isLoading}
-                    className="text-sm font-medium text-[var(--color-sec)] hover:underline disabled:opacity-50 disabled:hover:no-underline disabled:cursor-not-allowed"
-                  >
-                    {otpCooldown > 0 ? `Aguarde ${otpCooldown}s para reenviar` : 'Não recebi o código / Reenviar'}
-                  </button>
-                </div>
+                {!isSuccess && (
+                  <div className="pt-4 border-t border-[var(--border-subtle)] w-full text-center">
+                    <button
+                      onClick={() => startOtpFlow(otpAction!)}
+                      disabled={otpCooldown > 0 || isLoading}
+                      className="text-sm font-medium text-[var(--color-sec)] hover:underline disabled:opacity-50 disabled:hover:no-underline disabled:cursor-not-allowed"
+                    >
+                      {otpCooldown > 0 ? `Aguarde ${otpCooldown}s para reenviar` : 'Não recebi o código / Reenviar'}
+                    </button>
+                  </div>
+                )}
               </div>
             )}
           </div>
