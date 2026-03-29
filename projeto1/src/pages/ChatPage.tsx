@@ -2152,13 +2152,36 @@ export default function ChatPage() {
               initial={{ opacity: 0, y: -50 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -50 }}
-              onClick={() => setErrorToast(null)}
-              className={`fixed top-4 left-1/2 -translate-x-1/2 z-[100] ${toastType === 'success' ? 'bg-green-500' : 'bg-red-500'} text-white px-6 py-3 rounded-full font-bold shadow-lg flex items-center gap-2 cursor-pointer group`}
+              className="fixed top-4 left-1/2 -translate-x-1/2 z-[100] flex flex-col gap-2 w-72 sm:w-[350px] text-[10px] sm:text-xs"
             >
-              {toastType === 'success' ? <Check className="w-5 h-5" /> : <div className="w-5 h-5 bg-white text-red-500 rounded-full flex items-center justify-center"><X className="w-4 h-4" /></div>}
-              {errorToast}
-              <div className="ml-2 opacity-0 group-hover:opacity-100 transition-opacity bg-black/20 rounded-full p-1">
-                <X className="w-4 h-4" />
+              <div
+                className="error-alert flex items-center justify-between w-full h-auto min-h-[56px] py-2 px-3 rounded-xl bg-[#232531] shadow-2xl border border-white/5"
+              >
+                <div className="flex gap-3 items-center w-full">
+                  <div className={`p-1.5 rounded-lg bg-white/5 backdrop-blur-xl flex-shrink-0 ${toastType === 'success' ? 'text-green-500' : 'text-[#d65563]'}`}>
+                    {toastType === 'success' ? (
+                      <Check className="w-6 h-6" />
+                    ) : (
+                      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" className="w-6 h-6">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 3.75h.008v.008H12v-.008Z" />
+                      </svg>
+                    )}
+                  </div>
+                  <div className="flex flex-col text-left overflow-hidden">
+                    <p className="text-white font-medium text-sm">
+                      {toastType === 'success' ? 'Sucesso' : 'Algo deu errado'}
+                    </p>
+                    <p className="text-gray-400 text-xs break-words">
+                      {errorToast}
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setErrorToast(null)}
+                  className="text-gray-500 hover:text-white hover:bg-white/10 p-1.5 rounded-lg transition-colors ml-2 flex-shrink-0"
+                >
+                  <X className="w-5 h-5" />
+                </button>
               </div>
             </motion.div>
           )}
@@ -3502,46 +3525,72 @@ export default function ChatPage() {
       <AnimatePresence>
         {unlockedFeature && (
           <motion.div 
-            initial={{ opacity: 0, scale: 0.8, y: 50 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.8, y: -50 }}
-            className="fixed top-20 left-1/2 -translate-x-1/2 z-[200] bg-[var(--bg-panel)] border-2 border-orange-500 rounded-2xl p-6 shadow-2xl flex flex-col items-center text-center max-w-sm"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[200] flex items-center justify-center bg-black/80 backdrop-blur-md"
           >
-            <button 
-              onClick={() => {
-                if (unlockedFeature) {
-                  markFeatureAsSeen(unlockedFeature.name);
-                }
-                setUnlockedFeature(null);
-              }}
-              className="absolute top-3 right-3 p-1.5 text-[var(--text-muted)] hover:text-[var(--text-base)] hover:bg-[var(--bg-surface)] rounded-full transition-colors"
-            >
-              <X className="w-5 h-5" />
-            </button>
             <motion.div 
-              animate={{ rotate: [0, -10, 10, -10, 10, 0], scale: [1, 1.2, 1] }}
-              transition={{ duration: 1, repeat: Infinity, repeatDelay: 1 }}
+              initial={{ scale: 0.95, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.95, opacity: 0, y: 20 }}
+              className="bg-[var(--bg-panel)] rounded-3xl border border-[var(--border-strong)] w-full max-w-sm shadow-[0_0_40px_rgba(249,115,22,0.1)] flex flex-col overflow-hidden p-8 relative"
             >
-              <Flame className="w-16 h-16 text-orange-500 fill-orange-500 mb-4" />
+              <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full h-32 bg-orange-500/10 blur-[40px] pointer-events-none" />
+
+              <button 
+                onClick={() => {
+                  if (unlockedFeature) {
+                    markFeatureAsSeen(unlockedFeature.name);
+                  }
+                  setUnlockedFeature(null);
+                }}
+                className="absolute top-4 right-4 p-2 text-[var(--text-muted)] hover:text-[var(--text-base)] hover:bg-[var(--bg-surface)] rounded-full transition-colors z-10"
+              >
+                <X className="w-5 h-5" />
+              </button>
+              
+              <div className="flex flex-col items-center text-center relative z-10">
+                <motion.div 
+                  animate={{ 
+                    rotate: [0, -5, 5, -5, 5, 0],
+                    scale: [1, 1.1, 1] 
+                  }}
+                  transition={{ 
+                    duration: 3, 
+                    repeat: Infinity, 
+                    ease: "easeInOut"
+                  }}
+                  className="w-20 h-20 rounded-full bg-gradient-to-br from-orange-400/20 to-red-600/20 border border-orange-500/30 flex items-center justify-center mb-6 shadow-[0_0_20px_rgba(249,115,22,0.2)]"
+                >
+                  <Flame className="w-10 h-10 text-orange-500 fill-orange-500 drop-shadow-[0_0_10px_rgba(249,115,22,0.5)]" />
+                </motion.div>
+                
+                <h3 className="text-2xl font-bold mb-2 tracking-tight">Recurso Desbloqueado!</h3>
+                <p className="text-[var(--text-muted)] mb-6 text-sm leading-relaxed">
+                  Parabéns! Você manteve sua ofensiva por <span className="text-orange-500 font-bold">{unlockedFeature.days} dias</span> seguidos.
+                </p>
+                
+                <div className="w-full bg-[var(--bg-surface)] border border-[var(--border-subtle)] rounded-2xl p-4 mb-8">
+                  <span className="block text-xs text-[var(--text-muted)] font-medium mb-1 uppercase tracking-wider">Nova Recompensa</span>
+                  <span className="block text-lg font-bold text-orange-500 dark:text-orange-400">
+                    {unlockedFeature.name}
+                  </span>
+                </div>
+                
+                <button 
+                  onClick={() => {
+                    if (unlockedFeature) {
+                      markFeatureAsSeen(unlockedFeature.name);
+                    }
+                    setUnlockedFeature(null);
+                  }}
+                  className="w-full py-3.5 bg-gradient-to-r from-orange-500 to-red-500 text-white rounded-xl font-semibold shadow-lg shadow-orange-500/20 hover:shadow-orange-500/40 hover:scale-[1.02] transition-all active:scale-95"
+                >
+                  Continuar
+                </button>
+              </div>
             </motion.div>
-            <h3 className="text-2xl font-bold text-[var(--text-base)] mb-2">Novo Recurso Desbloqueado!</h3>
-            <p className="text-[var(--text-muted)] mb-4">
-              Você atingiu uma sequência de <span className="text-orange-500 font-bold">{unlockedFeature.days} dias</span>.
-            </p>
-            <div className="bg-orange-500/10 text-orange-500 px-4 py-2 rounded-xl font-bold mb-6">
-              {unlockedFeature.name}
-            </div>
-            <button 
-              onClick={() => {
-                if (unlockedFeature) {
-                  markFeatureAsSeen(unlockedFeature.name);
-                }
-                setUnlockedFeature(null);
-              }}
-              className="w-full py-3 bg-orange-500 text-white rounded-xl font-bold hover:bg-orange-600 transition-colors"
-            >
-              Entendi
-            </button>
           </motion.div>
         )}
       </AnimatePresence>
