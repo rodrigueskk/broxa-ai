@@ -1457,16 +1457,18 @@ export default function ChatPage() {
 
   useEffect(() => {
     const handleGlobalMouseDown = (e: MouseEvent) => {
-      if (isHighlightMode) {
+      if (isHighlightMode || isEraserMode) {
         const target = e.target as HTMLElement;
         if (!target.closest('.ai-message-canvas') && !target.closest('.highlighter-tools')) {
-          showError('Você só pode grifar as respostas da IA!');
+          showError('Você só pode grifar as respostas da IA!', 'error');
+          setIsHighlightMode(false);
+          setIsEraserMode(false);
         }
       }
     };
     window.addEventListener('mousedown', handleGlobalMouseDown);
     return () => window.removeEventListener('mousedown', handleGlobalMouseDown);
-  }, [isHighlightMode]);
+  }, [isHighlightMode, isEraserMode]);
 
   useEffect(() => {
     const checkMemory = () => {
@@ -1499,14 +1501,20 @@ export default function ChatPage() {
 
   useEffect(() => {
     const handleSelection = () => {
-      const selection = window.getSelection();
-      if (selection && selection.toString().trim().length > 0) {
-        const range = selection.getRangeAt(0);
-        const rect = range.getBoundingClientRect();
-        
-        // Only show if selection is inside a message content
-        let isInsideMessage = false;
-        let node: Node | null = selection.anchorNode;
+      setTimeout(() => {
+        const selection = window.getSelection();
+        if (selection && selection.rangeCount > 0 && !selection.isCollapsed && selection.toString().trim().length > 0) {
+          const range = selection.getRangeAt(0);
+          const rect = range.getBoundingClientRect();
+          
+          if (rect.width === 0 && rect.height === 0) {
+            setTextSelection(null);
+            return;
+          }
+
+          // Only show if selection is inside a message content
+          let isInsideMessage = false;
+          let node: Node | null = selection.anchorNode;
         while (node) {
           if (node instanceof HTMLElement && node.classList.contains('message-content')) {
             isInsideMessage = true;
@@ -1529,6 +1537,7 @@ export default function ChatPage() {
       } else {
         setTextSelection(null);
       }
+      }, 50);
     };
 
     document.addEventListener('mouseup', handleSelection);
@@ -2057,7 +2066,7 @@ export default function ChatPage() {
               onClick={() => setErrorToast(null)}
               className={`fixed top-4 left-1/2 -translate-x-1/2 z-[100] ${toastType === 'success' ? 'bg-green-500' : 'bg-red-500'} text-white px-6 py-3 rounded-full font-bold shadow-lg flex items-center gap-2 cursor-pointer group`}
             >
-              {toastType === 'success' ? <Check className="w-5 h-5" /> : <AlertTriangle className="w-5 h-5" />}
+              {toastType === 'success' ? <Check className="w-5 h-5" /> : <div className="w-5 h-5 bg-white text-red-500 rounded-full flex items-center justify-center"><X className="w-4 h-4" /></div>}
               {errorToast}
               <div className="ml-2 opacity-0 group-hover:opacity-100 transition-opacity bg-black/20 rounded-full p-1">
                 <X className="w-4 h-4" />
@@ -3717,19 +3726,14 @@ export default function ChatPage() {
               </div>
             ) : (
               <>
-                <div className={`md:hidden flex items-center gap-2 text-[var(--text-base)] font-bold ${settings.enableEffects ? 'broxa-title' : ''}`}>
-                  <Logo className="w-6 h-6 text-[var(--color-sec)]" />
-                  {settings.customTitleFont || 'BROXA AI'}
-                </div>
-                
-                <div className="flex items-center">
-                  <div className="relative">
+                <div className="flex items-center w-full max-w-full overflow-hidden">
+                  <div className="relative w-full max-w-[90%] md:max-w-none">
                     <button 
                       onClick={() => setIsModelDropdownOpen(!isModelDropdownOpen)}
-                      className="flex items-center gap-2 text-[var(--text-base)] font-bold text-base md:text-lg hover:bg-[var(--bg-surface)] px-3 py-2 rounded-xl transition-colors"
+                      className="flex items-center gap-2 text-[var(--text-base)] font-bold text-base md:text-lg hover:bg-[var(--bg-surface)] px-3 py-2 rounded-xl transition-colors truncate w-full"
                     >
                       BROXA {aiModels?.find(m => m.key === selectedModel)?.name || (selectedModel === 'thinking' ? '1.1 Thinking' : selectedModel === 'fast' ? '1.1 Fast' : selectedModel === 'search' ? '0.8 Search' : '0.5 A.S')}
-                      <ChevronDown className="w-5 h-5 text-[var(--text-muted)]" />
+                      <ChevronDown className="w-5 h-5 text-[var(--text-muted)] shrink-0" />
                     </button>
 
                     <AnimatePresence>

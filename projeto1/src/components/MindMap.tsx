@@ -100,6 +100,7 @@ export const MindMap: React.FC<MindMapProps> = ({ data, onFeedbackRequest }) => 
     const savedTheme = localStorage.getItem('mindmap-theme');
     return (savedTheme === 'brain' || savedTheme === 'tree') ? savedTheme : 'tree';
   });
+  const [customColor, setCustomColor] = useState<string>('');
 
   useEffect(() => {
     localStorage.setItem('mindmap-theme', theme);
@@ -283,6 +284,19 @@ export const MindMap: React.FC<MindMapProps> = ({ data, onFeedbackRequest }) => 
         <span className="hidden sm:inline">Tema</span>
       </button>
 
+      <div className="relative group flex">
+        <button className="p-2 bg-[var(--bg-surface)] text-[var(--text-muted)] group-hover:text-[var(--text-base)] border border-[var(--border-strong)] rounded-lg group-hover:bg-[var(--border-subtle)] transition-colors shadow-sm flex items-center gap-1 text-sm" title="Mudar cores da ramificação">
+          <div className="w-4 h-4 rounded-full border border-[var(--border-strong)]" style={{ backgroundColor: customColor || 'var(--color-sec)' }} />
+          <span className="hidden sm:inline">Cor</span>
+        </button>
+        <input
+          type="color"
+          value={customColor || '#8b5cf6'}
+          onChange={(e) => setCustomColor(e.target.value)}
+          className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
+        />
+      </div>
+
       <button
         onClick={handleDownloadPDF}
         className="p-2 bg-[var(--bg-surface)] text-[var(--text-muted)] hover:text-[var(--text-base)] border border-[var(--border-strong)] rounded-lg hover:bg-[var(--border-subtle)] transition-colors shadow-sm flex items-center gap-1 text-sm"
@@ -344,6 +358,12 @@ export const MindMap: React.FC<MindMapProps> = ({ data, onFeedbackRequest }) => 
       <div
         ref={mapRef}
         className={`min-w-max flex justify-center mindmap-${theme} ${isFullscreen ? 'flex-1 items-center mt-16' : ''} p-8 transition-all duration-500`}
+        style={customColor ? {
+          '--color-sec': customColor,
+          '--border-strong': customColor,
+          '--text-base': customColor,
+          '--text-muted': customColor
+        } as React.CSSProperties : undefined}
       >
         <ul>
           <Node node={currentData} isEditing={isEditing} onUpdate={handleNodeUpdate} theme={theme} />
