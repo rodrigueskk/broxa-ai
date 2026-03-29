@@ -2,7 +2,7 @@ import React, { useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { X, Mail, Lock, User, ArrowLeft, Eye, EyeOff, ShieldCheck, RefreshCw } from 'lucide-react';
 import { auth, signInWithGoogle, db } from '../firebase';
-import { fetchSignInMethodsForEmail, signInWithEmailAndPassword, createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
+import { fetchSignInMethodsForEmail, signInWithEmailAndPassword, createUserWithEmailAndPassword, updateProfile, EmailAuthProvider, linkWithCredential } from 'firebase/auth';
 import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
 import { SpotifySuccess } from './SpotifySuccess';
 
@@ -57,10 +57,18 @@ export function AuthModal({ isOpen, onClose, initialStep, initialPassword }: Aut
 
   React.useEffect(() => {
     if (isOpen) {
-      setStep(initialStep || 'email');
-      setEmail(initialStep === 'create_google_password' && auth.currentUser?.email ? auth.currentUser.email : '');
-      setPassword(initialPassword || '');
-      setConfirmPassword(initialPassword || '');
+      const step = initialStep || 'email';
+      setStep(step);
+      
+      const currentEmail = initialStep === 'create_google_password' && auth.currentUser?.email 
+        ? auth.currentUser.email 
+        : '';
+      setEmail(currentEmail);
+      
+      const initialPass = initialPassword || '';
+      setPassword(initialPass);
+      setConfirmPassword(initialPass);
+      
       setShowPassword(false);
       setName(auth.currentUser?.displayName || '');
       setError('');
@@ -69,6 +77,14 @@ export function AuthModal({ isOpen, onClose, initialStep, initialPassword }: Aut
       setOtpInputs(['', '', '', '']);
       setOtpCooldown(0);
       setIsSuccess(false);
+
+      // Auto-start OTP when coming from settings
+      if (initialStep === 'create_google_password' && initialPass && currentEmail && auth.currentUser) {
+        // Simple artificial delay to ensure everything is set
+        setTimeout(() => {
+          startOtpFlow({ type: 'google_link' });
+        }, 300);
+      }
     }
   }, [isOpen, initialStep, initialPassword]);
 
@@ -300,8 +316,8 @@ export function AuthModal({ isOpen, onClose, initialStep, initialPassword }: Aut
           await updateProfile(userCredential.user, { displayName: name });
         } else if (otpAction?.type === 'google_link') {
           if (auth.currentUser) {
-            const updatePasswordContent = (await import('firebase/auth')).updatePassword;
-            await updatePasswordContent(auth.currentUser, password);
+            const credential = EmailAuthProvider.credential(email, password);
+            await linkWithCredential(auth.currentUser, credential);
           }
         }
         setIsSuccess(true);
@@ -310,7 +326,13 @@ export function AuthModal({ isOpen, onClose, initialStep, initialPassword }: Aut
         }, 2000);
       } catch(err: any) {
         console.error('OTP Verification Error:', err);
-        setError('Falha de sistema interno. Tente novamente mais tarde.');
+        if (err.code === 'auth/credential-already-in-use') {
+          setError('Este e-mail já está vinculado a outra conta.');
+        } else if (err.code === 'auth/requires-recent-login') {
+          setError('Sessão expirada. Faça login novamente para vincular a senha.');
+        } else {
+          setError(`Erro: ${err.message || 'Falha de sistema interno'}`);
+        }
         setIsLoading(false);
       }
     } else {

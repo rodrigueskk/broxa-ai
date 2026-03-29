@@ -1084,6 +1084,14 @@ export default function ChatPage() {
   const [tempDisplayName, setTempDisplayName] = useState('');
   const [tempPhotoURL, setTempPhotoURL] = useState('');
   const [activeSettingsTab, setActiveSettingsTab] = useState<'profile' | 'security'>('profile');
+  const [currentUser, setCurrentUser] = useState(auth.currentUser);
+  
+  useEffect(() => {
+    const unsubscribe = auth.onAuthStateChanged((user) => {
+      setCurrentUser(user);
+    });
+    return () => unsubscribe();
+  }, []);
   
   // Security Banner & Warning States
   const [isSecurityBannerDismissed, setIsSecurityBannerDismissed] = useState(() => {
@@ -1107,11 +1115,11 @@ export default function ChatPage() {
   const [securityOtpStep, setSecurityOtpStep] = useState(false);
 
   const isGoogleUserWithoutPassword = useMemo(() => {
-    if (!auth.currentUser) return false;
-    const hasGoogle = auth.currentUser.providerData.some(p => p.providerId === 'google.com');
-    const hasPassword = auth.currentUser.providerData.some(p => p.providerId === 'password');
+    if (!currentUser) return false;
+    const hasGoogle = currentUser.providerData.some(p => p.providerId === 'google.com');
+    const hasPassword = currentUser.providerData.some(p => p.providerId === 'password');
     return hasGoogle && !hasPassword;
-  }, [auth.currentUser]);
+  }, [currentUser]);
 
   useEffect(() => {
     if (isUserSettingsOpen && isGoogleUserWithoutPassword) {
@@ -4920,19 +4928,24 @@ export default function ChatPage() {
                     <button 
                       onClick={() => {
                         if (newPassword.length >= 6 && newPassword === confirmNewPassword) {
-                          setSecurityOtpStep(true);
-                        } else if (newPassword !== confirmNewPassword) {
-                          setErrorToast('As senhas não coincidem');
+                          setAuthModalStep('create_google_password');
+                          setAuthModalPassword(newPassword);
+                          setIsAuthModalOpen(true);
+                          setIsUserSettingsOpen(false);
+                          setNewPassword('');
+                          setConfirmNewPassword('');
+                        } else if (newPassword.length < 6) {
+                          setErrorToast('A senha deve ter pelo menos 6 caracteres.');
                           setToastType('error');
-                        } else {
-                          setErrorToast('Senha muito curta');
+                        } else if (newPassword !== confirmNewPassword) {
+                          setErrorToast('As senhas não coincidem.');
                           setToastType('error');
                         }
                       }}
                       disabled={!newPassword || !confirmNewPassword}
                       className="px-6 py-2 bg-[var(--color-sec)] text-white rounded-xl hover:opacity-90 transition-opacity font-medium disabled:opacity-50 disabled:cursor-not-allowed text-sm"
                     >
-                      Continuar
+                      Continuar e Enviar Código
                     </button>
                   )}
                 </div>
