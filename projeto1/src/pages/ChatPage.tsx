@@ -1434,8 +1434,45 @@ export default function ChatPage() {
   }, [isSettingsOpen, settings]);
 
   useEffect(() => {
+    let interval: any;
+    
+    const checkUpdate = async () => {
+      if (isOutdated) return;
+      try {
+        const res = await fetch('/?t=' + Date.now(), { cache: 'no-store' });
+        const text = await res.text();
+        const match = text.match(/<script[^>]+src="([^"]*\/assets\/index-[^"]+\.js)"/);
+        
+        if (match) {
+          const fetchedScriptSrc = match[1].split('/').pop(); 
+          if (!fetchedScriptSrc) return;
+          
+          const currentScripts = Array.from(document.scripts).map(s => s.getAttribute('src') || '');
+          const hasIndexScript = currentScripts.some(s => s.includes('/assets/index-'));
+          
+          if (hasIndexScript && !currentScripts.some(s => s.endsWith('/' + fetchedScriptSrc))) {
+            setIsOutdated(true);
+          }
+        }
+      } catch (e) {
+        // Ignorar em caso de erro de rede
+      }
+    };
+
+    // Delay initial check to not block initial render
+    const timeout = setTimeout(checkUpdate, 5000);
+    interval = setInterval(checkUpdate, 1000 * 60 * 3); // Verificar a cada 3 minutos
+    window.addEventListener('focus', checkUpdate);
+
+    // Permitir testar manualmente
     (window as any).testOutdated = () => setIsOutdated(true);
-  }, []);
+
+    return () => {
+      clearTimeout(timeout);
+      clearInterval(interval);
+      window.removeEventListener('focus', checkUpdate);
+    };
+  }, [isOutdated]);
 
   const handleAddStrokeToStack = (messageId: string, stroke: any) => {
     setUndoStack(prev => [...prev, { messageId, stroke }]);
@@ -4092,19 +4129,20 @@ export default function ChatPage() {
               )
             ) : !currentSession?.messages.length ? (
               <motion.div 
-                initial={{ opacity: 0, y: 20 }}
+                initial={{ opacity: 0, y: 15 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="h-full flex flex-col items-center justify-center text-center px-4 mt-32"
+                transition={{ duration: 0.6, ease: "easeOut" }}
+                className="h-full flex flex-col items-center justify-center text-center px-4 mt-16 md:mt-32"
               >
-                <h1 className="text-4xl md:text-5xl claude-font text-[var(--text-base)] mb-4 tracking-tight leading-loose">
+                <h1 className="text-4xl md:text-5xl claude-font text-[var(--text-base)] mb-3 tracking-tight" style={{ fontWeight: 400 }}>
                   {(() => {
                     const hour = new Date().getHours();
-                    const greeting = hour < 12 ? 'Bom dia' : hour < 18 ? 'Boa tarde' : 'Boa noite';
+                    const greeting = hour >= 0 && hour < 5 ? 'Boa madrugada' : hour < 12 ? 'Bom dia' : hour < 18 ? 'Boa tarde' : 'Boa noite';
                     const name = displayName?.split(' ')[0] || auth.currentUser?.displayName?.split(' ')[0] || 'visitante';
                     return `${greeting}, ${name}`;
                   })()}
                 </h1>
-                <h2 className="text-2xl md:text-3xl claude-font text-[var(--text-muted)] font-normal tracking-tight">
+                <h2 className="text-4xl md:text-5xl claude-font text-[var(--text-muted)] tracking-tight opacity-75" style={{ fontWeight: 400 }}>
                   Como posso ajudar?
                 </h2>
               </motion.div>
