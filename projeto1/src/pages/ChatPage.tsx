@@ -211,7 +211,10 @@ const MessageItem = React.memo(({ msg, sessionId, settings, isHighlightMode, isE
       <div 
         ref={containerRef}
         className={`relative max-w-[90%] md:max-w-[75%] rounded-3xl px-4 py-3 md:px-6 md:py-4 shadow-sm group ${msg.role === 'user' ? 'rounded-tr-sm border border-[var(--border-subtle)]' : 'bg-transparent text-[var(--text-base)]'}`}
-        style={msg.role === 'user' ? { backgroundColor: settings.userMessageColor && settings.userMessageColor !== '#ffffff' ? settings.userMessageColor : 'var(--bg-surface)', color: settings.userMessageColor && settings.userMessageColor !== '#ffffff' ? '#ffffff' : 'var(--text-base)' } : {}}
+        style={msg.role === 'user' ? { 
+          backgroundColor: settings.userMessageColor === '#000000' ? '#000000' : '#ffffff', 
+          color: settings.userMessageColor === '#000000' ? '#ffffff' : '#000000' 
+        } : {}}
       >
         {msg.role === 'ai' && (
           <canvas
@@ -581,12 +584,15 @@ const GroupMessageItem = React.memo(({ msg, settings, isCurrentUser, onFeedbackR
         <div 
           className={`p-4 rounded-2xl w-full ${
             isCurrentUser 
-              ? 'rounded-tr-sm' 
+              ? 'rounded-tr-sm border border-[var(--border-subtle)]' 
               : msg.senderId === 'ai'
                 ? 'bg-[var(--bg-surface)] border border-[var(--border-strong)] rounded-tl-sm text-[var(--text-base)]'
                 : 'bg-[var(--bg-input)] border border-[var(--border-strong)] rounded-tl-sm text-[var(--text-base)]'
           }`}
-          style={isCurrentUser ? { backgroundColor: settings.userMessageColor && settings.userMessageColor !== '#ffffff' ? settings.userMessageColor : 'var(--color-sec)', color: '#ffffff' } : {}}
+          style={isCurrentUser ? { 
+            backgroundColor: settings.userMessageColor === '#000000' ? '#000000' : '#ffffff', 
+            color: settings.userMessageColor === '#000000' ? '#ffffff' : '#000000' 
+          } : {}}
         >
           {msg.imageUrls && msg.imageUrls.length > 0 && (
             <div className="flex flex-wrap gap-2 mb-3">
@@ -2269,6 +2275,64 @@ export default function ChatPage() {
       </AnimatePresence>
 
       <AnimatePresence>
+        {sessionToRename && (
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md"
+          >
+            <motion.div 
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="bg-[var(--bg-base)] border border-[var(--border-strong)] rounded-3xl p-6 max-w-sm w-full shadow-2xl"
+            >
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-xl font-bold">Renomear Conversa</h2>
+                <button onClick={() => setSessionToRename(null)} className="p-2 text-[var(--text-muted)] hover:text-[var(--text-base)] hover:bg-[var(--bg-surface)] rounded-full transition-colors">
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+              
+              <div className="space-y-4 mb-6">
+                <div>
+                  <label className="block text-sm font-medium text-[var(--text-muted)] mb-1">Novo Nome</label>
+                  <input 
+                    type="text" 
+                    value={newSessionName}
+                    onChange={(e) => setNewSessionName(e.target.value)}
+                    placeholder="Novo nome da conversa"
+                    className="w-full bg-[var(--bg-input)] border border-[var(--border-strong)] rounded-xl px-4 py-3 text-[var(--text-base)] focus:outline-none focus:border-[var(--color-sec)] transition-colors"
+                  />
+                </div>
+              </div>
+              <div className="flex justify-end gap-3">
+                <button 
+                  onClick={() => setSessionToRename(null)}
+                  className="px-4 py-2 rounded-xl text-[var(--text-muted)] hover:bg-[var(--bg-surface)] transition-colors"
+                >
+                  Cancelar
+                </button>
+                <button 
+                  onClick={() => {
+                    if (newSessionName.trim() && sessionToRename) {
+                      updateSessionTitle(sessionToRename.id, newSessionName.trim());
+                      setSessionToRename(null);
+                    }
+                  }}
+                  disabled={!newSessionName.trim()}
+                  className="px-6 py-2 bg-[var(--color-sec)] text-white rounded-xl hover:opacity-90 transition-opacity font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Salvar
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
         {showASWarning && (
           <motion.div 
             initial={{ opacity: 0 }}
@@ -3416,7 +3480,7 @@ export default function ChatPage() {
                     {streakDays < 2 && <span className="text-xs text-orange-500 flex items-center gap-1 font-bold"><Flame className="w-3 h-3" /> 2 dias</span>}
                   </div>
                   <div className="flex items-center gap-2 bg-[var(--bg-surface)] rounded-full px-3 py-2 border border-[var(--border-strong)] w-max max-w-full overflow-x-auto shadow-sm">
-                    {['#ffffff', '#22c55e', '#eab308', '#ec4899', '#3b82f6', '#a855f7'].map(color => (
+                    {['#ffffff', '#000000'].map(color => (
                       <button
                         key={'msg' + color}
                         onClick={() => setTempSettings({ ...tempSettings, userMessageColor: color })}
@@ -3922,7 +3986,7 @@ export default function ChatPage() {
       </div>
 
       <div className="flex-1 flex flex-col min-w-0 bg-[var(--bg-base)] relative z-0 rounded-none md:rounded-l-[40px] md:border-l border-[var(--border-subtle)] shadow-2xl overflow-hidden">
-        <header className="flex items-center justify-between p-4 border-b border-[var(--border-subtle)] bg-[var(--bg-base)]/80 backdrop-blur-md sticky top-0 z-40">
+        <header className="flex items-center justify-between p-4 bg-[var(--bg-base)]/80 backdrop-blur-md sticky top-0 z-40">
           <div className="flex items-center gap-4">
             <button onClick={() => setIsSidebarOpen(true)} className="md:hidden p-3 -ml-2 text-[var(--text-muted)] hover:text-[var(--text-base)]">
               <Menu className="w-6 h-6" />
