@@ -770,16 +770,16 @@ const HoldButton = ({ onConfirm, onCancel, children, className, holdTime = 2000 
     setProgress(0);
     
     // Initial light vibration
-    if (navigator.vibrate) navigator.vibrate(10);
+    if (navigator.vibrate) navigator.vibrate(5);
     
     const startTime = Date.now();
     intervalRef.current = setInterval(() => {
       const elapsed = Date.now() - startTime;
       setProgress(Math.min((elapsed / holdTime) * 100, 100));
       
-      // Increasing vibration intensity (duration)
+      // Increasing vibration intensity (duration), but smooth/not too strong
       if (navigator.vibrate) {
-        const intensity = 5 + Math.floor((elapsed / holdTime) * 25);
+        const intensity = 2 + Math.floor((elapsed / holdTime) * 8);
         navigator.vibrate(intensity);
       }
     }, 100);
@@ -790,7 +790,7 @@ const HoldButton = ({ onConfirm, onCancel, children, className, holdTime = 2000 
       onConfirm();
       setIsHolding(false);
       // Success vibration pattern
-      if (navigator.vibrate) navigator.vibrate([30, 50, 30]);
+      if (navigator.vibrate) navigator.vibrate([15, 30, 15]);
     }, holdTime);
   };
 
@@ -1742,8 +1742,10 @@ export default function ChatPage() {
       // Swipe right from the left edge to open sidebar
       if (isRightSwipe && touchStart < 60) {
         setIsSidebarOpen(true);
+      } else if (distanceX > 50 && isSidebarOpen) {
+        // Swipe left to close sidebar
+        setIsSidebarOpen(false);
       }
-      // Puxando pro lado esquerdo não acontece nada conforme solicitado
     }
   };
 
@@ -2168,6 +2170,7 @@ export default function ChatPage() {
                 </button>
                 <button 
                   onClick={() => {
+                    if (navigator.vibrate) navigator.vibrate(10);
                     deleteSession(sessionToDelete);
                     setSessionToDelete(null);
                   }} 

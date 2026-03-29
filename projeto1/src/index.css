@@ -82,7 +82,7 @@
 
   body {
     user-select: none;
-    overscroll-behavior-y: none;
+    overscroll-behavior: none;
     background-color: var(--bg-base);
   }
 
