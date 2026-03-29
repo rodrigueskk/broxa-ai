@@ -40,7 +40,7 @@ export const BanScreen: React.FC<BanScreenProps> = ({ appealStatus, onSubmitAppe
           Nós avisamos, mas você ignorou os nossos termos de segurança.
         </p>
 
-        <div className="w-full max-w-md space-y-6">
+        <div className="w-full max-w-md space-y-6 flex flex-col items-center">
           {appealStatus === null && !showAppealForm && (
             <button 
               onClick={() => setShowAppealForm(true)}
