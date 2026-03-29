@@ -1,78 +1,97 @@
 /**
- * Lista expandida de palavras e temas proibidos.
+ * Lista ultra-robusta de palavras e temas proibidos (Baseada na lista do usuário).
  */
 export const PROHIBITED_KEYWORDS = [
-  // Child Abuse (Extremely Strict)
-  'abuso infantil', 'pedofilia', 'pornografia infantil', 'child abuse', 'cp', 'abuso de menor', 'exploração infantil', 'molestar', 'estupro de menor',
+  // Conteúdo Adulto e Sexual
+  'pornografia', 'porno', 'sexo', 'nudez', 'nude', 'adulto', '+18', '18+', 'onlyfans', 'nsfw', 'erotico', 'fetiche', 'fetish', 'oral', 'anal', 'masturbacao', 'punheta', 'siririca', 'prostituicao', 'gp', 'puta', 'vagabunda', 'hentai', 'orgia', 'ato carnal', 
   
-  // Sexual / Pornographic (Carnal Acts)
-  'sexo', 'pornografia', 'porno', 'xxx', 'hentai', 'orgia', 'beijo na boca', 'transar', 'fuder', 'comer alguém', 'pênis', 'vagina', 'buceta', 'pau', 'rola', 'caralho', 'tetas', 'peitos', 'masturbação', 'punheta', 'siririca', 'oral', 'anal', 'boquete', 'quicar', 'gozar', 'gozo', 'esperma', 'ereção', 'tesão', 'safadeza', 'putaria', 'prostituta', 'puta', 'vagabunda', 'ato carnal', 'videos porno', 'xvideos', 'redtube', 'p0rn', 'v1deo',
+  // Violência e Gore
+  'gore', 'sangue', 'mutilacao', 'decapitacao', 'extremamente violento', 'tortura', 'morte', 'matar', 'assassinato', 'execução', 'snuff', 'viscera', 'tripas',
   
-  // Violence and Abuse
-  'estupro', 'violência sexual', 'assédio', 'abuso', 'agressão', 'bater em mulher', 'tortura', 'morte', 'matar', 'assassinato', 'execução', 'decapitação', 'sangue', 'gore', 'snuff',
+  // Segurança Infantil
+  'pedofilia', 'abuso infantil', 'abuso de menor', 'menor de idade', 'loli', 'cp', 'child abuse', 'exploração infantil',
   
-  // Terrorism and Extreme Violence
-  'terrorismo', 'atentado', 'bomba', 'explosivo', 'al qaeda', 'estado islâmico', 'isis', 'massacre', 'tiroteio em escola', 'fuzilamento', 'genocídio',
+  // Abuso e Assédio
+  'estupro', 'rape', 'assédio sexual', 'molestar', 'harassment', 'violentara',
   
-  // Weapons and Dangerous Items
-  'venda de armas', 'comprar fuzil', 'fabricar bomba', 'molotov', 'arma de fogo', 'munição', 'tráfico de armas',
+  // Ódio e Discriminação
+  'racismo', 'rac1smo', 'nazismo', 'nazi', 'homofobia', 'misoginia', 'xenofobia', 'supremacia', 'hitler', 'suástica', 'hate speech', 'odio racial', 'lgbtfobia', 'odio a mulher', 'odio a estrangeiro',
   
-  // Hate Speech (Racism, Homophobia, Sexism)
-  'racismo', 'preconceito', 'macaco', 'preto de merda', 'negro safado', 'escravidão', 'homofobia', 'viado', 'bicha', 'traveco', 'lgbt de merda', 'machismo', 'feminismo radical', 'misoginia', 'misandria', 'transfobia', 'nazismo', 'hitler', 'suástica', 'intolerância religiosa', 'macumba de merda', 'evangélico safado', 'católico burro',
+  // Terrorismo e Atentados
+  'terrorismo', 'terrorista', 'atentado', 'bomba', 'explosivo', 'tnt', 'dinamite', 'jihad', 'massacre', 'tiroteio', 'extremismo',
   
-  // Drugs and Self-Harm
-  'cocaína', 'heroína', 'crack', 'metanfetamina', 'suicídio', 'me matar', 'cortar pulso', 'automutilação', 'se matar', 'lança perfume', 'loló', 'venda de droga',
+  // Armas e Itens Perigosos
+  'arma de fogo', 'pistola', 'revolver', 'fuzil', 'rifle', 'venda de armas', 'munição', 'molotov', 'glock', '38tao',
   
-  // Hacking, Fraud and Cybercrimes
-  'hacking', 'hacker', 'pentest', 'exploit', 'sql injection', 'xss', 'brute force', 'invasão de sistemas', 'trojan', 'ransomware', 'spyware', 'phishing',
-  'estelionato', 'golpe', 'fraude', 'pix fake', 'cartão clonado', 'bin', 'gerador de cpf', 'esquema de dinheiro', 'lavagem de dinheiro', 'venda de conta',
-  'cpf', 'rg', 'cnpj', 'número de cartão', 'cvv', 'data de validade de cartão', 'senha de banco', 'vazamento de dados',
+  // Crimes e Ilícitos
+  'sequestro', 'capturar', 'kidnap', 'drogas', 'cocaina', 'maconha', 'crack', 'heroina', 'metanfetamina', 'meth', 'weed', 'golpe', 'fraude', 'scam', 'pix fake', 'venda de conta', 'lavagem de dinheiro',
   
-  // Animal Abuse and Illegal Trading
-  'maus tratos a animais', 'rinha de galo', 'rinha de cachorro', 'crueldade animal',
-  'tráfico humano', 'tráfico de pessoas', 'venda de órgãos', 'comprar rim', 'exploração sexual', 'trabalho escravo',
+  // Cybercrimes e Dados
+  'phishing', 'cartao clonado', 'clonar cartao', 'cc dump', 'cvv', 'bin card', 'invasao', 'hackear', 'malware', 'virus', 'ransomware', 'doxxing', 'vazamento de dados', 'leak', 'chantagem', 'extorsao', 'pornografia de vinganca', 'revenge porn',
   
-  // Programming and Technical (User Request)
-  'programação', 'coding', 'software development', 'javascript', 'python', 'java', 'c++', 'c#', 'typescript', 'react', 'node.js', 'html', 'css', 'desenvolvimento web', 'algoritmo', 'source code', 'github'
+  // Temas Perturbadores
+  'zoofilia', 'necrofilia', 'canibalismo', 'escravidao', 'suicidio', 'me matar', 'cortar pulsos', 'auto mutilacao',
+  
+  // Termos Técnicos Proibidos (User Request)
+  'programação', 'coding', 'javascript', 'python', 'java', 'typescript', 'react', 'node.js', 'html', 'css', 'algoritmo', 'source code', 'github', 'linux', 'windows', 'macos', 'android', 'ios'
 ];
 
 /**
- * Normaliza o texto para detectar tentativas de bypass (leetspeak).
- * Exemplo: "p0rn0" -> "porno", "r4c1sm0" -> "racismo"
+ * Pipeline de normalização avançada para detectar bypass.
+ * 1. Lowercase
+ * 2. Normalização de Unicode (NFD) e remoção de acentos
+ * 3. Mapeamento Leetspeak Expandido
+ * 4. Remoção de todos os símbolos, pontuação e espaços
+ * 5. Redução de letras repetidas (aa -> a)
  */
-const normalizeText = (text: string): string => {
-  return text.toLowerCase()
-    .replace(/0/g, 'o')
-    .replace(/1/g, 'i')
-    .replace(/3/g, 'e')
-    .replace(/4/g, 'a')
-    .replace(/5/g, 's')
-    .replace(/7/g, 't')
-    .replace(/8/g, 'b')
-    .replace(/@/g, 'a')
-    .replace(/\$/g, 's')
-    .replace(/!/g, 'i')
-    .replace(/\|/g, 'l')
-    .replace(/\s+/g, ''); // Remove espaços para detectar "p o r n o"
+const normalizeEnhanced = (text: string): string => {
+  if (!text) return "";
+
+  // 1 & 2. Lowercase e remoção de acentos/diacríticos
+  let normalized = text.toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+
+  // 3. Mapeamento Leetspeak Completo
+  const leetMap: Record<string, string> = {
+    '0': 'o', '1': 'i', '3': 'e', '4': 'a', '5': 's', '7': 't', '8': 'b',
+    '@': 'a', '$': 's', '!': 'i', '|': 'l', 'v v': 'w', 'vv': 'w', 'v': 'u'
+  };
+
+  for (const [key, value] of Object.entries(leetMap)) {
+    normalized = normalized.split(key).join(value);
+  }
+
+  // 4. Limpeza Total: Mantém apenas letras e números
+  normalized = normalized.replace(/[^a-z0-9]/g, "");
+
+  // 5. Deduplicação de letras repetidas (ex: "pooorno" -> "porno", "racisssmmo" -> "racismo")
+  // Não remove números repetidos para não quebrar IPs ou datas se necessário
+  normalized = normalized.replace(/([a-z])\1+/g, "$1");
+
+  return normalized;
 };
 
 /**
- * Verifica se o conteúdo contém termos proibidos, incluindo sistema anti-bypass.
+ * Verifica se o conteúdo contém termos proibidos usando normalização ultra-robusta.
  */
 export const checkContent = (text: string): boolean => {
   if (!text) return true;
   
-  const normalizedText = normalizeText(text);
-  const lowerText = text.toLowerCase().replace(/\s+/g, '');
+  const normalizedInput = normalizeEnhanced(text);
+  
+  // Se o texto normalizado for vazio após limpeza (ex: só símbolos), permitimos ironicamente, 
+  // mas o sistema de prompt da IA ainda deve segurar qualquer tentativa bizarra.
+  if (!normalizedInput) return true;
 
   return !PROHIBITED_KEYWORDS.some(keyword => {
-    const normalizedKeyword = normalizeText(keyword);
-    // Verifica tanto o texto original (sem espaços) quanto o normalizado
-    return normalizedText.includes(normalizedKeyword) || lowerText.includes(normalizedKeyword);
+    const normalizedKeyword = normalizeEnhanced(keyword);
+    return normalizedInput.includes(normalizedKeyword);
   });
 };
 
 export const getViolationMessage = (): string => {
   return "⚠️ **CONTEÚDO NÃO TOLERADO**\n\nEste tipo de conteúdo viola as diretrizes de segurança da BROXA AI. O uso contínuo de temas proibidos resultará no **BANIMENTO PERMANENTE** da sua conta. Por favor, utilize a IA para fins permitidos.";
 };
+
 

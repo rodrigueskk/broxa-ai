@@ -1054,7 +1054,9 @@ export default function ChatPage() {
   const [isOverloaded, setIsOverloaded] = useState(false);
   const [undoStack, setUndoStack] = useState<{messageId: string, stroke: any}[]>([]);
   const [redoStack, setRedoStack] = useState<{messageId: string, stroke: any}[]>([]);
-  const [selectedModel, setSelectedModel] = useState<'thinking' | 'fast' | 'search' | 'as'>('thinking');
+  const [selectedModel, setSelectedModel] = useState<'thinking' | 'fast' | 'search' | 'as' | 'toto'>('thinking');
+  const [isTotoVerificationOpen, setIsTotoVerificationOpen] = useState(false);
+  const [isExtensionDetected, setIsExtensionDetected] = useState<boolean | null>(null);
   const [isModelDropdownOpen, setIsModelDropdownOpen] = useState(false);
   const [isDevModelsModalOpen, setIsDevModelsModalOpen] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
@@ -1091,6 +1093,7 @@ export default function ChatPage() {
     }
   });
   const [currentUser, setCurrentUser] = useState(auth.currentUser);
+  const lastFailedMessage = useRef<{ text: string, images: any[], model: any } | null>(null);
   
   useEffect(() => {
     const unsubscribe = auth.onAuthStateChanged((user) => {
@@ -1195,13 +1198,43 @@ export default function ChatPage() {
       }, 1000);
     } else if (retryTimer === 0) {
       setRetryTimer(null);
-      handleSend();
+      if (lastFailedMessage.current) {
+        handleSend(
+          lastFailedMessage.current.text,
+          lastFailedMessage.current.images,
+          lastFailedMessage.current.model
+        );
+      } else {
+        handleSend();
+      }
     }
     return () => clearInterval(interval);
   }, [retryTimer]);
 
-  const { seenReleaseNotes, markAsSeen, userRole, hasSeenRoleNotification, markRoleNotificationAsSeen, streakDays, lastMessageDate, freezesAvailable, updateStreak, checkStreak, displayName, photoURL, hasSetProfile, updateProfile, unlockedFeatures, markFeatureAsSeen, isUserLoaded, violationsCount, isBanned, appealStatus, incrementViolations, submitAppeal } = useUserStore();
+  const { 
+    seenReleaseNotes, markAsSeen, userRole, hasSeenRoleNotification, 
+    markRoleNotificationAsSeen, streakDays, lastMessageDate, freezesAvailable, 
+    updateStreak, checkStreak, displayName, photoURL, hasSetProfile, 
+    updateProfile, unlockedFeatures, markFeatureAsSeen, isUserLoaded, 
+    violationsCount, isBanned, appealStatus, incrementViolations, submitAppeal 
+  } = useUserStore();
+
   const [isIpBanned, setIsIpBanned] = useState(false);
+
+  // Sync ban state to local storage to prevent flashes
+  useEffect(() => {
+    if (isUserLoaded) {
+      if (isBanned) {
+        localStorage.setItem('broxa_is_banned', 'true');
+      } else {
+        localStorage.removeItem('broxa_is_banned');
+      }
+    }
+  }, [isBanned, isUserLoaded]);
+
+  const localIsBanned = localStorage.getItem('broxa_is_banned') === 'true';
+  const effectiveIsBanned = isBanned || localIsBanned;
+
   useEffect(() => {
     const checkIpBan = async () => {
       try {
@@ -2243,6 +2276,14 @@ export default function ChatPage() {
       // Auto-retry logic for quota errors
       if (isQuotaError && retryCount < 20) {
         const nextRetry = retryCount + 1;
+        
+        // Save message for retry
+        lastFailedMessage.current = {
+          text: userMessageContent,
+          images: imagesToProcess || [],
+          model: modelToUse
+        };
+        
         setRetryCount(nextRetry);
         setRetryTimer(nextRetry);
         
@@ -2256,6 +2297,9 @@ export default function ChatPage() {
         setIsSearching(false);
         return;
       }
+      
+      // Clear last failed message on actual error or other cases
+      lastFailedMessage.current = null;
 
       let errorMessage = "Desculpe, ocorreu um erro ao processar sua solicitação. Por favor, tente novamente.";
       
@@ -2362,7 +2406,15 @@ export default function ChatPage() {
     </motion.div>
   );
 
-  if (isBanned || isIpBanned) {
+  if (!isUserLoaded && !localIsBanned) {
+    return (
+      <div className="flex items-center justify-center h-screen bg-black">
+        <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-[var(--color-sec)]"></div>
+      </div>
+    );
+  }
+
+  if (effectiveIsBanned || isIpBanned) {
     return (
       <BanScreen 
         appealStatus={appealStatus} 
