@@ -3318,8 +3318,7 @@ export default function ChatPage() {
                   {[
                     { days: 10, name: 'Fonte do Título' },
                     { days: 15, name: 'Temas Prontos' },
-                    { days: 15, name: 'Imagem de Fundo' },
-                    { days: 20, name: 'Comportamento da IA' }
+                    { days: 15, name: 'Imagem de Fundo' }
                   ].map(feature => (
                     <div 
                       key={feature.days}
@@ -3586,10 +3585,9 @@ export default function ChatPage() {
                   </div>
                 </div>
 
-                <div className={`flex flex-col gap-2 ${streakDays < 20 ? 'opacity-50 pointer-events-none' : ''}`}>
+                <div className="flex flex-col gap-2">
                   <div className="flex justify-between items-center">
                     <span className="text-[var(--text-base)] font-medium">Comportamento da IA (Instrução Customizada)</span>
-                    {streakDays < 20 && <span className="text-xs text-orange-500 flex items-center gap-1 font-bold"><Flame className="w-3 h-3" /> 20 dias</span>}
                   </div>
                   <textarea 
                     value={tempSettings.customInstruction || ''}

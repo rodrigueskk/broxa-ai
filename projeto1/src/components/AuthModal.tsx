@@ -1,15 +1,16 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { X, Mail, Lock, User, ArrowLeft, Eye, EyeOff } from 'lucide-react';
-import { auth, signInWithGoogle } from '../firebase';
+import { X, Mail, Lock, User, ArrowLeft, Eye, EyeOff, ShieldCheck, RefreshCw } from 'lucide-react';
+import { auth, signInWithGoogle, db } from '../firebase';
 import { fetchSignInMethodsForEmail, signInWithEmailAndPassword, createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
+import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
 
 interface AuthModalProps {
   isOpen: boolean;
   onClose: () => void;
 }
 
-type AuthStep = 'email' | 'password' | 'signup';
+type AuthStep = 'email' | 'password' | 'signup' | 'otp';
 
 export function AuthModal({ isOpen, onClose }: AuthModalProps) {
   const [step, setStep] = useState<AuthStep>('email');
@@ -21,6 +22,12 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [showWeakWarning, setShowWeakWarning] = useState(false);
+
+  // OTP State
+  const [otpInputs, setOtpInputs] = useState(['', '', '', '']);
+  const [generatedOtp, setGeneratedOtp] = useState('');
+  const [otpCooldown, setOtpCooldown] = useState(0);
+  const [otpAction, setOtpAction] = useState<{type: 'login' | 'signup'} | null>(null);
 
   const getPasswordStrength = (pass: string) => {
     if (pass.length === 0) return { label: '', color: 'bg-transparent' };
@@ -45,10 +52,85 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
       setName('');
       setError('');
       setShowWeakWarning(false);
+      setOtpInputs(['', '', '', '']);
+      setOtpCooldown(0);
     }
   }, [isOpen]);
 
+  React.useEffect(() => {
+    if (otpCooldown > 0) {
+      const timer = setTimeout(() => setOtpCooldown(prev => prev - 1), 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [otpCooldown]);
+
   if (!isOpen) return null;
+
+  const checkIpAndAttempts = async () => {
+    try {
+      const res = await fetch('https://api.ipify.org?format=json');
+      const data = await res.json();
+      const ip = data.ip;
+      
+      const ipDoc = await getDoc(doc(db, 'bannedIPs', ip.replace(/\./g, '_')));
+      if (ipDoc.exists()) {
+        const { bannedUntil } = ipDoc.data();
+        if (bannedUntil && Date.now() < bannedUntil) {
+          throw new Error(`Suspicious activity detected. Action blocked for this IP until ${new Date(bannedUntil).toLocaleTimeString()}.`);
+        }
+      }
+      return ip;
+    } catch (err: any) {
+      if (err.message.includes('Suspicious activity')) throw err;
+      return 'unknown_ip';
+    }
+  };
+
+  const recordOtpRequest = async (ip: string) => {
+    if (ip === 'unknown_ip') return;
+    const ipId = ip.replace(/\./g, '_');
+    const ipRef = doc(db, 'bannedIPs', ipId);
+    const ipDoc = await getDoc(ipRef);
+    
+    if (ipDoc.exists()) {
+      const data = ipDoc.data();
+      const newAttempts = (data.attempts || 0) + 1;
+      if (newAttempts >= 5) {
+        const hours = 2 * (newAttempts - 4);
+        const bannedUntil = Date.now() + (hours * 60 * 60 * 1000);
+        await updateDoc(ipRef, { attempts: newAttempts, bannedUntil });
+        throw new Error(`Múltiplas requisições suspeitas. IP suspenso por ${hours} horas.`);
+      } else {
+        await updateDoc(ipRef, { attempts: newAttempts });
+      }
+    } else {
+      await setDoc(ipRef, { attempts: 1, bannedUntil: 0 });
+    }
+  };
+
+  const startOtpFlow = async (action: {type: 'login' | 'signup'}) => {
+    try {
+      const ip = await checkIpAndAttempts();
+      await recordOtpRequest(ip);
+
+      setOtpAction(action);
+      const code = Math.floor(1000 + Math.random() * 9000).toString();
+      setGeneratedOtp(code);
+      setOtpInputs(['', '', '', '']);
+      setStep('otp');
+      setOtpCooldown(60);
+      
+      console.log(`%c [🔒 BROXA AI SECURITY] NOVO CÓDIGO OTP ENVIADO PARA ${email}: ${code} `, 'background: #111; color: #00ff00; font-size: 16px; font-weight: bold; border: 1px solid #00ff00;');
+      
+      // In production, this is where you'd trigger EmailJS or your Node backend:
+      // await sendEmail(email, "Seu código BROXA AI", `O código é: ${code}`);
+
+    } catch (err: any) {
+      setError(err.message || 'Erro ao processar verificações de segurança.');
+      setIsLoading(false);
+      throw err;
+    }
+  };
 
   const handleEmailSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -63,12 +145,9 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
         setError('E-mail não encontrado. Por favor, crie uma nova conta.');
       }
     } catch (err: any) {
-      console.error(err);
       if (err.code === 'auth/operation-not-allowed') {
-        setError('O login por e-mail e senha não está ativado no Firebase Console.');
+        setError('O login por e-mail e senha não está ativado.');
       } else {
-        // Se a proteção de enumeração estiver ativada, o Firebase pode bloquear a verificação.
-        // Nesse caso, vamos avançar para a senha e deixar o login falhar se não existir.
         setStep('password');
       }
     } finally {
@@ -82,13 +161,13 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
     setIsLoading(true);
     try {
       await signInWithEmailAndPassword(auth, email, password);
-      onClose();
+      await auth.signOut(); // Immediately sign out so they don't bypass OTP
+      
+      await startOtpFlow({ type: 'login' });
     } catch (err: any) {
       console.error(err);
       if (err.code === 'auth/user-not-found' || err.code === 'auth/invalid-credential') {
         setError('E-mail ou senha incorretos.');
-      } else if (err.code === 'auth/operation-not-allowed') {
-        setError('O login por e-mail e senha não está ativado no Firebase Console.');
       } else {
         setError('Erro ao fazer login. Tente novamente.');
       }
@@ -108,26 +187,63 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
 
     if (strength.label === 'Fraca' && !showWeakWarning) {
       setShowWeakWarning(true);
-      setError('Sua senha é fraca. Clique novamente em "Criar Conta" para confirmar mesmo assim.');
+      setError('Sua senha é fraca. Clique novamente para confirmar mesmo assim.');
       return;
     }
 
     setIsLoading(true);
     try {
-      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-      await updateProfile(userCredential.user, { displayName: name });
-      onClose();
+      await startOtpFlow({ type: 'signup' });
     } catch (err: any) {
-      if (err.code === 'auth/email-already-in-use') {
-        setError('Este e-mail já está em uso.');
-      } else if (err.code === 'auth/weak-password') {
-        setError('A senha deve ter pelo menos 6 caracteres.');
-      } else if (err.code === 'auth/operation-not-allowed') {
-        setError('O login por e-mail e senha não está ativado no Firebase Console.');
-      } else {
-        setError('Erro ao criar conta. Tente novamente.');
-      }
+      // handled in startOtpFlow
     } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleOtpChange = (index: number, value: string) => {
+    if (!/^\d*$/.test(value)) return;
+    const newInputs = [...otpInputs];
+    newInputs[index] = value;
+    setOtpInputs(newInputs);
+    setError('');
+
+    if (value && index < 3) {
+      document.getElementById(`otp-${index + 1}`)?.focus();
+    }
+    
+    if (index === 3 && value) {
+      verifyOtp(newInputs.join(''));
+    }
+  };
+
+  const handleOtpKeyDown = (index: number, e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Backspace' && !otpInputs[index] && index > 0) {
+      document.getElementById(`otp-${index - 1}`)?.focus();
+    }
+  };
+
+  const verifyOtp = async (code: string) => {
+    setIsLoading(true);
+    setError('');
+    if (code === generatedOtp) {
+      try {
+        if (otpAction?.type === 'login') {
+          await signInWithEmailAndPassword(auth, email, password);
+        } else if (otpAction?.type === 'signup') {
+          const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+          await updateProfile(userCredential.user, { displayName: name });
+        }
+        onClose();
+      } catch(err: any) {
+        setError('Falha de sistema interno. Tente novamente mais tarde.');
+      } finally {
+        setIsLoading(false);
+      }
+    } else {
+      setError('Código incorreto.');
+      setOtpInputs(['', '', '', '']);
+      document.getElementById('otp-0')?.focus();
       setIsLoading(false);
     }
   };
@@ -152,13 +268,18 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
         >
           <div className="flex justify-between items-center p-6 border-b border-[var(--border-subtle)]">
             <div className="flex items-center gap-3">
-              {step !== 'email' && (
+              {step !== 'email' && step !== 'otp' && (
                 <button onClick={() => { setStep('email'); setError(''); }} className="p-1 hover:bg-[var(--bg-surface)] rounded-lg transition-colors">
                   <ArrowLeft className="w-5 h-5 text-[var(--text-muted)]" />
                 </button>
               )}
+              {step === 'otp' && (
+                <button onClick={() => { setStep(otpAction?.type === 'login' ? 'password' : 'signup'); setError(''); }} className="p-1 hover:bg-[var(--bg-surface)] rounded-lg transition-colors">
+                  <ArrowLeft className="w-5 h-5 text-[var(--text-muted)]" />
+                </button>
+              )}
               <h3 className="text-xl font-bold text-[var(--text-base)]">
-                {step === 'email' ? 'Fazer Login' : step === 'password' ? 'Digite sua senha' : 'Criar Conta'}
+                {step === 'email' ? 'Fazer Login' : step === 'password' ? 'Digite sua senha' : step === 'signup' ? 'Criar Conta' : 'Código de Verificação'}
               </h3>
             </div>
             <button onClick={onClose} className="p-2 hover:bg-[var(--bg-surface)] rounded-full transition-colors text-[var(--text-muted)] hover:text-[var(--text-base)]">
@@ -347,9 +468,55 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
                   disabled={isLoading || !email || !password || !name || !confirmPassword}
                   className="w-full py-3 bg-[var(--color-sec)] text-white hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed rounded-xl font-bold transition-colors"
                 >
-                  {isLoading ? 'Criando conta...' : showWeakWarning ? 'Criar Conta Mesmo Assim' : 'Criar Conta e Entrar'}
+                  {isLoading ? 'Processando...' : showWeakWarning ? 'Criar Conta Mesmo Assim' : 'Criar Conta e Entrar'}
                 </button>
               </form>
+            )}
+
+            {step === 'otp' && (
+              <div className="space-y-6 flex flex-col items-center">
+                <div className="w-16 h-16 rounded-full bg-[var(--color-sec)]/10 flex items-center justify-center mb-2">
+                  <ShieldCheck className="w-8 h-8 text-[var(--color-sec)]" />
+                </div>
+                <div className="text-center space-y-2">
+                  <p className="text-[var(--text-base)] font-medium">Enviamos um código para o seu e-mail!</p>
+                  <p className="text-sm text-[var(--text-muted)]">Digite os 4 dígitos abaixo para continuar.</p>
+                </div>
+                
+                <div className="flex items-center justify-center gap-3 my-4">
+                  {[0, 1, 2, 3].map((index) => (
+                    <input
+                      key={index}
+                      id={`otp-${index}`}
+                      type="text"
+                      inputMode="numeric"
+                      maxLength={1}
+                      value={otpInputs[index]}
+                      onChange={(e) => handleOtpChange(index, e.target.value)}
+                      onKeyDown={(e) => handleOtpKeyDown(index, e)}
+                      autoFocus={index === 0}
+                      disabled={isLoading}
+                      className="w-14 h-16 text-center text-2xl font-black bg-[var(--bg-input)] text-[var(--text-base)] border border-[var(--border-subtle)] rounded-2xl focus:outline-none focus:border-[var(--color-sec)] focus:ring-2 focus:ring-[var(--color-sec)]/20 transition-all disabled:opacity-50"
+                    />
+                  ))}
+                </div>
+
+                {isLoading && (
+                  <div className="flex items-center justify-center gap-2 text-[var(--color-sec)] font-medium">
+                    <RefreshCw className="w-5 h-5 animate-spin" /> Verificando...
+                  </div>
+                )}
+
+                <div className="pt-4 border-t border-[var(--border-subtle)] w-full text-center">
+                  <button
+                    onClick={() => startOtpFlow(otpAction!)}
+                    disabled={otpCooldown > 0 || isLoading}
+                    className="text-sm font-medium text-[var(--color-sec)] hover:underline disabled:opacity-50 disabled:hover:no-underline disabled:cursor-not-allowed"
+                  >
+                    {otpCooldown > 0 ? `Aguarde ${otpCooldown}s para reenviar` : 'Não recebi o código / Reenviar'}
+                  </button>
+                </div>
+              </div>
             )}
           </div>
         </motion.div>

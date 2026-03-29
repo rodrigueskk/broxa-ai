@@ -10,13 +10,28 @@ export default function CaptchaPage({ onSuccess }: CaptchaProps) {
   const [isChecked, setIsChecked] = useState(false);
   const [isVerifying, setIsVerifying] = useState(false);
 
-  const handleCheck = () => {
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
+  const handleCheck = (e: React.MouseEvent<HTMLDivElement>) => {
     if (isChecked || isVerifying) return;
+    
+    setErrorMsg(null);
+
+    const target = e.currentTarget;
+    const isBot = Math.abs(e.nativeEvent.offsetX - target.offsetWidth / 2) < 1 &&
+                  Math.abs(e.nativeEvent.offsetY - target.offsetHeight / 2) < 1;
+
     setIsVerifying(true);
     
     // Simulate network delay for verification
     setTimeout(() => {
       setIsVerifying(false);
+
+      if (isBot) {
+        setErrorMsg('Algo deu errado, tente novamente.');
+        return;
+      }
+
       setIsChecked(true);
       setTimeout(() => {
         onSuccess();
@@ -40,9 +55,11 @@ export default function CaptchaPage({ onSuccess }: CaptchaProps) {
         <div 
           onClick={handleCheck}
           className={`w-full p-4 rounded-2xl border flex items-center gap-4 cursor-pointer transition-all ${
-            isChecked 
-              ? 'border-green-500/50 bg-green-500/10' 
-              : 'border-zinc-700 bg-zinc-900 hover:border-zinc-500'
+            errorMsg 
+              ? 'border-red-500/50 bg-red-500/10' 
+              : isChecked 
+                ? 'border-green-500/50 bg-green-500/10' 
+                : 'border-zinc-700 bg-zinc-900 hover:border-zinc-500'
           }`}
         >
           <div className="w-8 h-8 rounded-md border-2 border-zinc-600 flex items-center justify-center bg-black shrink-0">
@@ -58,8 +75,8 @@ export default function CaptchaPage({ onSuccess }: CaptchaProps) {
               </motion.div>
             )}
           </div>
-          <span className={`font-medium ${isChecked ? 'text-green-500' : 'text-zinc-300'}`}>
-            {isVerifying ? 'Verificando...' : isChecked ? 'Verificado' : 'Sou humano'}
+          <span className={`font-medium ${errorMsg ? 'text-red-500' : isChecked ? 'text-green-500' : 'text-zinc-300'}`}>
+            {isVerifying ? 'Verificando...' : errorMsg ? errorMsg : isChecked ? 'Verificado' : 'Sou humano'}
           </span>
         </div>
       </motion.div>
