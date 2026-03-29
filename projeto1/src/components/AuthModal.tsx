@@ -4,6 +4,7 @@ import { X, Mail, Lock, User, ArrowLeft, Eye, EyeOff, ShieldCheck, RefreshCw } f
 import { auth, signInWithGoogle, db } from '../firebase';
 import { fetchSignInMethodsForEmail, signInWithEmailAndPassword, createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
 import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
+import emailjs from '@emailjs/browser';
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -43,6 +44,14 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
 
   const strength = getPasswordStrength(password);
 
+  const maskEmail = (emailStr: string) => {
+    const [namePart, domain] = emailStr.split('@');
+    if (!namePart || !domain) return emailStr;
+    if (namePart.length <= 2) return `**@${domain}`;
+    const masked = '*'.repeat(namePart.length - 2) + namePart.slice(-2);
+    return `${masked}@${domain}`;
+  };
+
   React.useEffect(() => {
     if (isOpen) {
       setStep('email');
@@ -61,8 +70,10 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
     if (otpCooldown > 0) {
       const timer = setTimeout(() => setOtpCooldown(prev => prev - 1), 1000);
       return () => clearTimeout(timer);
+    } else if (otpCooldown === 0 && generatedOtp) {
+      setGeneratedOtp(''); // Código expira quando o tempo acaba
     }
-  }, [otpCooldown]);
+  }, [otpCooldown, generatedOtp]);
 
   if (!isOpen) return null;
 
@@ -122,8 +133,22 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
       
       console.log(`%c [🔒 BROXA AI SECURITY] NOVO CÓDIGO OTP ENVIADO PARA ${email}: ${code} `, 'background: #111; color: #00ff00; font-size: 16px; font-weight: bold; border: 1px solid #00ff00;');
       
-      // In production, this is where you'd trigger EmailJS or your Node backend:
-      // await sendEmail(email, "Seu código BROXA AI", `O código é: ${code}`);
+      try {
+        await emailjs.send(
+          'service_5nwu12y',
+          'template_tcwsuoa',
+          {
+            to_email: email,
+            reply_to: 'suporte@broxa.ai',
+            message: `O seu código de verificação BROXA AI é: ${code}`,
+            code: code 
+          },
+          'q_U44pH0ejGEKSepN'
+        );
+      } catch (emailErr) {
+        console.error('Erro ao enviar e-mail via EmailJS:', emailErr);
+        throw new Error('Falha ao enviar e-mail. Tente novamente mais tarde.');
+      }
 
     } catch (err: any) {
       setError(err.message || 'Erro ao processar verificações de segurança.');
@@ -226,6 +251,15 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
   const verifyOtp = async (code: string) => {
     setIsLoading(true);
     setError('');
+    
+    if (!generatedOtp) {
+      setError('O código expirou. Solicite um novo.');
+      setOtpInputs(['', '', '', '']);
+      document.getElementById('otp-0')?.focus();
+      setIsLoading(false);
+      return;
+    }
+
     if (code === generatedOtp) {
       try {
         if (otpAction?.type === 'login') {
@@ -387,6 +421,9 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
 
             {step === 'signup' && (
               <form onSubmit={handleSignup} className="space-y-4">
+                <div className="p-3 bg-[var(--color-sec)]/10 border border-[var(--color-sec)]/20 rounded-xl mb-4 text-center text-sm font-medium text-[var(--color-sec)]">
+                  Permitida apenas 1 conta por e-mail.
+                </div>
                 <div>
                   <label className="block text-sm font-medium text-[var(--text-muted)] mb-1">Nome Completo</label>
                   <div className="relative">
@@ -480,7 +517,12 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
                 </div>
                 <div className="text-center space-y-2">
                   <p className="text-[var(--text-base)] font-medium">Enviamos um código para o seu e-mail!</p>
-                  <p className="text-sm text-[var(--text-muted)]">Digite os 4 dígitos abaixo para continuar.</p>
+                  <p className="text-sm text-[var(--text-muted)]">
+                    Enviado para: <span className="font-bold">{maskEmail(email)}</span>
+                  </p>
+                  <p className="text-xs text-[var(--text-muted)] mt-1">
+                    O código expira em: <span className="font-bold text-[var(--color-sec)]">{otpCooldown}s</span>
+                  </p>
                 </div>
                 
                 <div className="flex items-center justify-center gap-3 my-4">
