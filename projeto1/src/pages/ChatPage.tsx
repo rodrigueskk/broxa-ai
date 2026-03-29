@@ -3316,9 +3316,8 @@ export default function ChatPage() {
                 
                 <div className="space-y-2">
                   {[
-                    { days: 2, name: 'Cor do Balão' },
-                    { days: 3, name: 'Cor de Seleção' },
                     { days: 10, name: 'Fonte do Título' },
+                    { days: 15, name: 'Temas Prontos' },
                     { days: 15, name: 'Imagem de Fundo' },
                     { days: 20, name: 'Comportamento da IA' }
                   ].map(feature => (
@@ -3474,10 +3473,9 @@ export default function ChatPage() {
                   </div>
                 </div>
 
-                <div className={`flex flex-col gap-3 ${streakDays < 2 ? 'opacity-50 pointer-events-none' : ''}`}>
+                <div className="flex flex-col gap-3">
                   <div className="flex items-center gap-2">
                     <span className="text-[var(--text-base)] font-medium">Cor das Suas Mensagens</span>
-                    {streakDays < 2 && <span className="text-xs text-orange-500 flex items-center gap-1 font-bold"><Flame className="w-3 h-3" /> 2 dias</span>}
                   </div>
                   <div className="flex items-center gap-2 bg-[var(--bg-surface)] rounded-full px-3 py-2 border border-[var(--border-strong)] w-max max-w-full overflow-x-auto shadow-sm">
                     {['#ffffff', '#000000'].map(color => (
@@ -3492,10 +3490,9 @@ export default function ChatPage() {
                   </div>
                 </div>
 
-                <div className={`flex flex-col gap-3 ${streakDays < 3 ? 'opacity-50 pointer-events-none' : ''}`}>
+                <div className="flex flex-col gap-3">
                   <div className="flex items-center gap-2">
                     <span className="text-[var(--text-base)] font-medium">Cor de Seleção</span>
-                    {streakDays < 3 && <span className="text-xs text-orange-500 flex items-center gap-1 font-bold"><Flame className="w-3 h-3" /> 3 dias</span>}
                   </div>
                   <div className="flex items-center gap-2 bg-[var(--bg-surface)] rounded-full px-3 py-2 border border-[var(--border-strong)] w-max max-w-full overflow-x-auto shadow-sm">
                     {['#22c55e', '#eab308', '#ec4899', '#3b82f6', '#a855f7'].map(color => (
@@ -3506,6 +3503,38 @@ export default function ChatPage() {
                         style={{ backgroundColor: color }}
                         aria-label={`Cor ${color}`}
                       />
+                    ))}
+                  </div>
+                </div>
+
+                <div className={`flex flex-col gap-3 ${streakDays < 15 ? 'opacity-50 pointer-events-none' : ''}`}>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[var(--text-base)] font-medium">Temas Prontos</span>
+                    {streakDays < 15 && <span className="text-xs text-orange-500 flex items-center gap-1 font-bold"><Flame className="w-3 h-3" /> 15 dias</span>}
+                  </div>
+                  <div className="flex flex-wrap items-center gap-3">
+                    {[
+                      { name: 'Drácula', theme: 'dark', secondary: '#ff79c6', userMsg: '#ffffff', selection: '#bd93f9' },
+                      { name: 'Hacker', theme: 'dark', secondary: '#22c55e', userMsg: '#22c55e', selection: '#22c55e' },
+                      { name: 'Oceano', theme: 'dark', secondary: '#3b82f6', userMsg: '#ffffff', selection: '#3b82f6' },
+                      { name: 'Por do Sol', theme: 'light', secondary: '#eab308', userMsg: '#000000', selection: '#f97316' },
+                      { name: 'Lavanda', theme: 'light', secondary: '#a855f7', userMsg: '#000000', selection: '#c084fc' }
+                    ].map(t => (
+                      <button
+                        key={t.name}
+                        onClick={() => setTempSettings({ 
+                          ...tempSettings, 
+                          theme: t.theme, 
+                          secondaryColor: t.secondary, 
+                          userMessageColor: t.userMsg, 
+                          selectionColor: t.selection 
+                        })}
+                        className="px-4 py-2 rounded-xl border border-[var(--border-strong)] bg-[var(--bg-surface)] hover:bg-[var(--bg-input)] hover:border-[var(--color-sec)] transition-all font-medium flex items-center gap-2"
+                        style={{ color: t.theme === 'dark' ? '#f8f9fa' : '#212529', backgroundColor: t.theme === 'dark' ? '#121212' : '#f8f9fa' }}
+                      >
+                        <div className="w-3 h-3 rounded-full" style={{ backgroundColor: t.secondary }}></div>
+                        {t.name}
+                      </button>
                     ))}
                   </div>
                 </div>
