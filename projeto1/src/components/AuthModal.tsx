@@ -58,22 +58,17 @@ export function AuthModal({ isOpen, onClose, initialStep, initialPassword }: Aut
   React.useEffect(() => {
     if (isOpen) {
       setStep(initialStep || 'email');
-      setEmail(auth.currentUser?.email || '');
+      setEmail(initialStep === 'create_google_password' && auth.currentUser?.email ? auth.currentUser.email : '');
       setPassword(initialPassword || '');
       setConfirmPassword(initialPassword || '');
       setShowPassword(false);
       setName(auth.currentUser?.displayName || '');
       setError('');
+      setIsLoading(false);
       setShowWeakWarning(false);
       setOtpInputs(['', '', '', '']);
       setOtpCooldown(0);
       setIsSuccess(false);
-
-      if (initialStep === 'create_google_password' && auth.currentUser) {
-        // Se estamos vindo das configurações com um passo inicial, 
-        // podemos querer disparar o envio de OTP imediatamente.
-        // O usuário definirá a senha na tela 'create_google_password' e iniciará o OTP lá.
-      }
     }
   }, [isOpen, initialStep, initialPassword]);
 
@@ -184,21 +179,32 @@ export function AuthModal({ isOpen, onClose, initialStep, initialPassword }: Aut
 
   const handleEmailSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!email) return;
+    if (!email || isLoading) return;
+    
     setError('');
     setIsLoading(true);
+    console.log('[Auth] Verificando e-mail:', email);
+
     try {
-      const methods = await fetchSignInMethodsForEmail(auth, email);
+      // Pequeno timeout de segurança caso a API do Firebase demore demais
+      const methodsPromise = fetchSignInMethodsForEmail(auth, email);
+      const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 5000));
+      
+      const methods = await Promise.race([methodsPromise, timeoutPromise]) as string[];
+      
+      console.log('[Auth] Métodos encontrados:', methods);
       if (methods.length > 0) {
         setStep('password');
       } else {
         setError('E-mail não encontrado. Por favor, crie uma nova conta.');
       }
     } catch (err: any) {
-      if (err.code === 'auth/operation-not-allowed') {
-        setError('O login por e-mail e senha não está ativado.');
-      } else {
+      console.error('[Auth] Erro ao verificar e-mail:', err);
+      if (err.message === 'timeout' || err.code === 'auth/operation-not-allowed' || err.code === 'auth/admin-restricted-operation') {
+        // Se a enumeração estiver bloqueada ou houver timeout, apenas prosseguimos para a senha
         setStep('password');
+      } else {
+        setError('Erro ao verificar e-mail. Tente novamente.');
       }
     } finally {
       setIsLoading(false);
