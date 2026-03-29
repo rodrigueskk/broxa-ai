@@ -10,7 +10,7 @@ interface AuthModalProps {
   onClose: () => void;
 }
 
-type AuthStep = 'email' | 'password' | 'signup' | 'otp';
+type AuthStep = 'email' | 'password' | 'signup' | 'otp' | 'create_google_password';
 
 export function AuthModal({ isOpen, onClose }: AuthModalProps) {
   const [step, setStep] = useState<AuthStep>('email');
@@ -118,7 +118,7 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
     }
   };
 
-  const startOtpFlow = async (action: {type: 'login' | 'signup'}) => {
+  const startOtpFlow = async (action: {type: 'login' | 'signup' | 'google_link'}) => {
     try {
       const ip = await checkIpAndAttempts();
       await recordOtpRequest(ip);
@@ -277,6 +277,21 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
         } else if (otpAction?.type === 'signup') {
           const userCredential = await createUserWithEmailAndPassword(auth, email, password);
           await updateProfile(userCredential.user, { displayName: name });
+        } else if (otpAction?.type === 'google_link') {
+          if (auth.currentUser) {
+            const EmailAuthProvider = (await import('firebase/auth')).EmailAuthProvider;
+            const linkWithCredential = (await import('firebase/auth')).linkWithCredential;
+            try {
+              const credential = EmailAuthProvider.credential(auth.currentUser.email || email, password);
+              await linkWithCredential(auth.currentUser, credential);
+            } catch (e: any) {
+              if (e.code === 'auth/credential-already-in-use') {
+                // already fully linked, proceed
+              } else {
+                throw e;
+              }
+            }
+          }
         }
         onClose();
       } catch(err: any) {
@@ -294,10 +309,37 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
 
   const handleGoogleLogin = async () => {
     try {
-      await signInWithGoogle();
-      onClose();
+      const result = await signInWithGoogle();
+      if (!result) return;
+      const user = result.user;
+      
+      const hasPassword = user.providerData.some((p: any) => p.providerId === 'password');
+      
+      if (!hasPassword) {
+        setEmail(user.email || '');
+        setStep('create_google_password');
+      } else {
+        onClose();
+      }
     } catch (err) {
       setError('Erro ao fazer login com Google.');
+    }
+  };
+
+  const handleGooglePasswordSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (password.length < 6) {
+      setError('A senha deve ter pelo menos 6 caracteres.');
+      return;
+    }
+    setError('');
+    setIsLoading(true);
+    try {
+      await startOtpFlow({ type: 'google_link' });
+    } catch (err: any) {
+      // erro lidado no startOtpFlow
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -318,12 +360,12 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
                 </button>
               )}
               {step === 'otp' && (
-                <button onClick={() => { setStep(otpAction?.type === 'login' ? 'password' : 'signup'); setError(''); }} className="p-1 hover:bg-[var(--bg-surface)] rounded-lg transition-colors">
+                <button onClick={() => { setStep(otpAction?.type === 'login' ? 'password' : otpAction?.type === 'google_link' ? 'create_google_password' : 'signup'); setError(''); }} className="p-1 hover:bg-[var(--bg-surface)] rounded-lg transition-colors">
                   <ArrowLeft className="w-5 h-5 text-[var(--text-muted)]" />
                 </button>
               )}
               <h3 className="text-xl font-bold text-[var(--text-base)]">
-                {step === 'email' ? 'Fazer Login' : step === 'password' ? 'Digite sua senha' : step === 'signup' ? 'Criar Conta' : 'Código de Verificação'}
+                {step === 'email' ? 'Fazer Login' : step === 'password' ? 'Digite sua senha' : step === 'signup' ? 'Criar Conta' : step === 'create_google_password' ? 'Nova Segurança' : 'Código de Verificação'}
               </h3>
             </div>
             <button onClick={onClose} className="p-2 hover:bg-[var(--bg-surface)] rounded-full transition-colors text-[var(--text-muted)] hover:text-[var(--text-base)]">
@@ -516,6 +558,49 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
                   className="w-full py-3 bg-[var(--color-sec)] text-white hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed rounded-xl font-bold transition-colors"
                 >
                   {isLoading ? 'Processando...' : showWeakWarning ? 'Criar Conta Mesmo Assim' : 'Criar Conta e Entrar'}
+                </button>
+              </form>
+            )}
+
+            {step === 'create_google_password' && (
+              <form onSubmit={handleGooglePasswordSubmit} className="space-y-4">
+                <div className="p-4 bg-[var(--color-sec)]/10 border border-[var(--color-sec)]/20 rounded-xl mb-6 text-center">
+                  <p className="text-[var(--text-base)] font-bold mb-2">Estamos atualizando nossa segurança!</p>
+                  <p className="text-sm text-[var(--text-muted)] mb-3">
+                    Você entrou via Google. Para proteger ainda mais seus dados, pedimos que crie uma senha para realizar acessos de forma manual se necessário.
+                  </p>
+                  <p className="text-xs font-semibold text-[var(--color-sec)]">
+                    Estes dados são 100% protegidos.
+                  </p>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-[var(--text-muted)] mb-1">Crie sua nova Senha</label>
+                  <div className="relative">
+                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-[var(--text-muted)]" />
+                    <input 
+                      type={showPassword ? "text" : "password"} 
+                      required
+                      minLength={6}
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      placeholder="Mínimo 6 caracteres"
+                      className="w-full bg-[var(--bg-input)] text-[var(--text-base)] border border-[var(--border-subtle)] rounded-xl py-3 pl-10 pr-12 focus:outline-none focus:border-[var(--color-sec)]"
+                    />
+                    <button 
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--text-muted)] hover:text-[var(--text-base)]"
+                    >
+                      {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                    </button>
+                  </div>
+                </div>
+                <button 
+                  type="submit"
+                  disabled={isLoading || !password || password.length < 6}
+                  className="w-full py-3 bg-[var(--color-sec)] text-white hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed rounded-xl font-bold transition-colors"
+                >
+                  {isLoading ? 'Verificando...' : 'Continuar'}
                 </button>
               </form>
             )}

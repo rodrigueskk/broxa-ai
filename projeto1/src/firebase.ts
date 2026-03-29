@@ -61,9 +61,11 @@ export function handleFirestoreError(error: unknown, operationType: OperationTyp
 
 export const signInWithGoogle = async () => {
   try {
-    await signInWithPopup(auth, googleProvider);
+    const result = await signInWithPopup(auth, googleProvider);
+    return result;
   } catch (error) {
     console.error("Error signing in with Google", error);
+    throw error;
   }
 };
 
