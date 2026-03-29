@@ -378,3 +378,22 @@
     }
   }
 }
+
+.claude-font {
+  font-family: 'Tiempos Text', 'Newsreader', 'Charter', 'Georgia', serif;
+}
+
+@keyframes snakeSlither {
+  from { stroke-dashoffset: 24; }
+  to { stroke-dashoffset: 0; }
+}
+
+.snake-line {
+  stroke-dasharray: 12 12;
+  animation: snakeSlither 1.2s linear infinite;
+  animation-play-state: paused;
+}
+
+.snake-btn:hover .snake-line {
+  animation-play-state: running;
+}

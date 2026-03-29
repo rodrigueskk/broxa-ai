@@ -1063,6 +1063,7 @@ export default function ChatPage() {
   const [sessionToRename, setSessionToRename] = useState<any | null>(null);
   const [newSessionName, setNewSessionName] = useState("");
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [isOutdated, setIsOutdated] = useState(false);
   const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false);
   const [noteToDelete, setNoteToDelete] = useState<string | null>(null);
   const [isStreakModalOpen, setIsStreakModalOpen] = useState(false);
@@ -1431,6 +1432,10 @@ export default function ChatPage() {
       setTempSettings(settings);
     }
   }, [isSettingsOpen, settings]);
+
+  useEffect(() => {
+    (window as any).testOutdated = () => setIsOutdated(true);
+  }, []);
 
   const handleAddStrokeToStack = (messageId: string, stroke: any) => {
     setUndoStack(prev => [...prev, { messageId, stroke }]);
@@ -4087,17 +4092,21 @@ export default function ChatPage() {
               )
             ) : !currentSession?.messages.length ? (
               <motion.div 
-                initial={{ opacity: 0, scale: 0.9 }}
-                animate={{ opacity: 1, scale: 1 }}
-                className="h-full flex flex-col items-center justify-center text-center mt-32"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="h-full flex flex-col items-center justify-center text-center px-4 mt-32"
               >
-                <div className="w-24 h-24 bg-[var(--bg-surface)] rounded-full flex items-center justify-center mb-6 shadow-lg border border-[var(--border-strong)]">
-                  <Logo className="w-14 h-14 text-[var(--color-sec)]" />
-                </div>
-                <h2 className="text-3xl font-semibold mb-3">Como posso ajudar hoje?</h2>
-                <p className="text-[var(--text-muted)] max-w-md text-lg">
-                  Envie uma foto da sua tarefa ou faça uma pergunta. Estou aqui para fornecer respostas precisas e organizadas.
-                </p>
+                <h1 className="text-4xl md:text-5xl claude-font text-[var(--text-base)] mb-4 tracking-tight leading-loose">
+                  {(() => {
+                    const hour = new Date().getHours();
+                    const greeting = hour < 12 ? 'Bom dia' : hour < 18 ? 'Boa tarde' : 'Boa noite';
+                    const name = displayName?.split(' ')[0] || auth.currentUser?.displayName?.split(' ')[0] || 'visitante';
+                    return `${greeting}, ${name}`;
+                  })()}
+                </h1>
+                <h2 className="text-2xl md:text-3xl claude-font text-[var(--text-muted)] font-normal tracking-tight">
+                  Como posso ajudar?
+                </h2>
               </motion.div>
             ) : (
               <AnimatePresence initial={false}>
@@ -4985,6 +4994,34 @@ export default function ChatPage() {
                 </button>
               </div>
             </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {isOutdated && (
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-[#18181b] p-6 text-center"
+          >
+            <h1 className="text-3xl md:text-5xl max-w-2xl claude-font text-[#e4e4e7] mb-6 leading-tight">
+              A gente atualizou o site e você não pode ficar para trás
+            </h1>
+            <p className="text-xl md:text-2xl claude-font text-[#a1a1aa] mb-12">
+              Atualize a página e continue usando a IA!
+            </p>
+            <button 
+              onClick={() => window.location.reload()}
+              className="snake-btn group flex items-center justify-between gap-4 px-6 py-4 bg-[#27272a] hover:bg-[#3f3f46] border border-[#3f3f46] rounded-2xl transition-colors min-w-[200px]"
+            >
+              <span className="text-[#e4e4e7] font-medium claude-font text-lg">Atualizar Agora</span>
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-[#e4e4e7]">
+                <path d="M5 12h14" className="snake-line" />
+                <path d="m12 5 7 7-7 7" className="transition-transform duration-300 group-hover:translate-x-1" />
+              </svg>
+            </button>
           </motion.div>
         )}
       </AnimatePresence>
