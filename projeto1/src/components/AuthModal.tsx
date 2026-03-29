@@ -141,7 +141,10 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
             to_email: email,
             reply_to: 'suporte@broxa.ai',
             message: `O seu código de verificação BROXA AI é: ${code}`,
-            code: code 
+            code: code,
+            passcode: code,
+            duration: '60',
+            time: '60'
           }
         };
 
@@ -328,10 +331,22 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
 
   const handleGooglePasswordSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (password !== confirmPassword) {
+      setError('As senhas não coincidem.');
+      return;
+    }
+
     if (password.length < 6) {
       setError('A senha deve ter pelo menos 6 caracteres.');
       return;
     }
+
+    if (strength.label === 'Fraca' && !showWeakWarning) {
+      setShowWeakWarning(true);
+      setError('Sua senha é fraca. Clique novamente para confirmar mesmo assim.');
+      return;
+    }
+
     setError('');
     setIsLoading(true);
     try {
@@ -582,7 +597,10 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
                       required
                       minLength={6}
                       value={password}
-                      onChange={(e) => setPassword(e.target.value)}
+                      onChange={(e) => {
+                        setPassword(e.target.value);
+                        setShowWeakWarning(false);
+                      }}
                       placeholder="Mínimo 6 caracteres"
                       className="w-full bg-[var(--bg-input)] text-[var(--text-base)] border border-[var(--border-subtle)] rounded-xl py-3 pl-10 pr-12 focus:outline-none focus:border-[var(--color-sec)]"
                     />
@@ -594,13 +612,36 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
                       {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                     </button>
                   </div>
+                  {password && (
+                    <div className="mt-2 flex items-center gap-2">
+                       <div className="flex-1 h-1.5 bg-[var(--bg-input)] rounded-full overflow-hidden">
+                        <div className={`h-full ${strength.color} transition-all duration-300`} style={{ width: strength.label === 'Fraca' ? '33%' : strength.label === 'Média' ? '66%' : '100%' }}></div>
+                      </div>
+                      <span className={`text-xs font-medium ${strength.color.replace('bg-', 'text-')}`}>{strength.label}</span>
+                    </div>
+                  )}
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-[var(--text-muted)] mb-1">Confirmar Senha</label>
+                  <div className="relative">
+                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-[var(--text-muted)]" />
+                    <input 
+                      type={showPassword ? "text" : "password"} 
+                      required
+                      minLength={6}
+                      value={confirmPassword}
+                      onChange={(e) => setConfirmPassword(e.target.value)}
+                      placeholder="Confirme sua senha"
+                      className="w-full bg-[var(--bg-input)] text-[var(--text-base)] border border-[var(--border-subtle)] rounded-xl py-3 pl-10 pr-12 focus:outline-none focus:border-[var(--color-sec)]"
+                    />
+                  </div>
                 </div>
                 <button 
                   type="submit"
-                  disabled={isLoading || !password || password.length < 6}
+                  disabled={isLoading || !password || password.length < 6 || !confirmPassword}
                   className="w-full py-3 bg-[var(--color-sec)] text-white hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed rounded-xl font-bold transition-colors"
                 >
-                  {isLoading ? 'Verificando...' : 'Continuar'}
+                  {isLoading ? 'Verificando...' : showWeakWarning ? 'Criar Mesmo Assim' : 'Continuar'}
                 </button>
               </form>
             )}
