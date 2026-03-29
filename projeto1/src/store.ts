@@ -959,5 +959,14 @@ export function useGroupStore() {
     }
   };
 
-  return { groups, createGroup, joinGroup, renameGroup, updateGroup, removeMember, updateGroupStreak, deleteGroup };
+  const updateGroupMessage = async (groupId: string, messageId: string, updates: Partial<GroupMessage>) => {
+    try {
+      const messageRef = doc(db, `groups/${groupId}/messages`, messageId);
+      await updateDoc(messageRef, updates);
+    } catch (error) {
+      console.error("Error updating group message:", error);
+    }
+  };
+
+  return { groups, createGroup, joinGroup, renameGroup, updateGroup, removeMember, updateGroupStreak, deleteGroup, updateGroupMessage };
 }

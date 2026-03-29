@@ -41,6 +41,9 @@ export interface GroupMessage {
   content: string;
   imageUrls?: string[];
   timestamp: number;
+  isError?: boolean;
+  errorMessage?: string;
+  model?: string;
 }
 
 export interface Group {

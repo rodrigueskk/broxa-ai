@@ -794,8 +794,8 @@ const TextSelectionToolbar = ({ onCopy, onPin, onExplain, onSearch, onCompare, p
 const HoldButton = ({ onConfirm, onCancel, children, className, holdTime = 2000 }: any) => {
   const [isHolding, setIsHolding] = useState(false);
   const [progress, setProgress] = useState(0);
-  const timerRef = useRef<NodeJS.Timeout | null>(null);
-  const intervalRef = useRef<NodeJS.Timeout | null>(null);
+  const timerRef = useRef<any>(null);
+  const intervalRef = useRef<any>(null);
 
   const startHold = () => {
     setIsHolding(true);
@@ -969,7 +969,7 @@ export default function ChatPage() {
 
   const { sessions, currentSessionId, setCurrentSessionId, currentSession, createSession, addMessage, updateMessage, deleteSession, togglePinSession, togglePinMessage, addPinnedText, removePinnedText, addStroke, setStrokes, updateSessionTitle } = useChatStore();
   const { settings, updateSettings } = useSettingsStore();
-  const { groups, createGroup, joinGroup, renameGroup, updateGroupStreak, updateGroup, removeMember, deleteGroup } = useGroupStore();
+  const { groups, createGroup, joinGroup, renameGroup, updateGroupStreak, updateGroup, removeMember, deleteGroup, updateGroupMessage } = useGroupStore();
   
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -1086,6 +1086,16 @@ export default function ChatPage() {
   const [tempDisplayName, setTempDisplayName] = useState('');
   const [tempPhotoURL, setTempPhotoURL] = useState('');
   const [activeSettingsTab, setActiveSettingsTab] = useState<'profile' | 'security'>('profile');
+  const [retryCount, setRetryCount] = useState(0);
+  const [retryTimer, setRetryTimer] = useState<number | null>(null);
+  const [drafts, setDrafts] = useState<Record<string, string>>(() => {
+    try {
+      const saved = localStorage.getItem('broxa_ai_drafts');
+      return saved ? JSON.parse(saved) : {};
+    } catch (e) {
+      return {};
+    }
+  });
   const [currentUser, setCurrentUser] = useState(auth.currentUser);
   
   useEffect(() => {
@@ -1110,6 +1120,38 @@ export default function ChatPage() {
   });
   const [showSuspensionWarning, setShowSuspensionWarning] = useState(false);
 
+  // Sync drafts to localStorage
+  useEffect(() => {
+    localStorage.setItem('broxa_ai_drafts', JSON.stringify(drafts));
+  }, [drafts]);
+
+  // Load draft when switching session/group
+  useEffect(() => {
+    const id = selectedGroupId || currentSessionId;
+    if (id && drafts[id]) {
+      setInput(drafts[id]);
+    } else {
+      setInput('');
+    }
+  }, [currentSessionId, selectedGroupId]);
+
+  // Save draft on input change
+  useEffect(() => {
+    const id = selectedGroupId || currentSessionId;
+    if (id) {
+      setDrafts(prev => {
+        if (input === prev[id]) return prev;
+        const newDrafts = { ...prev };
+        if (input.trim()) {
+          newDrafts[id] = input;
+        } else {
+          delete newDrafts[id];
+        }
+        return newDrafts;
+      });
+    }
+  }, [input, currentSessionId, selectedGroupId]);
+
   // Security Tab Form States
   const [newPassword, setNewPassword] = useState('');
   const [confirmNewPassword, setConfirmNewPassword] = useState('');
@@ -1130,6 +1172,39 @@ export default function ChatPage() {
       setActiveSettingsTab('profile');
     }
   }, [isUserSettingsOpen, isGoogleUserWithoutPassword]);
+
+  // AI Retry Timer logic
+  useEffect(() => {
+    let interval: any;
+    if (retryTimer !== null && retryTimer > 0) {
+      interval = setInterval(() => {
+        setRetryTimer(prev => {
+          const newValue = prev !== null ? prev - 1 : null;
+          // Update the message content with the live countdown
+          if (newValue !== null && newValue > 0) {
+            const id = selectedGroupId || currentSessionId;
+            const lastAiMsg = selectedGroupId 
+              ? groupMessages.filter(m => m.senderId === 'ai').pop()
+              : sessions.find(s => s.id === currentSessionId)?.messages.filter(m => m.role === 'ai').pop();
+            
+            if (lastAiMsg && id) {
+              const retryMsg = `Alta demanda detectada. Tentando novamente em ${newValue} segundos... (Tentativa ${retryCount}/20)`;
+              if (selectedGroupId) {
+                updateGroupMessage(selectedGroupId, lastAiMsg.id, { content: retryMsg, isError: true });
+              } else {
+                updateMessage(id, lastAiMsg.id, { content: retryMsg, isError: true });
+              }
+            }
+          }
+          return newValue;
+        });
+      }, 1000);
+    } else if (retryTimer === 0) {
+      setRetryTimer(null);
+      handleSend();
+    }
+    return () => clearInterval(interval);
+  }, [retryTimer]);
 
   const { seenReleaseNotes, markAsSeen, userRole, hasSeenRoleNotification, markRoleNotificationAsSeen, streakDays, lastMessageDate, freezesAvailable, updateStreak, checkStreak, displayName, photoURL, hasSetProfile, updateProfile, unlockedFeatures, markFeatureAsSeen, isUserLoaded, violationsCount, isBanned, appealStatus, incrementViolations, submitAppeal } = useUserStore();
   const [isIpBanned, setIsIpBanned] = useState(false);
@@ -1978,10 +2053,57 @@ export default function ChatPage() {
         };
         
         await addDoc(collection(db, `groups/${groupId}/messages`), aiMessage);
-      } catch (error) {
+      } catch (error: any) {
+        console.error("Error generating group response:", error);
+        
+        const errorString = error?.toString() || "";
+        const isQuotaError = 
+          error?.status === 429 || 
+          error?.error?.code === 429 ||
+          error?.message?.includes("429") || 
+          error?.message?.includes("quota") || 
+          error?.status === "RESOURCE_EXHAUSTED" ||
+          error?.error?.status === "RESOURCE_EXHAUSTED" ||
+          errorString.includes("429") ||
+          errorString.includes("quota") ||
+          errorString.includes("RESOURCE_EXHAUSTED");
+
+        if (isQuotaError && retryCount < 20) {
+          const nextRetry = retryCount + 1;
+          setRetryCount(nextRetry);
+          setRetryTimer(nextRetry);
+          
+          const retryMsg = `Alta demanda detectada. Tentando novamente em ${nextRetry} segundos... (Tentativa ${nextRetry}/20)`;
+          
+          const lastAiMsg = groupMessages.filter(m => m.senderId === 'ai').pop();
+          if (lastAiMsg) {
+            await updateGroupMessage(groupId, lastAiMsg.id, { content: retryMsg, isError: true });
+          } else {
+            await addDoc(collection(db, `groups/${groupId}/messages`), {
+              senderId: 'ai',
+              senderName: 'BROXA AI',
+              senderPhotoURL: null,
+              content: retryMsg,
+              timestamp: Date.now(),
+              isError: true
+            });
+          }
+          return;
+        }
+
         handleFirestoreError(error, OperationType.CREATE, `groups/${groupId}/messages`);
       } finally {
-        setIsLoading(false);
+        if (retryTimer === null) {
+          setIsLoading(false);
+          setRetryCount(0);
+          
+          // Clear draft on success
+          setDrafts(prev => {
+            const newDrafts = { ...prev };
+            delete newDrafts[groupId];
+            return newDrafts;
+          });
+        }
       }
       return;
     }
@@ -2105,7 +2227,6 @@ export default function ChatPage() {
       }
     } catch (error: any) {
       console.error("Error generating response:", error);
-      let errorMessage = "Desculpe, ocorreu um erro ao processar sua solicitação. Por favor, tente novamente.";
       
       const errorString = error?.toString() || "";
       let errorJson = "";
@@ -2122,11 +2243,27 @@ export default function ChatPage() {
         error?.error?.status === "RESOURCE_EXHAUSTED" ||
         errorString.includes("429") ||
         errorString.includes("quota") ||
-        errorString.includes("RESOURCE_EXHAUSTED") ||
-        errorJson.includes("429") ||
-        errorJson.includes("quota") ||
-        errorJson.includes("RESOURCE_EXHAUSTED");
+        errorString.includes("RESOURCE_EXHAUSTED");
 
+      // Auto-retry logic for quota errors
+      if (isQuotaError && retryCount < 20) {
+        const nextRetry = retryCount + 1;
+        setRetryCount(nextRetry);
+        setRetryTimer(nextRetry);
+        
+        const retryMsg = `Alta demanda detectada. Tentando novamente em ${nextRetry} segundos... (Tentativa ${nextRetry}/20)`;
+        if (aiMessageId) {
+          updateMessage(sessionId, aiMessageId, { content: retryMsg, isError: true });
+        } else {
+          addMessage(sessionId, { role: 'ai', content: retryMsg, isError: true, model: modelToUse });
+        }
+        setIsLoading(false);
+        setIsSearching(false);
+        return;
+      }
+
+      let errorMessage = "Desculpe, ocorreu um erro ao processar sua solicitação. Por favor, tente novamente.";
+      
       if (isQuotaError) {
         errorMessage = "O limite de uso da API foi excedido (Erro 429). Por favor, verifique sua cota no Google AI Studio ou tente novamente mais tarde.";
       } else if (errorString.includes("A chave da API do Gemini não está configurada") || error?.message?.includes("A chave da API")) {
@@ -2153,9 +2290,22 @@ export default function ChatPage() {
         });
       }
     } finally {
-      setIsLoading(false);
-      setIsSearching(false);
-      setSearchStatus(null);
+      if (retryTimer === null) {
+        setIsLoading(false);
+        setIsSearching(false);
+        setSearchStatus(null);
+        setRetryCount(0); // Reset retry count on finish (success or final error)
+        
+        // Clear draft on successful send
+        const id = selectedGroupId || currentSessionId;
+        if (id && !aiMessageId?.includes('error')) { // Rough check for success
+           setDrafts(prev => {
+             const newDrafts = { ...prev };
+             delete newDrafts[id];
+             return newDrafts;
+           });
+        }
+      }
       setTimeout(scrollToBottom, 100);
     }
   };
@@ -2200,9 +2350,16 @@ export default function ChatPage() {
       }}
       className={`group flex items-center justify-between p-3 rounded-2xl cursor-pointer transition-colors overflow-hidden ${currentSessionId === session.id ? 'bg-[var(--bg-surface)] text-[var(--text-base)]' : 'text-[var(--text-muted)] hover:bg-[var(--bg-surface)] hover:text-[var(--text-base)]'}`}
     >
-      <div className="flex items-center gap-3 overflow-hidden">
-        <MessageSquare className="w-4 h-4 shrink-0" />
-        <TypingTitle text={session.title} />
+      <div className="flex flex-col overflow-hidden flex-1">
+        <div className="flex items-center gap-3 overflow-hidden">
+          <MessageSquare className="w-4 h-4 shrink-0" />
+          <TypingTitle text={session.title} />
+        </div>
+        {drafts[session.id] && (
+          <span className="text-[10px] font-bold text-yellow-500 ml-7 animate-pulse">
+            Rascunho salvo
+          </span>
+        )}
       </div>
       {session.isPinned && (
         <Pin className="w-3.5 h-3.5 text-[var(--color-sec)]" />
@@ -4163,10 +4320,16 @@ export default function ChatPage() {
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="truncate font-medium text-sm">{group.name}</div>
-                      <div className="text-xs opacity-70 flex items-center gap-1">
-                        <Flame className="w-3 h-3 text-orange-500" />
-                        {group.streakDays} dias
-                      </div>
+                      {drafts[group.id] ? (
+                        <div className="text-[10px] font-bold text-yellow-500 animate-pulse">
+                          Rascunho salvo
+                        </div>
+                      ) : (
+                        <div className="text-xs opacity-70 flex items-center gap-1">
+                          <Flame className="w-3 h-3 text-orange-500" />
+                          {group.streakDays} dias
+                        </div>
+                      )}
                     </div>
                   </button>
                 ))}
