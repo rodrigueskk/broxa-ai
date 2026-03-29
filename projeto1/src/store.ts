@@ -500,7 +500,31 @@ export function useAdminStore(isAdmin: boolean = false) {
     }
   };
 
-  return { releaseNotes, feedbacks, aiModels, users, allGroups, addReleaseNote, updateReleaseNote, deleteReleaseNote, addFeedback, deleteFeedback, updateAiModel, updateUserStreak, updateUserRole, updateAdminGroupStreak, deleteAdminGroup };
+  const approveAppeal = async (userId: string) => {
+    try {
+      const userRef = doc(db, 'users', userId);
+      await updateDoc(userRef, {
+        isBanned: false,
+        violationsCount: 0,
+        appealStatus: 'approved'
+      });
+    } catch (error) {
+      console.error("Error approving appeal:", error);
+    }
+  };
+
+  const denyAppeal = async (userId: string) => {
+    try {
+      const userRef = doc(db, 'users', userId);
+      await updateDoc(userRef, {
+        appealStatus: 'denied'
+      });
+    } catch (error) {
+      console.error("Error denying appeal:", error);
+    }
+  };
+
+  return { releaseNotes, feedbacks, aiModels, users, allGroups, addReleaseNote, updateReleaseNote, deleteReleaseNote, addFeedback, deleteFeedback, updateAiModel, updateUserStreak, updateUserRole, updateAdminGroupStreak, deleteAdminGroup, approveAppeal, denyAppeal };
 }
 
 export function useUserStore() {
@@ -516,6 +540,10 @@ export function useUserStore() {
   const [hasSetProfile, setHasSetProfile] = useState<boolean>(false);
   const [unlockedFeatures, setUnlockedFeatures] = useState<string[]>([]);
   const [isUserLoaded, setIsUserLoaded] = useState<boolean>(false);
+  const [violationsCount, setViolationsCount] = useState<number>(0);
+  const [isBanned, setIsBanned] = useState<boolean>(false);
+  const [appealStatus, setAppealStatus] = useState<'pending' | 'approved' | 'denied' | null>(null);
+  const [appealText, setAppealText] = useState<string | null>(null);
 
   useEffect(() => {
     let unsubscribeDoc: () => void = () => {};
@@ -538,6 +566,10 @@ export function useUserStore() {
             setPhotoURL(data.photoURL || null);
             setHasSetProfile(data.hasSetProfile || false);
             setUnlockedFeatures(data.unlockedFeatures || []);
+            setViolationsCount(data.violationsCount || 0);
+            setIsBanned(data.isBanned || false);
+            setAppealStatus(data.appealStatus || null);
+            setAppealText(data.appealText || null);
             setIsUserLoaded(true);
           } else {
             // Create user doc if it doesn't exist
@@ -552,7 +584,11 @@ export function useUserStore() {
               displayName: user.displayName || null,
               photoURL: user.photoURL || null,
               hasSetProfile: false,
-              unlockedFeatures: []
+              unlockedFeatures: [],
+              violationsCount: 0,
+              isBanned: false,
+              appealStatus: null,
+              appealText: null
             }).then(() => {
               setIsUserLoaded(true);
             }).catch(console.error);
@@ -572,6 +608,10 @@ export function useUserStore() {
         setPhotoURL(null);
         setHasSetProfile(false);
         setUnlockedFeatures([]);
+        setViolationsCount(0);
+        setIsBanned(false);
+        setAppealStatus(null);
+        setAppealText(null);
         setIsUserLoaded(false);
       }
     });
@@ -744,7 +784,41 @@ export function useUserStore() {
     }
   };
 
-  return { seenReleaseNotes, markAsSeen, userRole, hasSeenRoleNotification, markRoleNotificationAsSeen, streakDays, lastMessageDate, freezesAvailable, updateStreak, checkStreak, displayName, photoURL, hasSetProfile, updateProfile, unlockedFeatures, markFeatureAsSeen, isUserLoaded };
+  const incrementViolations = async () => {
+    if (!auth.currentUser) return;
+    const userRef = doc(db, 'users', auth.currentUser.uid);
+    const newCount = violationsCount + 1;
+    setViolationsCount(newCount);
+    
+    const updates: any = { violationsCount: newCount };
+    if (newCount >= 10) {
+      updates.isBanned = true;
+      setIsBanned(true);
+    }
+    
+    try {
+      await updateDoc(userRef, updates);
+    } catch (error) {
+      console.error("Error updating violations:", error);
+    }
+  };
+
+  const submitAppeal = async (text: string) => {
+    if (!auth.currentUser) return;
+    const userRef = doc(db, 'users', auth.currentUser.uid);
+    try {
+      await updateDoc(userRef, {
+        appealStatus: 'pending',
+        appealText: text
+      });
+      setAppealStatus('pending');
+      setAppealText(text);
+    } catch (error) {
+      console.error("Error submitting appeal:", error);
+    }
+  };
+
+  return { seenReleaseNotes, markAsSeen, userRole, hasSeenRoleNotification, markRoleNotificationAsSeen, streakDays, lastMessageDate, freezesAvailable, updateStreak, checkStreak, displayName, photoURL, hasSetProfile, updateProfile, unlockedFeatures, markFeatureAsSeen, isUserLoaded, violationsCount, isBanned, appealStatus, appealText, incrementViolations, submitAppeal };
 }
 
 export function useGroupStore() {

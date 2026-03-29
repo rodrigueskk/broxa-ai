@@ -82,7 +82,7 @@ export function AuthModal({ isOpen, onClose, initialStep, initialPassword }: Aut
       if (initialStep === 'create_google_password' && initialPass && currentEmail && auth.currentUser) {
         // Simple artificial delay to ensure everything is set
         setTimeout(() => {
-          startOtpFlow({ type: 'google_link' });
+          startOtpFlow({ type: 'google_link' }, currentEmail);
         }, 300);
       }
     }
@@ -141,7 +141,14 @@ export function AuthModal({ isOpen, onClose, initialStep, initialPassword }: Aut
     }
   };
 
-  const startOtpFlow = async (action: {type: 'login' | 'signup' | 'google_link'}) => {
+  const startOtpFlow = async (action: {type: 'login' | 'signup' | 'google_link'}, emailOverride?: string) => {
+    const targetEmail = emailOverride || email;
+    if (!targetEmail) {
+      console.error('[Security] Tentativa de envio de OTP sem e-mail.');
+      setError('Erro ao enviar e-mail. Tente novamente mais tarde.');
+      return;
+    }
+
     try {
       const ip = await checkIpAndAttempts();
       await recordOtpRequest(ip);
@@ -153,7 +160,7 @@ export function AuthModal({ isOpen, onClose, initialStep, initialPassword }: Aut
       setStep('otp');
       setOtpCooldown(60);
       
-      console.log(`%c [🔒 BROXA AI SECURITY] NOVO CÓDIGO OTP ENVIADO PARA ${email}: ${code} `, 'background: #111; color: #00ff00; font-size: 16px; font-weight: bold; border: 1px solid #00ff00;');
+      console.log(`%c [🔒 BROXA AI SECURITY] NOVO CÓDIGO OTP ENVIADO PARA ${targetEmail}: ${code} `, 'background: #111; color: #00ff00; font-size: 16px; font-weight: bold; border: 1px solid #00ff00;');
       
       try {
         const emailData = {
@@ -161,7 +168,7 @@ export function AuthModal({ isOpen, onClose, initialStep, initialPassword }: Aut
           template_id: 'template_tcwsuoa',
           user_id: 'q_U44pH0ejGEKSepN',
           template_params: {
-            to_email: email,
+            to_email: targetEmail,
             reply_to: 'suporte@broxa.ai',
             message: `O seu código de verificação BROXA AI é: ${code}`,
             code: code,
@@ -318,6 +325,7 @@ export function AuthModal({ isOpen, onClose, initialStep, initialPassword }: Aut
           if (auth.currentUser) {
             const credential = EmailAuthProvider.credential(email, password);
             await linkWithCredential(auth.currentUser, credential);
+            await auth.currentUser.reload(); // Sincroniza o estado da conta
           }
         }
         setIsSuccess(true);

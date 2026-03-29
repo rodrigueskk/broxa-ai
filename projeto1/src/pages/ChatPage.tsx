@@ -16,6 +16,8 @@ import { Rnd } from 'react-rnd';
 import { v4 as uuidv4 } from 'uuid';
 import { Message, Point } from '../types';
 import { MindMap } from '../components/MindMap';
+import { checkContent, getViolationMessage } from '../services/moderation';
+import { BanScreen } from '../components/BanScreen';
 
 const RespostaOptions = ({ disabled }: { disabled: boolean }) => {
   const [selected, setSelected] = useState<string | null>(null);
@@ -1129,7 +1131,26 @@ export default function ChatPage() {
     }
   }, [isUserSettingsOpen, isGoogleUserWithoutPassword]);
 
-  const { seenReleaseNotes, markAsSeen, userRole, hasSeenRoleNotification, markRoleNotificationAsSeen, streakDays, lastMessageDate, freezesAvailable, updateStreak, checkStreak, displayName, photoURL, hasSetProfile, updateProfile, unlockedFeatures, markFeatureAsSeen, isUserLoaded } = useUserStore();
+  const { seenReleaseNotes, markAsSeen, userRole, hasSeenRoleNotification, markRoleNotificationAsSeen, streakDays, lastMessageDate, freezesAvailable, updateStreak, checkStreak, displayName, photoURL, hasSetProfile, updateProfile, unlockedFeatures, markFeatureAsSeen, isUserLoaded, violationsCount, isBanned, appealStatus, incrementViolations, submitAppeal } = useUserStore();
+  const [isIpBanned, setIsIpBanned] = useState(false);
+  useEffect(() => {
+    const checkIpBan = async () => {
+      try {
+        const response = await fetch('https://api.ipify.org?format=json');
+        const data = await response.json();
+        const ip = data.ip;
+        const ipId = ip.replace(/\./g, '_');
+        const ipRef = doc(db, 'bannedIPs', ipId);
+        const ipSnap = await getDoc(ipRef);
+        if (ipSnap.exists() && ipSnap.data().isPermanent) {
+           setIsIpBanned(true);
+        }
+      } catch (e) {
+        console.error("IP Check failed", e);
+      }
+    };
+    checkIpBan();
+  }, []);
   const prevStreakRef = useRef(streakDays);
 
   useEffect(() => {
@@ -1223,9 +1244,9 @@ export default function ChatPage() {
     }
   }, [streakDays]);
   const [isAdmin, setIsAdmin] = useState(false);
-  const { releaseNotes, feedbacks, aiModels, users, allGroups, addReleaseNote, updateReleaseNote, deleteReleaseNote, updateAiModel, addFeedback, updateUserStreak, updateUserRole, updateAdminGroupStreak, deleteAdminGroup } = useAdminStore(isAdmin);
+  const { releaseNotes, feedbacks, aiModels, users, allGroups, addReleaseNote, updateReleaseNote, deleteReleaseNote, updateAiModel, addFeedback, updateUserStreak, updateUserRole, updateAdminGroupStreak, deleteAdminGroup, approveAppeal, denyAppeal } = useAdminStore(isAdmin);
   const [isAdminPanelOpen, setIsAdminPanelOpen] = useState(false);
-  const [adminTab, setAdminTab] = useState<'releaseNotes' | 'feedbacks' | 'models' | 'users' | 'groups'>('releaseNotes');
+  const [adminTab, setAdminTab] = useState<'releaseNotes' | 'feedbacks' | 'models' | 'users' | 'groups' | 'appeals'>('releaseNotes');
   const [userSearchTerm, setUserSearchTerm] = useState('');
   const [groupSearchTerm, setGroupSearchTerm] = useState('');
   const [currentReleaseNote, setCurrentReleaseNote] = useState<ReleaseNote | null>(null);
@@ -1922,6 +1943,19 @@ export default function ChatPage() {
       };
       
       try {
+        if (!checkContent(textToSend)) {
+          incrementViolations();
+          const violationMsg: Omit<GroupMessage, 'id'> = {
+            senderId: 'ai',
+            senderName: 'BROXA AI',
+            senderPhotoURL: null,
+            content: getViolationMessage(),
+            timestamp: Date.now()
+          };
+          await addDoc(collection(db, `groups/${groupId}/messages`), violationMsg);
+          return;
+        }
+
         await addDoc(collection(db, `groups/${groupId}/messages`), userMessage);
         await updateGroupStreak(groupId);
         
@@ -1969,6 +2003,18 @@ export default function ChatPage() {
       content: userMessageContent,
       imageUrls: userImageUrls.length > 0 ? userImageUrls : undefined,
     });
+
+    if (!checkContent(userMessageContent)) {
+       incrementViolations();
+       addMessage(sessionId, {
+         role: 'ai',
+         content: getViolationMessage(),
+         isError: true
+       });
+       setInput('');
+       setSelectedImages([]);
+       return;
+    }
 
     if (isFirstMessage && userMessageContent) {
       generateTitle(userMessageContent).then(title => {
@@ -2033,6 +2079,15 @@ export default function ChatPage() {
             break;
           }
           fullResponse += chunk;
+          
+          // Check for violations in AI response as well
+          if (!checkContent(fullResponse)) {
+            incrementViolations();
+            updateMessage(sessionId, aiMessageId, getViolationMessage());
+            fullResponse = getViolationMessage();
+            break;
+          }
+
           updateMessage(sessionId, aiMessageId, fullResponse);
         }
         
@@ -2548,6 +2603,12 @@ export default function ChatPage() {
                   className={`pb-3 px-2 font-medium transition-colors border-b-2 ${adminTab === 'groups' ? 'border-[var(--color-sec)] text-[var(--color-sec)]' : 'border-transparent text-[var(--text-muted)] hover:text-[var(--text-base)]'}`}
                 >
                   Grupos
+                </button>
+                <button
+                  onClick={() => setAdminTab('appeals')}
+                  className={`pb-3 px-2 font-medium transition-colors border-b-2 ${adminTab === 'appeals' ? 'border-[var(--color-sec)] text-[var(--color-sec)]' : 'border-transparent text-[var(--text-muted)] hover:text-[var(--text-base)]'}`}
+                >
+                  Apelos
                 </button>
               </div>
 
@@ -3176,6 +3237,60 @@ export default function ChatPage() {
                           </div>
                         </div>
                       ))}
+                    </div>
+                  </div>
+                )}
+
+                {adminTab === 'appeals' && (
+                  <div className="flex-1 p-6 overflow-y-auto custom-scrollbar">
+                    <h4 className="text-lg font-semibold text-[var(--text-base)] mb-4">Apelos de Banimento</h4>
+                    <div className="space-y-4">
+                      {users.filter(u => u.appealStatus === 'pending').length === 0 ? (
+                        <div className="flex flex-col items-center justify-center py-12 text-[var(--text-muted)]">
+                          <ShieldCheck className="w-12 h-12 mb-4 opacity-20" />
+                          <p>Nenhum apelo pendente no momento.</p>
+                        </div>
+                      ) : (
+                        users.filter(u => u.appealStatus === 'pending').map(user => (
+                          <div key={user.id} className="p-6 rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] flex flex-col gap-4 shadow-sm">
+                            <div className="flex justify-between items-start">
+                              <div className="flex items-center gap-3">
+                                <div className="w-10 h-10 rounded-full bg-[var(--bg-base)] border border-[var(--border-strong)] flex items-center justify-center font-bold text-[var(--color-sec)]">
+                                  {(user.displayName || user.email || '?')[0].toUpperCase()}
+                                </div>
+                                <div>
+                                  <div className="font-bold text-[var(--text-base)]">{user.displayName || 'Sem Nome'}</div>
+                                  <div className="text-xs text-[var(--text-muted)]">{user.email}</div>
+                                </div>
+                              </div>
+                              <div className="px-3 py-1 bg-yellow-500/10 text-yellow-500 text-[10px] font-bold rounded-full border border-yellow-500/20 uppercase tracking-wider">
+                                Pendente
+                              </div>
+                            </div>
+
+                            <div className="bg-[var(--bg-panel)] p-4 rounded-xl border border-[var(--border-strong)] italic text-sm text-[var(--text-base)] leading-relaxed">
+                              "{user.appealText || 'Sem justificativa fornecida.'}"
+                            </div>
+
+                            <div className="flex gap-3 mt-2">
+                              <button
+                                onClick={() => approveAppeal(user.id)}
+                                className="flex-1 py-3 bg-green-500 text-white rounded-xl font-bold text-sm hover:bg-green-600 transition-colors flex items-center justify-center gap-2"
+                              >
+                                <Check className="w-4 h-4" />
+                                Aprovar Apelo
+                              </button>
+                              <button
+                                onClick={() => denyAppeal(user.id)}
+                                className="flex-1 py-3 bg-red-500/10 text-red-500 border border-red-500/20 rounded-xl font-bold text-sm hover:bg-red-500/20 transition-colors flex items-center justify-center gap-2"
+                              >
+                                <X className="w-4 h-4" />
+                                Negar Apelo
+                              </button>
+                            </div>
+                          </div>
+                        ))
+                      )}
                     </div>
                   </div>
                 )}
@@ -5501,6 +5616,15 @@ export default function ChatPage() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {(isBanned || isIpBanned) && (
+        <BanScreen 
+          appealStatus={appealStatus} 
+          onSubmitAppeal={(text) => {
+            submitAppeal(text);
+          }} 
+        />
+      )}
     </div>
     </div>
   );
