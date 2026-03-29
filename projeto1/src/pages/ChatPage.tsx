@@ -1682,6 +1682,9 @@ export default function ChatPage() {
   const [pullProgress, setPullProgress] = useState(0);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const isHeaderTouchRef = useRef(false);
+  const [mobileSessionOptions, setMobileSessionOptions] = useState<any | null>(null);
+  const longPressTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const onTouchStart = (e: React.TouchEvent) => {
     setTouchEnd(null);
@@ -1689,13 +1692,15 @@ export default function ChatPage() {
     setTouchStart(e.targetTouches[0].clientX);
     setTouchStartY(e.targetTouches[0].clientY);
     setPullProgress(0);
+    const target = e.target as HTMLElement;
+    isHeaderTouchRef.current = !!target.closest('header');
   };
 
   const onTouchMove = (e: React.TouchEvent) => {
     setTouchEnd(e.targetTouches[0].clientX);
     setTouchEndY(e.targetTouches[0].clientY);
 
-    if (scrollContainerRef.current && scrollContainerRef.current.scrollTop === 0 && touchStartY !== null) {
+    if (isHeaderTouchRef.current && scrollContainerRef.current && scrollContainerRef.current.scrollTop === 0 && touchStartY !== null) {
       const distanceY = e.targetTouches[0].clientY - touchStartY;
       if (distanceY > 0) {
         setPullProgress(Math.min(distanceY / 150, 1));
@@ -1716,7 +1721,6 @@ export default function ChatPage() {
     if (!touchStart || !touchEnd || !touchStartY || !touchEndY) return;
     const distanceX = touchStart - touchEnd;
     const distanceY = touchStartY - touchEndY;
-    const isLeftSwipe = distanceX > 50;
     const isRightSwipe = distanceX < -50;
     
     // Only trigger if horizontal swipe is greater than vertical swipe
@@ -1725,10 +1729,7 @@ export default function ChatPage() {
       if (isRightSwipe && touchStart < 60) {
         setIsSidebarOpen(true);
       }
-      // Swipe left to close sidebar
-      if (isLeftSwipe && isSidebarOpen) {
-        setIsSidebarOpen(false);
-      }
+      // Puxando pro lado esquerdo não acontece nada conforme solicitado
     }
   };
 
@@ -1982,13 +1983,32 @@ export default function ChatPage() {
         setSelectedGroupId(null);
         if (window.innerWidth < 768) setIsSidebarOpen(false);
       }}
+      onTouchStart={(e) => {
+        if (window.innerWidth < 768) {
+          longPressTimeoutRef.current = setTimeout(() => {
+            setMobileSessionOptions(session);
+          }, 500);
+        }
+      }}
+      onTouchEnd={() => {
+        if (longPressTimeoutRef.current) clearTimeout(longPressTimeoutRef.current);
+      }}
+      onTouchMove={() => {
+        if (longPressTimeoutRef.current) clearTimeout(longPressTimeoutRef.current);
+      }}
+      onContextMenu={(e) => {
+        if (window.innerWidth < 768) {
+          e.preventDefault();
+          setMobileSessionOptions(session);
+        }
+      }}
       className={`group flex items-center justify-between p-3 rounded-2xl cursor-pointer transition-colors overflow-hidden ${currentSessionId === session.id ? 'bg-[var(--bg-surface)] text-[var(--text-base)]' : 'text-[var(--text-muted)] hover:bg-[var(--bg-surface)] hover:text-[var(--text-base)]'}`}
     >
       <div className="flex items-center gap-3 overflow-hidden">
         <MessageSquare className="w-4 h-4 shrink-0" />
         <TypingTitle text={session.title} />
       </div>
-      <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+      <div className="hidden md:flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
         <button 
           onClick={(e) => { e.stopPropagation(); togglePinSession(session.id); }}
           className={`p-1 transition-colors ${session.isPinned ? 'text-[var(--color-sec)]' : 'hover:text-[var(--text-base)]'}`}
@@ -3510,6 +3530,57 @@ export default function ChatPage() {
               <ImageIcon className="w-16 h-16 text-[var(--color-sec)] animate-bounce" />
               Solte a imagem aqui
             </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {mobileSessionOptions && (
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[200] flex items-end sm:items-center justify-center bg-black/50 backdrop-blur-sm sm:p-4"
+            onClick={() => setMobileSessionOptions(null)}
+          >
+            <motion.div 
+              initial={{ y: "100%" }}
+              animate={{ y: 0 }}
+              exit={{ y: "100%" }}
+              transition={{ type: "spring", damping: 25, stiffness: 300 }}
+              onClick={(e) => e.stopPropagation()}
+              className="bg-[var(--bg-panel)] w-full sm:max-w-xs rounded-t-3xl sm:rounded-3xl border sm:border-t-0 border-t border-[var(--border-strong)] shadow-[0_-10px_40px_rgba(0,0,0,0.3)] pb-8 pt-4 px-4 flex flex-col gap-2"
+            >
+              <div className="w-12 h-1.5 bg-[var(--border-strong)] rounded-full mx-auto mb-4" />
+              <button 
+                onClick={() => {
+                  togglePinSession(mobileSessionOptions.id);
+                  setMobileSessionOptions(null);
+                }}
+                className="w-full flex items-center justify-center gap-3 py-4 bg-[var(--bg-surface)] hover:bg-[var(--border-subtle)] rounded-2xl transition-colors font-medium text-[var(--text-base)]"
+              >
+                <Pin className={`w-5 h-5 ${mobileSessionOptions.isPinned ? 'text-[var(--color-sec)]' : 'text-[var(--text-muted)]'}`} />
+                {mobileSessionOptions.isPinned ? 'Desfixar Conversa' : 'Fixar Conversa'}
+              </button>
+              
+              <button 
+                onClick={() => {
+                  setSessionToDelete(mobileSessionOptions.id);
+                  setMobileSessionOptions(null);
+                }}
+                className="w-full flex items-center justify-center gap-3 py-4 bg-red-500/10 text-red-500 hover:bg-red-500/20 rounded-2xl transition-colors font-medium"
+              >
+                <Trash2 className="w-5 h-5" />
+                Apagar Conversa
+              </button>
+
+              <button 
+                onClick={() => setMobileSessionOptions(null)}
+                className="w-full py-4 mt-2 bg-transparent text-[var(--text-muted)] hover:text-[var(--text-base)] rounded-2xl transition-colors font-medium"
+              >
+                Cancelar
+              </button>
+            </motion.div>
           </motion.div>
         )}
       </AnimatePresence>
