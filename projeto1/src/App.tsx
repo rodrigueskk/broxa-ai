@@ -110,6 +110,25 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
 }
 
 export default function App() {
+  const [isTablet, setIsTablet] = useState(false);
+
+  useEffect(() => {
+    const checkTablet = () => {
+      const userAgent = navigator.userAgent.toLowerCase();
+      const isIpad = /macintosh/i.test(userAgent) && navigator.maxTouchPoints && navigator.maxTouchPoints > 1;
+      const isTabletUA = /(ipad|tablet|(android(?!.*mobile))|(windows(?!.*phone)(.*touch))|kindle|playbook|silk|(puffin(?!.*(IP|AP|WP))))/.test(userAgent);
+      
+      if (isIpad || isTabletUA || (window.innerWidth >= 768 && window.innerWidth <= 1024 && navigator.maxTouchPoints > 0)) {
+        setIsTablet(true);
+      } else {
+        setIsTablet(false);
+      }
+    };
+    checkTablet();
+    window.addEventListener('resize', checkTablet);
+    return () => window.removeEventListener('resize', checkTablet);
+  }, []);
+
   const [isVerified, setIsVerified] = useState(() => {
     try {
       const lastVerified = localStorage.getItem('captcha_verified_time');
@@ -166,6 +185,15 @@ export default function App() {
       window.removeEventListener('offline', handleOffline);
     };
   }, []);
+
+  if (isTablet) {
+    return (
+      <div className="min-h-screen bg-black text-[#e0e0e0] flex flex-col items-center justify-center p-6 text-center font-sans tracking-tight">
+        <h1 className="text-7xl md:text-8xl mb-6 font-blackclaude-font" style={{ fontWeight: 400 }}>:(</h1>
+        <p className="text-xl md:text-2xl opacity-80 max-w-md mx-auto" style={{ fontWeight: 400 }}>Ops, o site ainda não tem suporte para tablets</p>
+      </div>
+    );
+  }
 
   if (!isVerified) {
     return <CaptchaPage onSuccess={handleCaptchaSuccess} />;
