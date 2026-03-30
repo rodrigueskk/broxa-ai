@@ -612,7 +612,7 @@ export function useUserStore() {
         setIsBanned(false);
         setAppealStatus(null);
         setAppealText(null);
-        setIsUserLoaded(false);
+        setIsUserLoaded(true);
       }
     });
 
