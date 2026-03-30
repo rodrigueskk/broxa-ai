@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
-import { Menu, Plus, MessageSquare, Trash2, Send, Image as ImageIcon, X, Settings, Pin, Highlighter, AlertTriangle, Undo2, Redo2, Eraser, Copy, Check, ChevronDown, ShieldAlert, LogIn, LogOut, Search, GitCompare, Edit, Edit2, ThumbsUp, ThumbsDown, AlertCircle, ChevronUp, RefreshCw, Cpu, Flame, Snowflake, Bot, User, Lock, ChevronRight, ShieldCheck, LayoutDashboard, Globe, Dog } from 'lucide-react';
+import { Menu, Plus, MessageSquare, Trash2, Send, Image as ImageIcon, X, Settings, Pin, Highlighter, AlertTriangle, Undo2, Redo2, Eraser, Copy, Check, ChevronDown, ShieldAlert, LogIn, LogOut, Search, GitCompare, Edit, Edit2, ThumbsUp, ThumbsDown, AlertCircle, ChevronUp, RefreshCw, Cpu, Flame, Snowflake, Bot, User, Lock, ChevronRight, ShieldCheck, LayoutDashboard, Globe, Dog, Monitor } from 'lucide-react';
 import { useChatStore, useSettingsStore, useAdminStore, useUserStore, useGroupStore, ReleaseNote, ReleaseNoteImage, ReleaseNoteBadge } from '../store';
 import { Group, GroupMessage } from '../types';
 import { db } from '../firebase';
@@ -1266,7 +1266,7 @@ export default function ChatPage() {
         ctx.drawImage(video, 0, 0);
         canvas.toBlob(async (blob) => {
           if (blob) {
-            handleSend("Totó, analise a tela por favor e responda qualquer questão de inglês que encontrar. Se não houver nada, apenas diga que está aguardando uma questão aparecer.", [{ url: URL.createObjectURL(blob), mimeType: "image/png" }], 'toto');
+            handleSend("[TOTO_AUTO] Analise a imagem da tela com atenção. Se houver alguma questão, exercício ou atividade de inglês visível, responda-a de forma correta, direta e objetiva em português. Se não houver nenhum conteúdo de inglês visível, responda apenas: 'Aguardando questão...'", [{ url: URL.createObjectURL(blob), mimeType: "image/png" }], 'toto');
           }
         }, 'image/png');
       }
@@ -2271,7 +2271,7 @@ export default function ChatPage() {
         let customInstruction = (settings.customInstruction || '') + (selectedGroup?.systemInstruction || '') + safetyConstraint;
 
         if (modelToUse === 'toto') {
-          customInstruction = "Você é o Totó, um assistente especializado em resolver questões de inglês. Analise a imagem fornecida, identifique a questão e forneça a resposta correta de forma curta e objetiva, justificando brevemente em português. Use uma linguagem amigável.";
+          customInstruction = "Você é o Totó, um assistente especializado em resolver questões de inglês. Analise a imagem da tela fornecida com cuidado. Se encontrar uma questão, exercício ou atividade de inglês, resolva-a de forma correta, objetiva e bem explicada em português. Dê a resposta final com clareza e justifique brevemente o raciocínio. Se não houver nenhuma questão de inglês na imagem, responda apenas: 'Aguardando questão...'";
         }
 
         const stream = await generateResponseStream(
@@ -4949,6 +4949,12 @@ export default function ChatPage() {
               >
                 <div className="w-10 h-1 rounded-full bg-[var(--text-muted)]"></div>
               </div>
+              {isTotoAutoMode ? (
+                <div className="w-full flex items-center justify-center gap-3 px-5 py-4 text-[var(--text-muted)] text-sm font-medium select-none pointer-events-none">
+                  <div className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
+                  <span>Essa versão não permite enviar textos para a IA</span>
+                </div>
+              ) : (
               <textarea
                 ref={textareaRef}
                 value={input}
@@ -4962,6 +4968,7 @@ export default function ChatPage() {
                 className="w-full bg-transparent text-[var(--text-base)] placeholder-[var(--text-muted)] px-5 py-2 resize-none focus:outline-none custom-scrollbar text-base"
                 style={{ height: `${textareaHeight}px` }}
               />
+              )}
               <div className="flex items-end justify-between px-3 pb-3 pt-1 gap-2">
                 <div className="flex flex-wrap items-center gap-1 highlighter-tools flex-1">
                   <input 
@@ -5430,9 +5437,9 @@ export default function ChatPage() {
       </AnimatePresence>
 
       {isTotoAutoMode && (
-        <div className="fixed top-20 right-4 z-[100] flex items-center gap-3 bg-[var(--bg-panel)] p-3 rounded-2xl border border-[var(--color-sec)]/30 shadow-[0_0_20px_rgba(234,179,8,0.2)] animate-pulse">
-           <div className="w-2 h-2 rounded-full bg-[var(--color-sec)] shadow-[0_0_10px_var(--color-sec)]" />
-           <span className="text-xs font-bold text-[var(--text-base)]">Totó Monitorando Tela</span>
+        <div className="fixed top-20 right-4 z-[100] flex items-center gap-3 bg-[var(--bg-panel)] p-3 rounded-2xl border border-[var(--color-sec)]/30 shadow-[0_0_20px_rgba(234,179,8,0.2)]">
+           <div className="w-2 h-2 rounded-full bg-green-400 shadow-[0_0_10px_#4ade80] animate-pulse" />
+           <span className="text-xs font-bold text-[var(--text-base)]">Visualizando a tela</span>
            <button onClick={stopTotoAuto} className="ml-2 hover:bg-red-500/10 p-1 rounded-lg">
              <X className="w-4 h-4 text-red-500" />
            </button>
@@ -5931,45 +5938,57 @@ export default function ChatPage() {
             className="fixed inset-0 z-[300] flex items-center justify-center p-4 bg-black/90 backdrop-blur-lg"
           >
             <motion.div 
-              initial={{ scale: 0.9, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.9, opacity: 0 }}
-              className="bg-[var(--bg-panel)] border border-[var(--border-strong)] rounded-[40px] p-8 max-w-md w-full shadow-[0_0_50px_rgba(0,0,0,0.5)] text-center relative overflow-hidden"
+              initial={{ scale: 0.9, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.9, opacity: 0, y: 20 }}
+              className="relative w-full max-w-sm overflow-hidden rounded-[32px] border border-[var(--border-strong)] bg-gradient-to-b from-[var(--bg-panel)] to-[var(--bg-base)] shadow-2xl"
             >
-              <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-[var(--color-sec)] to-transparent opacity-50"></div>
+              {/* Top accent line */}
+              <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-[var(--color-sec)] to-transparent" />
               
-              <div className="w-24 h-24 bg-[var(--color-sec)]/10 rounded-full flex items-center justify-center mx-auto mb-6 border border-[var(--color-sec)]/20 shadow-[0_0_30px_rgba(234,179,8,0.1)]">
-                <LayoutDashboard className="w-12 h-12 text-[var(--color-sec)] animate-pulse" />
-              </div>
+              <div className="p-8 text-center">
+                {/* Icon */}
+                <div className="relative w-20 h-20 mx-auto mb-6">
+                  <div className="absolute inset-0 rounded-full bg-[var(--color-sec)]/10 animate-ping opacity-50" />
+                  <div className="relative w-20 h-20 rounded-full bg-[var(--color-sec)]/15 border border-[var(--color-sec)]/30 flex items-center justify-center">
+                    <Dog className="w-10 h-10 text-[var(--color-sec)]" />
+                  </div>
+                </div>
 
-              <h2 className="text-3xl font-black mb-4 text-white tracking-tight italic uppercase">Modelo Totó <Dog className="inline-block w-8 h-8 ml-1" /></h2>
-              
-              <p className="text-[var(--text-muted)] mb-8 text-lg leading-relaxed">
-                Este modelo de desenvolvedor exige a <strong className="text-[var(--color-sec)]">Extensão Broxa AI</strong> para visualizar sua tela e responder questões de inglês automaticamente.
-              </p>
+                <h2 className="text-2xl font-black text-white tracking-tight mb-1">Totó <span className="text-[var(--color-sec)]">1.0</span></h2>
+                <p className="text-xs font-bold uppercase tracking-widest text-[var(--text-muted)] mb-5">Assistente de Inglês</p>
 
-              <div className="space-y-4">
-                <button 
-                  onClick={startTotoWeb}
-                  className="w-full py-5 bg-[var(--color-sec)] text-black rounded-3xl font-black text-xl shadow-[0_10px_30px_rgba(234,179,8,0.3)] hover:scale-[1.02] active:scale-[0.98] transition-all uppercase tracking-widest flex items-center justify-center gap-3"
-                >
-                  <Search className="w-6 h-6" />
-                  Conectar Tela
-                </button>
+                {/* PC Only warning */}
+                <div className="flex items-center gap-2 bg-amber-500/10 border border-amber-500/30 rounded-2xl px-4 py-3 mb-5 text-left">
+                  <Monitor className="w-4 h-4 text-amber-400 shrink-0" />
+                  <p className="text-xs text-amber-300 font-medium">Esta versão só funciona em computadores
+                  </p>
+                </div>
 
-                <p className="text-[10px] text-[var(--text-muted)] italic">
-                  Compartilhe a aba de exercícios para o Totó começar a monitorar automático.
+                <p className="text-[var(--text-muted)] text-sm mb-7 leading-relaxed">
+                  O Totó monitora sua tela e responde questões de inglês automaticamente.
+                  Compartilhe a aba do exercício para começar.
                 </p>
 
-                <button 
-                  onClick={() => {
-                    setIsTotoVerificationOpen(false);
-                    setSelectedModel('thinking');
-                  }}
-                  className="w-full py-2 text-[var(--text-muted)] hover:text-white transition-colors text-sm font-medium"
-                >
-                  Cancelar e voltar
-                </button>
+                <div className="space-y-3">
+                  <button 
+                    onClick={startTotoWeb}
+                    className="w-full py-4 bg-[var(--color-sec)] text-black rounded-2xl font-black text-base shadow-[0_8px_20px_rgba(234,179,8,0.25)] hover:shadow-[0_8px_30px_rgba(234,179,8,0.4)] hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-2"
+                  >
+                    <Monitor className="w-5 h-5" />
+                    Compartilhar Tela
+                  </button>
+
+                  <button 
+                    onClick={() => {
+                      setIsTotoVerificationOpen(false);
+                      setSelectedModel('thinking');
+                    }}
+                    className="w-full py-2.5 text-[var(--text-muted)] hover:text-white transition-colors text-sm font-medium rounded-xl hover:bg-[var(--bg-surface)]"
+                  >
+                    Cancelar
+                  </button>
+                </div>
               </div>
             </motion.div>
           </motion.div>

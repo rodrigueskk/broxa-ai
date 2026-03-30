@@ -74,18 +74,35 @@ const normalizeEnhanced = (text: string): string => {
 
 /**
  * Verifica se o conteúdo contém termos proibidos usando normalização ultra-robusta.
+ * Usa verificação de limite de palavra para evitar falsos positivos em palavras comuns.
  */
 export const checkContent = (text: string): boolean => {
   if (!text) return true;
   
   const normalizedInput = normalizeEnhanced(text);
   
-  // Se o texto normalizado for vazio após limpeza (ex: só símbolos), permitimos ironicamente, 
-  // mas o sistema de prompt da IA ainda deve segurar qualquer tentativa bizarra.
+  // Se o texto normalizado for vazio após limpeza (ex: só símbolos), é seguro
   if (!normalizedInput) return true;
 
+  // Keywords curtas (<=4 chars) usam correspondência exata de palavra inteira
+  // Keywords longas usam includes normal (mais flexível para variações)
   return !PROHIBITED_KEYWORDS.some(keyword => {
     const normalizedKeyword = normalizeEnhanced(keyword);
+    if (!normalizedKeyword) return false;
+    
+    if (normalizedKeyword.length <= 4) {
+      // Palavra inteira: deve ser delimitada por início/fim de string ou outro caractere
+      // Como já removemos tudo que não é letra/número, vamos conferir se a keyword
+      // aparece como subsequência exata de uma palavra (separada por letra que não pertence a ela)
+      // Estratégia: verificar se o match é de uma palavra isolada no texto ORIGINAL também
+      const normalizedOriginalInput = text.toLowerCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '');
+      // Verifica no texto original com limite de palavra
+      const wordBoundaryRegex = new RegExp(`(?<![a-z])${normalizedKeyword.split('').join('[^a-z]*')}(?![a-z])`, 'i');
+      return wordBoundaryRegex.test(normalizedOriginalInput) && normalizedInput.includes(normalizedKeyword);
+    }
+    
     return normalizedInput.includes(normalizedKeyword);
   });
 };
