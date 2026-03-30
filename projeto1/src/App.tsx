@@ -4,6 +4,7 @@ import ChatPage from './pages/ChatPage';
 import CaptchaPage from './pages/CaptchaPage';
 import NotFoundPage from './pages/NotFoundPage';
 import { AlertTriangle, X, RefreshCw } from 'lucide-react';
+import { useAdminStore, useUserStore } from './store';
 
 interface ErrorBoundaryProps {
   children: ReactNode;
@@ -111,6 +112,8 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
 
 export default function App() {
   const [isTablet, setIsTablet] = useState(false);
+  const { isMaintenanceMode } = useAdminStore();
+  const { userRole } = useUserStore();
 
   useEffect(() => {
     const checkTablet = () => {
@@ -191,6 +194,33 @@ export default function App() {
       <div className="min-h-screen bg-black text-[#e0e0e0] flex flex-col items-center justify-center p-6 text-center font-sans tracking-tight">
         <h1 className="text-7xl md:text-8xl mb-6 font-blackclaude-font" style={{ fontWeight: 400 }}>:(</h1>
         <p className="text-xl md:text-2xl opacity-80 max-w-md mx-auto" style={{ fontWeight: 400 }}>Ops, o site ainda não tem suporte para tablets</p>
+      </div>
+    );
+  }
+
+  if (isMaintenanceMode && userRole !== 'admin') {
+    return (
+      <div className="min-h-screen bg-black flex flex-col items-center justify-center p-6 text-center font-sans">
+        <div className="mb-12 relative">
+          <svg className="w-32 h-32 text-white animate-[hammer_1.5s_ease-in-out_infinite]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ stroke: '#eab308' }}>
+            <path d="M15 12l-8.5 8.5c-.83.83-2.17.83-3 0 0 0 0 0 0 0a2.12 2.12 0 0 1 0-3L12 9" />
+            <path d="M17.64 15L22 10.64" />
+            <path d="m20.91 11.7-1.25-1.25c-.6-.6-.93-1.4-.93-2.25v-.86L16.01 4.6a5.56 5.56 0 0 0-3.94-1.64H9l.92.82A6.18 6.18 0 0 1 12 8.4v1.56l2 2h-.47" />
+            <path d="m11.5 11.5 2 2" />
+          </svg>
+          <div className="absolute bottom-0 right-0 left-0 h-1 bg-white mx-auto w-8 rounded-full translate-y-6"></div>
+          <style dangerouslySetInnerHTML={{__html: `
+            @keyframes hammer {
+              0%, 100% { transform: rotate(0deg); }
+              25% { transform: rotate(-30deg); }
+              75% { transform: rotate(45deg) translateY(5px); }
+            }
+          `}} />
+        </div>
+        <h1 className="text-4xl md:text-5xl font-bold text-white mb-6">O site está em manutenção</h1>
+        <p className="text-lg md:text-xl text-zinc-400 max-w-lg mx-auto">
+          Achamos um bug, mas a nossa equipe de macacos treinados já foi escalada para arrumar isso.
+        </p>
       </div>
     );
   }

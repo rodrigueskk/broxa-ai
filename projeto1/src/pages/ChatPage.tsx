@@ -1063,6 +1063,7 @@ export default function ChatPage() {
   const totoHoldIntervalRef = useRef<any>(null);
   const [isExtensionDetected, setIsExtensionDetected] = useState<boolean | null>(null);
   const [isTotoAutoMode, setIsTotoAutoMode] = useState(false);
+  const [isTabVisible, setIsTabVisible] = useState(true);
   const [totoStream, setTotoStream] = useState<MediaStream | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const totoIntervalRef = useRef<any>(null);
@@ -1290,7 +1291,7 @@ export default function ChatPage() {
         ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
         canvas.toBlob(async (blob) => {
           if (blob) {
-            await handleSend("[TOTO_AUTO] Analise a imagem da tela com atenção. Se houver alguma questão, exercício ou atividade visível, resolva-a de forma correta, objetiva e bem explicada em português. Se não houver atividade visível nítida ou for insignificante, responda: Nenhuma questão encontrada.", [{ url: URL.createObjectURL(blob), mimeType: "image/jpeg" }], 'toto');
+            await handleSend("[TOTO_AUTO] Você é um tutor extremamente focado. Sua ÚNICA E EXCLUSIVA tarefa é analisar esta imagem. Se houver uma questão, exercício ou instrução legível, resolva-a de forma clara, objetiva e muito bem explicada em português, SEM SURPREENDER. Você está PROIBIDO de inventar informações, deduzir coisas não mostradas ou dar explicações sobre coisas que não estão presentes na imagem. Se a imagem não contiver exercícios ou textos nítidos para resolver, reponda somente: 'Não consegui identificar nenhuma questão na imagem enviada.' Não diga mais nada.", [{ url: URL.createObjectURL(blob), mimeType: "image/jpeg" }], 'toto');
             setAskTotoAgain(true);
             stopTotoAuto();
           }
@@ -1316,17 +1317,6 @@ export default function ChatPage() {
       setTotoHoldProgress(0);
 
       stream.getVideoTracks()[0].onended = () => stopTotoAuto();
-
-      totoIntervalRef.current = setInterval(() => {
-        setTotoRecordingTime(prev => {
-          if (prev >= 60) {
-            stopTotoAuto();
-            return 60;
-          }
-          return prev + 1;
-        });
-      }, 1000);
-
     } catch (err) {
       console.error("Failed to share screen", err);
     }
@@ -1337,6 +1327,38 @@ export default function ChatPage() {
       setIsTotoVerificationOpen(true);
     }
   }, [selectedModel, isTotoAutoMode, askTotoAgain]);
+
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      setIsTabVisible(!document.hidden);
+    };
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    return () => document.removeEventListener("visibilitychange", handleVisibilityChange);
+  }, []);
+
+  useEffect(() => {
+    if (isTotoAutoMode && totoStream) {
+      if (!isTabVisible) {
+        totoIntervalRef.current = setInterval(() => {
+          setTotoRecordingTime(prev => {
+            if (prev >= 60) {
+              stopTotoAuto();
+              return 60;
+            }
+            return prev + 1;
+          });
+        }, 1000);
+      } else {
+        if (totoIntervalRef.current) clearInterval(totoIntervalRef.current);
+      }
+    } else {
+      if (totoIntervalRef.current) clearInterval(totoIntervalRef.current);
+    }
+    return () => {
+      if (totoIntervalRef.current) clearInterval(totoIntervalRef.current);
+    };
+  }, [isTotoAutoMode, totoStream, isTabVisible]);
+
   const prevStreakRef = useRef(streakDays);
 
   useEffect(() => {
@@ -1430,9 +1452,9 @@ export default function ChatPage() {
     }
   }, [streakDays]);
   const [isAdmin, setIsAdmin] = useState(false);
-  const { releaseNotes, feedbacks, aiModels, users, allGroups, addReleaseNote, updateReleaseNote, deleteReleaseNote, updateAiModel, addFeedback, updateUserStreak, updateUserRole, updateUserBannedStatus, updateAdminGroupStreak, deleteAdminGroup, approveAppeal, denyAppeal } = useAdminStore(isAdmin);
+  const { releaseNotes, feedbacks, aiModels, users, allGroups, addReleaseNote, updateReleaseNote, deleteReleaseNote, updateAiModel, addFeedback, updateUserStreak, updateUserRole, updateUserBannedStatus, updateAdminGroupStreak, deleteAdminGroup, approveAppeal, denyAppeal, isMaintenanceMode, setMaintenanceMode } = useAdminStore(isAdmin);
   const [isAdminPanelOpen, setIsAdminPanelOpen] = useState(false);
-  const [adminTab, setAdminTab] = useState<'releaseNotes' | 'feedbacks' | 'models' | 'users' | 'groups' | 'appeals'>('releaseNotes');
+  const [adminTab, setAdminTab] = useState<'releaseNotes' | 'feedbacks' | 'models' | 'users' | 'groups' | 'appeals' | 'settings'>('releaseNotes');
   const [userSearchTerm, setUserSearchTerm] = useState('');
   const [groupSearchTerm, setGroupSearchTerm] = useState('');
   const [currentReleaseNote, setCurrentReleaseNote] = useState<ReleaseNote | null>(null);
@@ -2915,6 +2937,12 @@ export default function ChatPage() {
                   >
                     Apelos
                   </button>
+                  <button
+                    onClick={() => setAdminTab('settings')}
+                    className={`pb-3 px-2 font-medium transition-colors border-b-2 ${adminTab === 'settings' ? 'border-[var(--color-sec)] text-[var(--color-sec)]' : 'border-transparent text-[var(--text-muted)] hover:text-[var(--text-base)]'}`}
+                  >
+                    Configurações
+                  </button>
                 </div>
 
                 <div className="flex flex-col lg:flex-row flex-1 overflow-hidden">
@@ -3607,6 +3635,36 @@ export default function ChatPage() {
                             </div>
                           ))
                         )}
+                      </div>
+                    </div>
+                  )}
+
+                  {adminTab === 'settings' && (
+                    <div className="flex-1 p-6 overflow-y-auto custom-scrollbar">
+                      <div className="space-y-6">
+                        <div>
+                          <h4 className="text-lg font-semibold text-[var(--text-base)] mb-4 lg:mb-6">Configurações Globais da Plataforma</h4>
+                          <div className="bg-[var(--bg-panel)] rounded-xl border border-[var(--border-subtle)] overflow-hidden">
+                            <div className="flex items-center justify-between p-4 bg-[var(--bg-surface)] border-b border-[var(--border-subtle)]">
+                              <div className="flex items-center gap-3">
+                                <AlertTriangle className="w-5 h-5 text-red-500" />
+                                <span className="font-semibold text-[var(--text-base)]">Modo de Manutenção</span>
+                              </div>
+                              <label className="relative inline-flex items-center cursor-pointer">
+                                <input
+                                  type="checkbox"
+                                  className="sr-only peer"
+                                  checked={isMaintenanceMode}
+                                  onChange={(e) => setMaintenanceMode(e.target.checked)}
+                                />
+                                <div className="w-11 h-6 bg-[var(--bg-input)] peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-red-500"></div>
+                              </label>
+                            </div>
+                            <div className="p-4 text-sm text-[var(--text-muted)]">
+                              Ao ativar esta opção, todos os usuários (exceto administradores) serão imediatamente desconectados da navegação e verão uma tela de manutenção e uma animação. Somente administradores poderão acessar a plataforma normalmente para testar alterações ou desligar esta opção.
+                            </div>
+                          </div>
+                        </div>
                       </div>
                     </div>
                   )}

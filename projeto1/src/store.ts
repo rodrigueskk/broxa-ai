@@ -319,6 +319,7 @@ export function useAdminStore(isAdmin: boolean = false) {
   const [aiModels, setAiModels] = useState<AIModel[]>([]);
   const [users, setUsers] = useState<any[]>([]);
   const [allGroups, setAllGroups] = useState<any[]>([]);
+  const [isMaintenanceMode, setIsMaintenanceMode] = useState<boolean>(false);
 
   useEffect(() => {
     const qNotes = query(collection(db, 'releaseNotes'), orderBy('date', 'desc'));
@@ -397,12 +398,22 @@ export function useAdminStore(isAdmin: boolean = false) {
       handleFirestoreError(error, OperationType.LIST, 'aiModels');
     });
 
+    const docGlobal = doc(db, 'settings', 'global');
+    const unsubscribeGlobal = onSnapshot(docGlobal, (snapshot) => {
+      if (snapshot.exists()) {
+        setIsMaintenanceMode(snapshot.data().isMaintenanceMode || false);
+      }
+    }, (error) => {
+      console.error("Error fetching global settings:", error);
+    });
+
     return () => {
       unsubscribeNotes();
       unsubscribeFeedbacks();
       unsubscribeModels();
       unsubscribeUsers();
       unsubscribeAllGroups();
+      unsubscribeGlobal();
     };
   }, [isAdmin]);
 
@@ -549,7 +560,16 @@ export function useAdminStore(isAdmin: boolean = false) {
     }
   };
 
-  return { releaseNotes, feedbacks, aiModels, users, allGroups, addReleaseNote, updateReleaseNote, deleteReleaseNote, addFeedback, deleteFeedback, updateAiModel, updateUserStreak, updateUserRole, updateUserBannedStatus, updateAdminGroupStreak, deleteAdminGroup, approveAppeal, denyAppeal };
+  const setMaintenanceMode = async (status: boolean) => {
+    if (!isAdmin) return;
+    try {
+      await setDoc(doc(db, 'settings', 'global'), { isMaintenanceMode: status }, { merge: true });
+    } catch (error) {
+      console.error("Error updating maintenance mode:", error);
+    }
+  };
+
+  return { releaseNotes, feedbacks, aiModels, users, allGroups, isMaintenanceMode, addReleaseNote, updateReleaseNote, deleteReleaseNote, addFeedback, deleteFeedback, updateAiModel, updateUserStreak, updateUserRole, updateUserBannedStatus, updateAdminGroupStreak, deleteAdminGroup, approveAppeal, denyAppeal, setMaintenanceMode };
 }
 
 export function useUserStore() {
