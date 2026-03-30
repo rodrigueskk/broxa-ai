@@ -70,6 +70,18 @@ export function useChatStore() {
     return newMessageId;
   };
 
+  const deleteMessage = (sessionId: string, messageId: string) => {
+    setSessions(prev => prev.map(s => {
+      if (s.id === sessionId) {
+        return {
+          ...s,
+          messages: s.messages.filter(m => m.id !== messageId)
+        };
+      }
+      return s;
+    }));
+  };
+
   const deleteSession = (sessionId: string) => {
     setSessions(prev => prev.filter(s => s.id !== sessionId));
     if (currentSessionId === sessionId) {
@@ -186,6 +198,7 @@ export function useChatStore() {
     createSession,
     addMessage,
     updateMessage,
+    deleteMessage,
     deleteSession,
     togglePinSession,
     togglePinMessage,
@@ -482,6 +495,18 @@ export function useAdminStore(isAdmin: boolean = false) {
     }
   };
 
+  const updateUserBannedStatus = async (userId: string, isBanned: boolean) => {
+    if (!isAdmin) return;
+    try {
+      await updateDoc(doc(db, 'users', userId), {
+        isBanned,
+        ...(isBanned ? {} : { violationsCount: 0 })
+      });
+    } catch (error) {
+      console.error("Error updating user banned status:", error);
+    }
+  };
+
   const updateAdminGroupStreak = async (groupId: string, newStreak: number) => {
     if (!isAdmin) return;
     try {
@@ -524,7 +549,7 @@ export function useAdminStore(isAdmin: boolean = false) {
     }
   };
 
-  return { releaseNotes, feedbacks, aiModels, users, allGroups, addReleaseNote, updateReleaseNote, deleteReleaseNote, addFeedback, deleteFeedback, updateAiModel, updateUserStreak, updateUserRole, updateAdminGroupStreak, deleteAdminGroup, approveAppeal, denyAppeal };
+  return { releaseNotes, feedbacks, aiModels, users, allGroups, addReleaseNote, updateReleaseNote, deleteReleaseNote, addFeedback, deleteFeedback, updateAiModel, updateUserStreak, updateUserRole, updateUserBannedStatus, updateAdminGroupStreak, deleteAdminGroup, approveAppeal, denyAppeal };
 }
 
 export function useUserStore() {

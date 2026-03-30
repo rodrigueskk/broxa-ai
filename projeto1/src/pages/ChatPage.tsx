@@ -18,6 +18,7 @@ import { Message, Point } from '../types';
 import { MindMap } from '../components/MindMap';
 import { checkContent, getViolationMessage } from '../services/moderation';
 import { BanScreen } from '../components/BanScreen';
+import { SpotifySuccess } from '../components/SpotifySuccess';
 
 const RespostaOptions = ({ disabled }: { disabled: boolean }) => {
   const [selected, setSelected] = useState<string | null>(null);
@@ -961,7 +962,7 @@ export default function ChatPage() {
     return () => clearTimeout(timer1);
   }, []);
 
-  const { sessions, currentSessionId, setCurrentSessionId, currentSession, createSession, addMessage, updateMessage, deleteSession, togglePinSession, togglePinMessage, addPinnedText, removePinnedText, addStroke, setStrokes, updateSessionTitle } = useChatStore();
+  const { sessions, currentSessionId, setCurrentSessionId, currentSession, createSession, addMessage, updateMessage, deleteMessage, deleteSession, togglePinSession, togglePinMessage, addPinnedText, removePinnedText, addStroke, setStrokes, updateSessionTitle } = useChatStore();
   const { settings, updateSettings } = useSettingsStore();
   const { groups, createGroup, joinGroup, renameGroup, updateGroupStreak, updateGroup, removeMember, deleteGroup, updateGroupMessage } = useGroupStore();
   
@@ -1259,16 +1260,16 @@ export default function ChatPage() {
       await video.play();
       
       const canvas = canvasRef.current;
-      canvas.width = video.videoWidth;
-      canvas.height = video.videoHeight;
+      canvas.width = Math.min(video.videoWidth, 1280);
+      canvas.height = (video.videoHeight / video.videoWidth) * canvas.width;
       const ctx = canvas.getContext('2d');
       if (ctx) {
-        ctx.drawImage(video, 0, 0);
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
         canvas.toBlob(async (blob) => {
           if (blob) {
-            handleSend("[TOTO_AUTO] Analise a imagem da tela com atenção. Se houver alguma questão, exercício ou atividade de inglês visível, responda-a de forma correta, direta e objetiva em português. Se não houver nenhum conteúdo de inglês visível, responda apenas: 'Aguardando questão...'", [{ url: URL.createObjectURL(blob), mimeType: "image/png" }], 'toto');
+            handleSend("[TOTO_AUTO] Analise a imagem da tela com atenção. Se houver alguma questão, exercício ou atividade visível, responda-a de forma correta, direta e objetiva. Se não houver absolutamente nada para responder, responda EXATAMENTE: MODO_SILENCIOSO.", [{ url: URL.createObjectURL(blob), mimeType: "image/jpeg" }], 'toto');
           }
-        }, 'image/png');
+        }, 'image/jpeg', 0.5);
       }
       video.pause();
       video.srcObject = null;
@@ -1395,7 +1396,7 @@ export default function ChatPage() {
     }
   }, [streakDays]);
   const [isAdmin, setIsAdmin] = useState(false);
-  const { releaseNotes, feedbacks, aiModels, users, allGroups, addReleaseNote, updateReleaseNote, deleteReleaseNote, updateAiModel, addFeedback, updateUserStreak, updateUserRole, updateAdminGroupStreak, deleteAdminGroup, approveAppeal, denyAppeal } = useAdminStore(isAdmin);
+  const { releaseNotes, feedbacks, aiModels, users, allGroups, addReleaseNote, updateReleaseNote, deleteReleaseNote, updateAiModel, addFeedback, updateUserStreak, updateUserRole, updateUserBannedStatus, updateAdminGroupStreak, deleteAdminGroup, approveAppeal, denyAppeal } = useAdminStore(isAdmin);
   const [isAdminPanelOpen, setIsAdminPanelOpen] = useState(false);
   const [adminTab, setAdminTab] = useState<'releaseNotes' | 'feedbacks' | 'models' | 'users' | 'groups' | 'appeals'>('releaseNotes');
   const [userSearchTerm, setUserSearchTerm] = useState('');
@@ -2097,7 +2098,7 @@ export default function ChatPage() {
             senderId: 'ai',
             senderName: 'BROXA AI',
             senderPhotoURL: null,
-            content: getViolationMessage(),
+            content: getViolationMessage() + `\n\nVocê ainda tem **${10 - (violationsCount + 1)}** avisos restantes, fique atento!`,
             timestamp: Date.now()
           };
           await addDoc(collection(db, `groups/${groupId}/messages`), violationMsg);
@@ -2114,7 +2115,7 @@ export default function ChatPage() {
         let customInstruction = (group?.systemInstruction || settings.customInstruction) + 
           "\n\nIMPORTANTE: Você nunca deve gerar conteúdo relacionado a: sexo, pornografia, abuso, racismo, homofobia, machismo, drogas pesadas ou qualquer ato carnal/sexual. Se solicitado, recuse educadamente dizendo que o conteúdo não é tolerado.";
         
-        const modelToUseApi = modelToUse === 'toto' ? 'gemini-1.5-pro' : modelToUse;
+        const modelToUseApi = modelToUse === 'toto' ? 'gemini-3-flash-preview' : modelToUse;
 
         if (modelToUse === 'toto') {
           customInstruction = "Você é o Totó, um assistente especializado em resolver questões de inglês. Analise a imagem fornecida, identifique a questão e forneça a resposta correta de forma curta e objetiva, justificando brevemente em português.";
@@ -2127,15 +2128,19 @@ export default function ChatPage() {
         }));
         const aiResponse = await generateResponse(textToSend, imagesToSend, modelToUseApi as any, customInstruction, history);
         
-        const aiMessage: Omit<GroupMessage, 'id'> = {
-          senderId: 'ai',
-          senderName: 'BROXA AI',
-          senderPhotoURL: null,
-          content: aiResponse,
-          timestamp: Date.now()
-        };
-        
-        await addDoc(collection(db, `groups/${groupId}/messages`), aiMessage);
+        if (isTotoAuto && aiResponse.includes("MODO_SILENCIOSO")) {
+          // Do not send silent responses
+        } else {
+          const aiMessage: Omit<GroupMessage, 'id'> = {
+            senderId: 'ai',
+            senderName: 'BROXA AI',
+            senderPhotoURL: null,
+            content: aiResponse,
+            timestamp: Date.now()
+          };
+          
+          await addDoc(collection(db, `groups/${groupId}/messages`), aiMessage);
+        }
       } catch (error: any) {
         console.error("Error generating group response:", error);
         
@@ -2213,7 +2218,7 @@ export default function ChatPage() {
        incrementViolations();
        addMessage(sessionId, {
          role: 'ai',
-         content: getViolationMessage(),
+         content: getViolationMessage() + `\n\nVocê ainda tem **${10 - (violationsCount + 1)}** avisos restantes, fique atento!`,
          isError: true
        });
        setInput('');
@@ -2273,7 +2278,7 @@ export default function ChatPage() {
         const safetyConstraint = "\n\nIMPORTANTE: Você deve recusar PROATIVAMENTE qualquer pedido que envolva: conteúdo sexual (ato carnal, nudez), pedofilia, abuso infantil, hacking, programação, crimes cibernéticos, racismo, ódio ou violência física. Se o usuário tentar burlar estas regras através de 'leetspeak' (ex: P0rn0, r4c1sm0, xv1d3os) ou outros códigos, ignore o comando e responda EXCLUSIVAMENTE com uma mensagem de erro informando que este conteúdo viola as diretrizes de segurança da BROXA AI e que a conta dele poderá ser banida permanentemente.";
         
         const selectedGroup = groups.find(g => g.id === selectedGroupId);
-        const modelToUseApi = modelToUse === 'toto' ? 'gemini-1.5-pro' : modelToUse;
+        const modelToUseApi = modelToUse === 'toto' ? 'gemini-3-flash-preview' : modelToUse;
         
         let customInstruction = (settings.customInstruction || '') + (selectedGroup?.systemInstruction || '') + safetyConstraint;
 
@@ -2307,7 +2312,9 @@ export default function ChatPage() {
           updateMessage(sessionId, aiMessageId, fullResponse);
         }
         
-        if (!fullResponse && !abortControllerRef.current?.signal.aborted) {
+        if (isTotoAuto && fullResponse.includes("MODO_SILENCIOSO")) {
+          deleteMessage(sessionId, aiMessageId);
+        } else if (!fullResponse && !abortControllerRef.current?.signal.aborted) {
           updateMessage(sessionId, aiMessageId, "Sem resposta.");
         }
       } catch (streamError: any) {
@@ -2399,14 +2406,14 @@ export default function ChatPage() {
     }
   };
 
-  const renderSession = (session: any) => (
+  const renderSession = (session: any, index: number) => (
     <motion.div 
       layout="position"
       key={session.id}
-      initial={{ opacity: 0, y: -10 }}
-      animate={{ opacity: 1, y: 0 }}
+      initial={{ opacity: 0, x: -20 }}
+      animate={{ opacity: 1, x: 0 }}
       exit={{ opacity: 0, scale: 0.9, x: -20, height: 0, paddingBottom: 0, paddingTop: 0, margin: 0 }}
-      transition={{ duration: 0.2 }}
+      transition={{ duration: 0.3, delay: index * 0.05 }}
       onClick={() => {
         setCurrentSessionId(session.id);
         setSelectedGroupId(null);
@@ -2449,14 +2456,6 @@ export default function ChatPage() {
     </motion.div>
   );
 
-  if (!isUserLoaded && !localIsBanned) {
-    return (
-      <div className="flex items-center justify-center h-screen bg-black">
-        <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-[var(--color-sec)]"></div>
-      </div>
-    );
-  }
-
   if (effectiveIsBanned || isIpBanned) {
     return (
       <BanScreen 
@@ -2465,6 +2464,14 @@ export default function ChatPage() {
           submitAppeal(text);
         }} 
       />
+    );
+  }
+
+  if (!isUserLoaded && !localIsBanned) {
+    return (
+      <div className="flex items-center justify-center h-screen bg-black">
+        <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-[var(--color-sec)]"></div>
+      </div>
     );
   }
 
@@ -3384,58 +3391,70 @@ export default function ChatPage() {
                         />
                       </div>
                     </div>
-                    <div className="space-y-4">
-                      {users.filter(user => 
-                        (user.email || '').toLowerCase().includes(userSearchTerm.toLowerCase()) || 
-                        (user.id || '').toLowerCase().includes(userSearchTerm.toLowerCase()) ||
-                        (user.displayName || '').toLowerCase().includes(userSearchTerm.toLowerCase())
-                      ).map(user => (
-                        <div key={user.id} className="p-4 rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] flex flex-col gap-3">
-                          <div className="flex justify-between items-center">
-                            <div className="font-bold text-[var(--text-base)]">{user.displayName || user.email || user.id}</div>
-                            <div className="text-sm text-[var(--text-muted)]">{user.email}</div>
-                          </div>
-                          <div className="flex items-center gap-4 flex-wrap">
-                            <div className="flex-1 min-w-[120px]">
-                              <label className="block text-xs font-medium text-[var(--text-muted)] mb-1">Cargo</label>
-                              <select
-                                value={user.role || 'user'}
-                                onChange={(e) => updateUserRole(user.id, e.target.value as any)}
-                                className="w-full bg-[var(--bg-base)] border border-[var(--border-strong)] rounded-lg px-3 py-2 text-sm text-[var(--text-base)] focus:outline-none focus:border-[var(--color-sec)]"
-                              >
-                                <option value="user">Usuário</option>
-                                <option value="developer">Desenvolvedor</option>
-                                <option value="admin">Administrador</option>
-                              </select>
+                    <div className="space-y-4 overflow-x-auto w-full">
+                      <div className="min-w-[800px] flex flex-col gap-4 pb-2">
+                        {users.filter(user => 
+                          (user.email || '').toLowerCase().includes(userSearchTerm.toLowerCase()) || 
+                          (user.id || '').toLowerCase().includes(userSearchTerm.toLowerCase()) ||
+                          (user.displayName || '').toLowerCase().includes(userSearchTerm.toLowerCase())
+                        ).map(user => (
+                          <div key={user.id} className="p-4 rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] flex flex-col gap-3">
+                            <div className="flex justify-between items-center">
+                              <div className="font-bold text-[var(--text-base)] flex items-center gap-2">
+                                {user.displayName || user.email || user.id}
+                                {user.isBanned && <span className="px-2 py-0.5 bg-red-500/10 text-red-500 border border-red-500/20 rounded-md text-[10px] uppercase font-bold tracking-wider">Banido</span>}
+                              </div>
+                              <div className="text-sm text-[var(--text-muted)]">{user.email}</div>
                             </div>
-                            <div className="flex-1 min-w-[120px]">
-                              <label className="block text-xs font-medium text-[var(--text-muted)] mb-1">Dias de Foguinho</label>
-                              <div className="flex items-center gap-2">
-                                <input 
-                                  type="number" 
-                                  min="0"
-                                  value={user.streakDays || 0}
-                                  onChange={(e) => updateUserStreak(user.id, parseInt(e.target.value) || 0)}
+                            <div className="flex items-center gap-4 flex-wrap">
+                              <div className="flex-1 min-w-[120px]">
+                                <label className="block text-xs font-medium text-[var(--text-muted)] mb-1">Cargo</label>
+                                <select
+                                  value={user.role || 'user'}
+                                  onChange={(e) => updateUserRole(user.id, e.target.value as any)}
                                   className="w-full bg-[var(--bg-base)] border border-[var(--border-strong)] rounded-lg px-3 py-2 text-sm text-[var(--text-base)] focus:outline-none focus:border-[var(--color-sec)]"
-                                />
-                                <Flame className={`w-5 h-5 ${(user.streakDays || 0) > 0 ? 'text-orange-500 fill-orange-500' : 'text-gray-400'}`} />
+                                >
+                                  <option value="user">Usuário</option>
+                                  <option value="developer">Desenvolvedor</option>
+                                  <option value="admin">Administrador</option>
+                                </select>
                               </div>
-                            </div>
-                            <div className="flex-1 min-w-[120px]">
-                              <label className="block text-xs font-medium text-[var(--text-muted)] mb-1">Última Mensagem</label>
-                              <div className="text-sm text-[var(--text-base)] px-3 py-2 bg-[var(--bg-base)] border border-[var(--border-strong)] rounded-lg">
-                                {user.lastMessageDate || 'Nunca'}
+                              <div className="flex-1 min-w-[120px]">
+                                <label className="block text-xs font-medium text-[var(--text-muted)] mb-1">Dias de Foguinho</label>
+                                <div className="flex items-center gap-2">
+                                  <input 
+                                    type="number" 
+                                    min="0"
+                                    value={user.streakDays || 0}
+                                    onChange={(e) => updateUserStreak(user.id, parseInt(e.target.value) || 0)}
+                                    className="w-full bg-[var(--bg-base)] border border-[var(--border-strong)] rounded-lg px-3 py-2 text-sm text-[var(--text-base)] focus:outline-none focus:border-[var(--color-sec)]"
+                                  />
+                                  <Flame className={`w-5 h-5 ${(user.streakDays || 0) > 0 ? 'text-orange-500 fill-orange-500' : 'text-gray-400'}`} />
+                                </div>
                               </div>
-                            </div>
-                            <div className="flex-1 min-w-[120px]">
-                              <label className="block text-xs font-medium text-[var(--text-muted)] mb-1">Congelamentos</label>
-                              <div className="text-sm text-[var(--text-base)] px-3 py-2 bg-[var(--bg-base)] border border-[var(--border-strong)] rounded-lg">
-                                {user.freezesAvailable ?? 2}
+                              <div className="flex-1 min-w-[120px]">
+                                <label className="block text-xs font-medium text-[var(--text-muted)] mb-1">Última Mensagem</label>
+                                <div className="text-sm text-[var(--text-base)] px-3 py-2 bg-[var(--bg-base)] border border-[var(--border-strong)] rounded-lg">
+                                  {user.lastMessageDate || 'Nunca'}
+                                </div>
+                              </div>
+                              <div className="flex-1 min-w-[120px]">
+                                <label className="block text-xs font-medium text-[var(--text-muted)] mb-1">Statu de Acesso</label>
+                                <button
+                                  onClick={() => {
+                                    if(window.confirm(user.isBanned ? 'Este usuário perderá o banimento e os avisos (0). Confirmar?' : 'Deseja banir este usuário permanentemente?')) {
+                                      updateUserBannedStatus(user.id, !user.isBanned);
+                                    }
+                                  }}
+                                  className={`w-full py-1.5 px-2 rounded-md text-sm font-bold transition-all border ${user.isBanned ? 'bg-green-500/10 border-green-500/30 text-green-500 hover:bg-green-500/20' : 'bg-red-500/10 border-red-500/30 text-red-500 hover:bg-red-500/20'}`}
+                                >
+                                  {user.isBanned ? 'Desbanir' : 'Banir'}
+                                </button>
                               </div>
                             </div>
                           </div>
-                        </div>
-                      ))}
+                        ))}
+                      </div>
                     </div>
                   </div>
                 )}
@@ -4448,8 +4467,7 @@ export default function ChatPage() {
           <div className="space-y-1">
             {historyLoadStatus === 'loading' && (
               <div className="flex flex-col items-center justify-center p-6 text-center">
-                <div className="w-8 h-8 border-4 border-[var(--color-sec)] border-t-transparent rounded-full animate-spin mb-3"></div>
-                <span className="text-sm font-medium text-[var(--text-muted)]">As mensagens estão carregando...</span>
+                <div className="w-8 h-8 border-4 border-[#1ed760] border-t-transparent rounded-full animate-spin mb-3"></div>
               </div>
             )}
             {historyLoadStatus === 'success' && (
@@ -4459,10 +4477,7 @@ export default function ChatPage() {
                 transition={{ type: "spring", stiffness: 300, damping: 15 }}
                 className="flex flex-col items-center justify-center p-6 text-center mt-2 overflow-hidden"
               >
-                <div className="w-12 h-12 bg-[#1ed760] rounded-full flex items-center justify-center mb-2 shadow-lg">
-                  <Check className="w-6 h-6 text-black stroke-[3]" />
-                </div>
-                <span className="text-sm font-bold text-[#1ed760]">Carregado com sucesso</span>
+                <SpotifySuccess />
               </motion.div>
             )}
             {historyLoadStatus === 'error' && (

@@ -2,38 +2,16 @@
  * Lista ultra-robusta de palavras e temas proibidos (Baseada na lista do usuário).
  */
 export const PROHIBITED_KEYWORDS = [
-  // Conteúdo Adulto e Sexual
-  'pornografia', 'porno', 'sexo', 'nudez', 'nude', 'adulto', '+18', '18+', 'onlyfans', 'nsfw', 'erotico', 'fetiche', 'fetish', 'oral', 'anal', 'masturbacao', 'punheta', 'siririca', 'prostituicao', 'gp', 'puta', 'vagabunda', 'hentai', 'orgia', 'ato carnal', 
-  
-  // Violência e Gore
-  'gore', 'sangue', 'mutilacao', 'decapitacao', 'extremamente violento', 'tortura', 'morte', 'matar', 'assassinato', 'execução', 'snuff', 'viscera', 'tripas',
-  
-  // Segurança Infantil
-  'pedofilia', 'abuso infantil', 'abuso de menor', 'menor de idade', 'loli', 'cp', 'child abuse', 'exploração infantil',
-  
-  // Abuso e Assédio
-  'estupro', 'rape', 'assédio sexual', 'molestar', 'harassment', 'violentara',
-  
-  // Ódio e Discriminação
-  'racismo', 'rac1smo', 'nazismo', 'nazi', 'homofobia', 'misoginia', 'xenofobia', 'supremacia', 'hitler', 'suástica', 'hate speech', 'odio racial', 'lgbtfobia', 'odio a mulher', 'odio a estrangeiro',
-  
-  // Terrorismo e Atentados
-  'terrorismo', 'terrorista', 'atentado', 'bomba', 'explosivo', 'tnt', 'dinamite', 'jihad', 'massacre', 'tiroteio', 'extremismo',
-  
-  // Armas e Itens Perigosos
-  'arma de fogo', 'pistola', 'revolver', 'fuzil', 'rifle', 'venda de armas', 'munição', 'molotov', 'glock', '38tao',
-  
-  // Crimes e Ilícitos
-  'sequestro', 'capturar', 'kidnap', 'drogas', 'cocaina', 'maconha', 'crack', 'heroina', 'metanfetamina', 'meth', 'weed', 'golpe', 'fraude', 'scam', 'pix fake', 'venda de conta', 'lavagem de dinheiro',
-  
-  // Cybercrimes e Dados
-  'phishing', 'cartao clonado', 'clonar cartao', 'cc dump', 'cvv', 'bin card', 'invasao', 'hackear', 'malware', 'virus', 'ransomware', 'doxxing', 'vazamento de dados', 'leak', 'chantagem', 'extorsao', 'pornografia de vinganca', 'revenge porn',
-  
-  // Temas Perturbadores
-  'zoofilia', 'necrofilia', 'canibalismo', 'escravidao', 'suicidio', 'me matar', 'cortar pulsos', 'auto mutilacao',
-  
-  // Termos Técnicos Proibidos (User Request)
-  'programação', 'coding', 'javascript', 'python', 'java', 'typescript', 'react', 'node.js', 'html', 'css', 'algoritmo', 'source code', 'github', 'linux', 'windows', 'macos', 'android', 'ios'
+  'conteúdo explicito',
+  'nudez',
+  'pornografia',
+  'infantil',
+  'racismo',
+  'nazismo',
+  'coisas relacionadas a demônios',
+  'atos ultraterroristas',
+  'apologia ao crime',
+  'drogas'
 ];
 
 /**
