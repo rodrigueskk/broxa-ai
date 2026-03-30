@@ -2089,7 +2089,9 @@ export default function ChatPage() {
       };
       
       try {
-        if (!checkContent(textToSend)) {
+        const isTotoAuto = textToSend.includes('[TOTO_AUTO]');
+
+        if (!isTotoAuto && !checkContent(textToSend)) {
           incrementViolations();
           const violationMsg: Omit<GroupMessage, 'id'> = {
             senderId: 'ai',
@@ -2102,8 +2104,10 @@ export default function ChatPage() {
           return;
         }
 
-        await addDoc(collection(db, `groups/${groupId}/messages`), userMessage);
-        await updateGroupStreak(groupId);
+        if (!isTotoAuto) {
+          await addDoc(collection(db, `groups/${groupId}/messages`), userMessage);
+          await updateGroupStreak(groupId);
+        }
         
         setIsLoading(true);
         const group = groups.find(g => g.id === groupId);
@@ -2195,14 +2199,17 @@ export default function ChatPage() {
     const userImageUrls = imagesToSend.map(img => img.url);
 
     const isFirstMessage = !currentSession || currentSession.messages.length === 0;
+    const isTotoAuto = userMessageContent.includes('[TOTO_AUTO]');
 
-    addMessage(sessionId, {
-      role: 'user',
-      content: userMessageContent,
-      imageUrls: userImageUrls.length > 0 ? userImageUrls : undefined,
-    });
+    if (!isTotoAuto) {
+      addMessage(sessionId, {
+        role: 'user',
+        content: userMessageContent,
+        imageUrls: userImageUrls.length > 0 ? userImageUrls : undefined,
+      });
+    }
 
-    if (!checkContent(userMessageContent)) {
+    if (!isTotoAuto && !checkContent(userMessageContent)) {
        incrementViolations();
        addMessage(sessionId, {
          role: 'ai',
@@ -2214,7 +2221,7 @@ export default function ChatPage() {
        return;
     }
 
-    if (isFirstMessage && userMessageContent) {
+    if (isFirstMessage && userMessageContent && !isTotoAuto) {
       generateTitle(userMessageContent).then(title => {
         updateSessionTitle(sessionId, title);
       }).catch(console.error);

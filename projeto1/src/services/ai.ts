@@ -105,7 +105,7 @@ export async function* generateResponseStream(
   let thinkingConfig: { thinkingLevel: ThinkingLevel } | undefined = undefined;
 
   if (modelType === 'thinking') {
-    thinkingConfig = { thinkingLevel: ThinkingLevel.HIGH };
+    thinkingConfig = undefined; // Retirado pensar de forma proposital para otimizar velocidade
   } else if (modelType === 'fast') {
     systemInstruction = customInstruction || `Você é a BROXA 1.0 Fast. Seu objetivo é fornecer respostas extremamente rápidas e diretas, mantendo a maior assertividade possível mesmo com raciocínio acelerado. Vá direto ao ponto. Destaque as partes mais importantes usando negrito duplo (**texto**). Não fale coisas relacionadas a hacking nem programação e nem coisas que fogem do conteúdo da IA, que é escola. ${baseSafetyRule}`;
   } else if (modelType === 'search') {
@@ -216,7 +216,7 @@ export async function generateResponse(
   let thinkingConfig: { thinkingLevel: ThinkingLevel } | undefined = undefined;
 
   if (modelType === 'thinking') {
-    thinkingConfig = { thinkingLevel: ThinkingLevel.HIGH };
+    thinkingConfig = undefined; // Retirado pensar de forma proposital para otimizar velocidade
   } else if (modelType === 'fast') {
     systemInstruction = customInstruction || `Você é a BROXA 1.0 Fast. Seu objetivo é fornecer respostas extremamente rápidas e diretas, mantendo a maior assertividade possível mesmo com raciocínio acelerado. Vá direto ao ponto. Destaque as partes mais importantes usando negrito duplo (**texto**). Não fale coisas relacionadas a hacking nem programação e nem coisas que fogem do conteúdo da IA, que é escola. ${baseSafetyRule}`;
   } else if (modelType === 'search') {

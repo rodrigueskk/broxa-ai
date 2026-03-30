@@ -47,15 +47,15 @@ export function useChatStore() {
           timestamp: Date.now(),
         };
         const updatedMessages = [...session.messages, newMessage];
-        
+
         let newTitle = session.title;
         if (updatedMessages.filter(m => m.role === 'user').length === 1 && message.role === 'user') {
-            const textContent = message.content.trim();
-            if (textContent) {
-                newTitle = textContent.slice(0, 30) + (textContent.length > 30 ? '...' : '');
-            } else if (message.imageUrl) {
-                newTitle = 'Imagem enviada';
-            }
+          const textContent = message.content.trim();
+          if (textContent) {
+            newTitle = textContent.slice(0, 30) + (textContent.length > 30 ? '...' : '');
+          } else if (message.imageUrl) {
+            newTitle = 'Imagem enviada';
+          }
         }
 
         return {
@@ -319,9 +319,9 @@ export function useAdminStore(isAdmin: boolean = false) {
       handleFirestoreError(error, OperationType.LIST, 'releaseNotes');
     });
 
-    let unsubscribeFeedbacks: () => void = () => {};
-    let unsubscribeUsers: () => void = () => {};
-    let unsubscribeAllGroups: () => void = () => {};
+    let unsubscribeFeedbacks: () => void = () => { };
+    let unsubscribeUsers: () => void = () => { };
+    let unsubscribeAllGroups: () => void = () => { };
     if (isAdmin) {
       const qFeedbacks = query(collection(db, 'feedbacks'), orderBy('date', 'desc'));
       unsubscribeFeedbacks = onSnapshot(qFeedbacks, (snapshot) => {
@@ -546,12 +546,12 @@ export function useUserStore() {
   const [appealText, setAppealText] = useState<string | null>(null);
 
   useEffect(() => {
-    let unsubscribeDoc: () => void = () => {};
+    let unsubscribeDoc: () => void = () => { };
 
     const unsubscribeAuth = auth.onAuthStateChanged(async (user) => {
       if (user) {
         const userRef = doc(db, 'users', user.uid);
-        
+
         unsubscribeDoc = onSnapshot(userRef, (docSnap) => {
           if (docSnap.exists()) {
             const data = docSnap.data();
@@ -624,7 +624,7 @@ export function useUserStore() {
 
   const markAsSeen = async (id: string) => {
     if (!auth.currentUser) return;
-    
+
     // Optimistic update
     setSeenReleaseNotes(prev => {
       if (prev.includes(id)) return prev;
@@ -643,14 +643,14 @@ export function useUserStore() {
 
   const checkStreak = async () => {
     if (!auth.currentUser || !lastMessageDate) return false;
-    
+
     const today = new Date();
     const todayStr = today.toISOString().slice(0, 10);
     const currentMonthStr = today.toISOString().slice(0, 7);
-    
+
     let newFreezes = freezesAvailable;
     let newLastFreezeMonth = lastFreezeMonth;
-    
+
     if (lastFreezeMonth !== currentMonthStr) {
       newFreezes = 2;
       newLastFreezeMonth = currentMonthStr;
@@ -660,7 +660,7 @@ export function useUserStore() {
     const todayDate = new Date(todayStr);
     const diffTime = Math.abs(todayDate.getTime() - lastDate.getTime());
     const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
-    
+
     if (diffDays > 1) {
       const missedDays = diffDays - 1;
       if (newFreezes < missedDays && streakDays > 0) {
@@ -682,21 +682,21 @@ export function useUserStore() {
 
   const updateStreak = async () => {
     if (!auth.currentUser) return;
-    
+
     const today = new Date();
     const todayStr = today.toISOString().slice(0, 10);
     const currentMonthStr = today.toISOString().slice(0, 7);
-    
+
     let newFreezes = freezesAvailable;
     let newLastFreezeMonth = lastFreezeMonth;
-    
+
     if (lastFreezeMonth !== currentMonthStr) {
       newFreezes = 2;
       newLastFreezeMonth = currentMonthStr;
     }
 
     let newStreak = streakDays;
-    
+
     if (lastMessageDate === todayStr) {
       // Already messaged today, just update month if needed
       if (lastFreezeMonth !== currentMonthStr) {
@@ -717,7 +717,7 @@ export function useUserStore() {
       const todayDate = new Date(todayStr);
       const diffTime = Math.abs(todayDate.getTime() - lastDate.getTime());
       const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
-      
+
       if (diffDays === 1) {
         newStreak += 1;
       } else if (diffDays > 1) {
@@ -759,9 +759,9 @@ export function useUserStore() {
 
   const markFeatureAsSeen = async (featureName: string) => {
     if (!auth.currentUser) return;
-    
+
     setUnlockedFeatures(prev => [...prev, featureName]);
-    
+
     try {
       const userRef = doc(db, 'users', auth.currentUser.uid);
       await updateDoc(userRef, {
@@ -789,13 +789,13 @@ export function useUserStore() {
     const userRef = doc(db, 'users', auth.currentUser.uid);
     const newCount = violationsCount + 1;
     setViolationsCount(newCount);
-    
+
     const updates: any = { violationsCount: newCount };
     if (newCount >= 10) {
       updates.isBanned = true;
       setIsBanned(true);
     }
-    
+
     try {
       await updateDoc(userRef, updates);
     } catch (error) {
@@ -825,7 +825,7 @@ export function useGroupStore() {
   const [groups, setGroups] = useState<Group[]>([]);
 
   useEffect(() => {
-    let unsubscribeGroups: () => void = () => {};
+    let unsubscribeGroups: () => void = () => { };
 
     const unsubscribeAuth = auth.onAuthStateChanged((user) => {
       if (!user) {
@@ -835,11 +835,11 @@ export function useGroupStore() {
       }
 
       const q = query(
-        collection(db, 'groups'), 
+        collection(db, 'groups'),
         where('members', 'array-contains', user.uid),
         orderBy('createdAt', 'desc')
       );
-      
+
       unsubscribeGroups = onSnapshot(q, (snapshot) => {
         const groupsData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Group));
         setGroups(groupsData);
@@ -896,10 +896,10 @@ export function useGroupStore() {
     const groupRef = doc(db, 'groups', groupId);
     const groupSnap = await getDoc(groupRef);
     if (!groupSnap.exists()) return;
-    
+
     const data = groupSnap.data() as Group;
     if (data.ownerId !== auth.currentUser.uid) return; // Only owner can remove
-    
+
     const newMembers = data.members.filter(id => id !== userId);
     await updateDoc(groupRef, { members: newMembers });
 
@@ -923,17 +923,17 @@ export function useGroupStore() {
 
     const data = groupSnap.data() as Group;
     const today = new Date().toISOString().split('T')[0];
-    
+
     if (data.lastMessageDate === today) return;
 
     let newStreak = data.streakDays || 0;
-    
+
     if (data.lastMessageDate) {
       const lastDate = new Date(data.lastMessageDate);
       const currentDate = new Date(today);
       const diffTime = Math.abs(currentDate.getTime() - lastDate.getTime());
       const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-      
+
       if (diffDays === 1) {
         newStreak += 1;
       } else if (diffDays > 1) {

@@ -62,12 +62,15 @@ const normalizeEnhanced = (text: string): string => {
     normalized = normalized.split(key).join(value);
   }
 
-  // 4. Limpeza Total: Mantém apenas letras e números
-  normalized = normalized.replace(/[^a-z0-9]/g, "");
+  // 4. Limpeza Total: Mantém apenas letras, números e espaços convertendo pontuação em espaço
+  normalized = normalized.replace(/[^a-z0-9\s]/g, " ");
 
-  // 5. Deduplicação de letras repetidas (ex: "pooorno" -> "porno", "racisssmmo" -> "racismo")
-  // Não remove números repetidos para não quebrar IPs ou datas se necessário
+  // 5. Deduplicação de letras repetidas (ex: "pooorno" -> "porno") 
+  // Exceto espaços
   normalized = normalized.replace(/([a-z])\1+/g, "$1");
+  
+  // Limpa espaços extras
+  normalized = normalized.replace(/\s+/g, " ").trim();
 
   return normalized;
 };
@@ -81,29 +84,17 @@ export const checkContent = (text: string): boolean => {
   
   const normalizedInput = normalizeEnhanced(text);
   
-  // Se o texto normalizado for vazio após limpeza (ex: só símbolos), é seguro
+  // Se o texto normalizado for vazio após limpeza, é seguro
   if (!normalizedInput) return true;
 
-  // Keywords curtas (<=4 chars) usam correspondência exata de palavra inteira
-  // Keywords longas usam includes normal (mais flexível para variações)
+  // Usa boundary para evitar falsos positivos
   return !PROHIBITED_KEYWORDS.some(keyword => {
     const normalizedKeyword = normalizeEnhanced(keyword);
     if (!normalizedKeyword) return false;
     
-    if (normalizedKeyword.length <= 4) {
-      // Palavra inteira: deve ser delimitada por início/fim de string ou outro caractere
-      // Como já removemos tudo que não é letra/número, vamos conferir se a keyword
-      // aparece como subsequência exata de uma palavra (separada por letra que não pertence a ela)
-      // Estratégia: verificar se o match é de uma palavra isolada no texto ORIGINAL também
-      const normalizedOriginalInput = text.toLowerCase()
-        .normalize('NFD')
-        .replace(/[\u0300-\u036f]/g, '');
-      // Verifica no texto original com limite de palavra
-      const wordBoundaryRegex = new RegExp(`(?<![a-z])${normalizedKeyword.split('').join('[^a-z]*')}(?![a-z])`, 'i');
-      return wordBoundaryRegex.test(normalizedOriginalInput) && normalizedInput.includes(normalizedKeyword);
-    }
-    
-    return normalizedInput.includes(normalizedKeyword);
+    // Procura a keyword como uma palavra inteira dentro do input normalizado
+    const regex = new RegExp(`\\b${normalizedKeyword}\\b`, 'i');
+    return regex.test(normalizedInput);
   });
 };
 
