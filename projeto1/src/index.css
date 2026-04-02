@@ -129,6 +129,15 @@
     background-color: var(--bg-base);
   }
 
+  /* Electron Desktop classes */
+  .electron-drag {
+    -webkit-app-region: drag;
+  }
+  
+  .electron-nodrag {
+    -webkit-app-region: no-drag;
+  }
+
   button {
     cursor: pointer;
   }

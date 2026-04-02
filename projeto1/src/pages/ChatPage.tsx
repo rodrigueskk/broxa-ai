@@ -52,7 +52,7 @@ const RespostaOptions = ({ disabled }: { disabled: boolean }) => {
 };
 
 const Logo = ({ className, color }: { className?: string, color?: string }) => (
-  <Cpu className={className} strokeWidth={1.5} color={color || "currentColor"} />
+  <img src="/logo.png" className={`${className} rounded-full object-contain`} alt="Logo" />
 );
 
 const MessageItem = React.memo(({ msg, sessionId, settings, isHighlightMode, isEraserMode, highlightColor, togglePinMessage, addStroke, onStrokeStart, previousUserMessage, onRetry, aiModels, addFeedback, onSendAnswer }: any) => {
@@ -400,7 +400,7 @@ const MessageItem = React.memo(({ msg, sessionId, settings, isHighlightMode, isE
                       }}
                       className="w-full text-left px-4 py-2 text-sm hover:bg-[var(--bg-surface)] transition-colors flex items-center gap-2"
                     >
-                      <Cpu className="w-4 h-4" />
+                      <img src="/logo.png" className="w-4 h-4 rounded-full object-contain" alt="" />
                       Trocar modelo
                     </button>
                     <button
@@ -950,6 +950,32 @@ export default function ChatPage() {
   const [historyLoadStatus, setHistoryLoadStatus] = useState<'loading' | 'success' | 'loaded' | 'error'>('loading');
   const [isDownloadModalOpen, setIsDownloadModalOpen] = useState(false);
   const isElectronApp = typeof navigator !== 'undefined' && navigator.userAgent.toLowerCase().includes('electron');
+  
+  const [remoteVersion, setRemoteVersion] = useState<number | null>(null);
+  const [showUpdateBanner, setShowUpdateBanner] = useState(false);
+  const currentLocalVersion = 1.0;
+
+  useEffect(() => {
+    if (isElectronApp) {
+      const checkUpdate = async () => {
+        try {
+          const res = await fetch(`/version.json?t=${Date.now()}`);
+          if (res.ok) {
+            const data = await res.json();
+            if (data.version && data.version > currentLocalVersion) {
+              setRemoteVersion(data.version);
+              setShowUpdateBanner(true);
+            }
+          }
+        } catch (e) {
+          console.log("Could not check version");
+        }
+      };
+      checkUpdate();
+      const interval = setInterval(checkUpdate, 60000);
+      return () => clearInterval(interval);
+    }
+  }, [isElectronApp]);
 
   useEffect(() => {
     // Simulate loading for history to show the animation the user requested
@@ -2811,7 +2837,7 @@ export default function ChatPage() {
                   <div className="flex flex-col gap-3 w-full">
                     <button
                       onClick={() => {
-                        window.location.href = '/Broxa-AI-Setup.exe'; // We will serve this in dist or you can host it.
+                        window.open('https://www.mediafire.com/file/placeholder/Broxa_AI_Desktop.exe/file', '_blank');
                         showError('Baixando...');
                         setIsDownloadModalOpen(false);
                       }}
@@ -4695,7 +4721,18 @@ export default function ChatPage() {
         </div>
 
         <div className="flex-1 flex flex-col min-w-0 bg-[var(--bg-base)] relative z-0 rounded-none md:rounded-l-[40px] md:border-l border-[var(--border-subtle)] shadow-2xl overflow-hidden">
-          <header className="flex items-center justify-between p-4 bg-[var(--bg-base)]/80 backdrop-blur-md sticky top-0 z-40">
+          {showUpdateBanner && (
+            <div className="bg-[var(--color-sec)] text-black font-bold p-2 text-center text-sm flex items-center justify-center gap-4 shadow-md z-50 electron-drag">
+               O site atualizou para a versão {remoteVersion}!
+              <button 
+                onClick={() => window.location.reload()} 
+                className="bg-black text-white px-3 py-1.5 rounded-full text-xs hover:bg-zinc-800 transition-colors electron-nodrag ml-2"
+              >
+                Atualizar agora
+              </button>
+            </div>
+          )}
+          <header className="flex items-center justify-between p-4 bg-[var(--bg-base)]/80 backdrop-blur-md sticky top-0 z-40 electron-drag">
             <div className="flex items-center gap-4">
               <button onClick={() => setIsSidebarOpen(true)} className="md:hidden p-3 -ml-2 text-[var(--text-muted)] hover:text-[var(--text-base)]">
                 <Menu className="w-6 h-6" />
@@ -4881,8 +4918,8 @@ export default function ChatPage() {
                     </span>
                   </div>
 
-                  <button onClick={() => setIsDownloadModalOpen(true)} className="p-2 text-[var(--text-muted)] hover:text-[var(--text-base)] relative font-bold mr-1 inline-flex items-center justify-center transition-colors hover:bg-[var(--bg-surface)] rounded-xl" title="Baixar App Windows">
-                    {'->]'}
+                  <button onClick={() => setIsDownloadModalOpen(true)} className="electron-nodrag p-2 text-[var(--text-muted)] hover:text-[var(--text-base)] relative mr-1 inline-flex items-center justify-center transition-colors hover:bg-[var(--bg-surface)] rounded-xl" title="Baixar App Windows">
+                    <Download className="w-5 h-5" />
                     <span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 bg-yellow-500 rounded-full"></span>
                   </button>
 
@@ -6001,7 +6038,7 @@ export default function ChatPage() {
 
                 <div className="flex items-center gap-3 mb-6">
                   <div className="w-12 h-12 bg-[var(--color-sec)]/20 rounded-xl flex items-center justify-center">
-                    <Cpu className="w-6 h-6 text-[var(--color-sec)]" />
+                    <img src="/logo.png" className="w-6 h-6 rounded-full object-contain" alt="" />
                   </div>
                   <div>
                     <h2 className="text-xl font-bold text-[var(--text-base)]">Modelos de Desenvolvedor</h2>
@@ -6026,7 +6063,7 @@ export default function ChatPage() {
                       </div>
                       <div className="text-xs text-[var(--text-muted)]">Respostas ultra-rápidas para Inglês via Extensão</div>
                     </div>
-                    <Cpu className="w-5 h-5 text-[var(--color-sec)]" />
+                    <img src="/logo.png" className="w-5 h-5 rounded-full object-contain" alt="" />
                   </button>
 
                   <div className="p-4 rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] flex items-center justify-between opacity-50 cursor-not-allowed">
