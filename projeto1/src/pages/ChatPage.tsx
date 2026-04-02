@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
-import { Menu, Plus, MessageSquare, Trash2, Send, Image as ImageIcon, X, Settings, Pin, Highlighter, AlertTriangle, Undo2, Redo2, Eraser, Copy, Check, ChevronDown, ShieldAlert, LogIn, LogOut, Search, GitCompare, Edit, Edit2, ThumbsUp, ThumbsDown, AlertCircle, ChevronUp, RefreshCw, Cpu, Flame, Snowflake, Bot, User, Lock, ChevronRight, ShieldCheck, LayoutDashboard, Globe, Dog, Monitor } from 'lucide-react';
+import { Menu, Plus, MessageSquare, Trash2, Send, Image as ImageIcon, X, Settings, Pin, Highlighter, AlertTriangle, Undo2, Redo2, Eraser, Copy, Check, ChevronDown, ShieldAlert, LogIn, LogOut, Search, GitCompare, Edit, Edit2, ThumbsUp, ThumbsDown, AlertCircle, ChevronUp, RefreshCw, Cpu, Flame, Snowflake, Bot, User, Lock, ChevronRight, ShieldCheck, LayoutDashboard, Globe, Dog, Monitor, Download } from 'lucide-react';
 import { useChatStore, useSettingsStore, useAdminStore, useUserStore, useGroupStore, ReleaseNote, ReleaseNoteImage, ReleaseNoteBadge } from '../store';
 import { Group, GroupMessage } from '../types';
 import { db } from '../firebase';
@@ -948,6 +948,8 @@ const ImageUpload = ({ value, onChange, label }: { value: string, onChange: (val
 export default function ChatPage() {
   const navigate = useNavigate();
   const [historyLoadStatus, setHistoryLoadStatus] = useState<'loading' | 'success' | 'loaded' | 'error'>('loading');
+  const [isDownloadModalOpen, setIsDownloadModalOpen] = useState(false);
+  const isElectronApp = typeof navigator !== 'undefined' && navigator.userAgent.toLowerCase().includes('electron');
 
   useEffect(() => {
     // Simulate loading for history to show the animation the user requested
@@ -2768,6 +2770,63 @@ export default function ChatPage() {
                   >
                     Apagar
                   </button>
+                </div>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        <AnimatePresence>
+          {isDownloadModalOpen && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-[300] flex items-center justify-center bg-black/80 backdrop-blur-md p-4"
+            >
+              <motion.div
+                initial={{ scale: 0.9, opacity: 0, y: 20 }}
+                animate={{ scale: 1, opacity: 1, y: 0 }}
+                exit={{ scale: 0.9, opacity: 0, y: 20 }}
+                className="bg-black border-2 border-[var(--color-sec)] rounded-3xl w-full max-w-md shadow-[0_0_50px_rgba(34,197,94,0.1)] overflow-hidden"
+              >
+                <div className="flex justify-between items-center p-6 border-b border-[var(--border-subtle)]/30">
+                  <h3 className="text-xl font-bold text-white flex items-center gap-2">
+                    <Monitor className="w-5 h-5 text-[var(--color-sec)]" />
+                    App para Windows
+                  </h3>
+                  <button onClick={() => setIsDownloadModalOpen(false)} className="p-2 hover:bg-white/10 rounded-full transition-colors text-white/70 hover:text-white">
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+                <div className="p-8 text-center flex flex-col items-center">
+                  <div className="w-16 h-16 rounded-2xl bg-gradient-to-tr from-[var(--color-sec)] to-green-500 flex items-center justify-center shadow-lg shadow-[var(--color-sec)]/20 mb-6">
+                    <Download className="w-8 h-8 text-white" />
+                  </div>
+                  <h4 className="text-2xl font-black text-white mb-3">Agora temos suporte para aplicativo no windows</h4>
+                  <p className="text-[var(--text-muted)] text-sm mb-8 leading-relaxed">
+                    Baixe o Broxa AI direto no seu computador. Mais rápido, prático e com a mesma tela elegante seguindo o padrão do site.
+                  </p>
+                  
+                  <div className="flex flex-col gap-3 w-full">
+                    <button
+                      onClick={() => {
+                        window.location.href = '/Broxa-AI-Setup.exe'; // We will serve this in dist or you can host it.
+                        showError('Baixando...');
+                        setIsDownloadModalOpen(false);
+                      }}
+                      className="w-full py-3.5 bg-[var(--color-sec)] text-white rounded-xl font-bold text-base hover:opacity-90 transition-all shadow-lg shadow-[var(--color-sec)]/20 flex items-center justify-center gap-2"
+                    >
+                      <Download className="w-5 h-5" />
+                      Baixar
+                    </button>
+                    <button
+                      onClick={() => setIsDownloadModalOpen(false)}
+                      className="w-full py-3.5 bg-zinc-900 border border-zinc-800 text-zinc-400 hover:text-white hover:bg-zinc-800 rounded-xl font-medium transition-all text-sm"
+                    >
+                      Agora não
+                    </button>
+                  </div>
                 </div>
               </motion.div>
             </motion.div>
@@ -4691,7 +4750,7 @@ export default function ChatPage() {
                             <div className="p-2">
                               <div className="text-xs font-bold text-[var(--text-muted)] px-3 py-2">Latest</div>
 
-                              {[...(aiModels || [])].sort((a, b) => {
+                              {[...(aiModels || [])].filter(m => !(isElectronApp && m.key === 'toto')).sort((a, b) => {
                                 const order = ['thinking', 'fast', 'as', 'search'];
                                 const indexA = order.indexOf(a.key);
                                 const indexB = order.indexOf(b.key);
@@ -4821,6 +4880,11 @@ export default function ChatPage() {
                       {streakDays}
                     </span>
                   </div>
+
+                  <button onClick={() => setIsDownloadModalOpen(true)} className="p-2 text-[var(--text-muted)] hover:text-[var(--text-base)] relative font-bold mr-1 inline-flex items-center justify-center transition-colors hover:bg-[var(--bg-surface)] rounded-xl" title="Baixar App Windows">
+                    {'->]'}
+                    <span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 bg-yellow-500 rounded-full"></span>
+                  </button>
 
                   <div className="relative">
                     <button onClick={() => setIsPinnedMessagesOpen(!isPinnedMessagesOpen)} className="p-2 text-[var(--text-muted)] hover:text-[var(--text-base)] relative">
