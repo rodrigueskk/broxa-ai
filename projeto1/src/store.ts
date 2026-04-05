@@ -347,17 +347,6 @@ export interface AiModel {
   isPublic: boolean;
 }
 
-export interface Group {
-  id: string;
-  name: string;
-  description: string;
-  owner: string;
-  members: string[];
-  createdAt: number;
-  systemInstruction: string;
-  streakDays: number;
-}
-
 interface UserDoc {
   uid: string;
   email: string;
@@ -598,6 +587,143 @@ export function useAdminStore(isAdmin: boolean) {
   };
 
   return { releaseNotes, feedbacks, aiModels, users, allGroups, isMaintenanceMode, addReleaseNote, updateReleaseNote, deleteReleaseNote, addFeedback, deleteFeedback, updateAiModel, updateUserStreak, updateUserRole, updateUserBannedStatus, updateAdminGroupStreak, deleteAdminGroup, approveAppeal, denyAppeal, setMaintenanceMode };
+}
+
+export function useGroupStore() {
+  const [groups, setGroups] = useState<Group[]>([]);
+
+  useEffect(() => {
+    let unsubscribeAuth: (() => void) | null = null;
+    let unsubscribeGroups: (() => void) | null = null;
+
+    unsubscribeAuth = auth.onAuthStateChanged((user) => {
+      if (unsubscribeGroups) unsubscribeGroups();
+      if (user) {
+        unsubscribeGroups = onSnapshot(
+          query(collection(db, 'groups'), where('members', 'array-contains', user.uid)),
+          (snapshot) => {
+            const groupList = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }) as Group);
+            setGroups(groupList);
+          },
+          (error) => {
+            handleFirestoreError(error, OperationType.LIST, 'groups');
+          }
+        );
+      } else {
+        setGroups([]);
+      }
+    });
+
+    return () => {
+      if (unsubscribeAuth) unsubscribeAuth();
+      if (unsubscribeGroups) unsubscribeGroups();
+    };
+  }, []);
+
+  const createGroup = async (name: string, photoURL: string | null, systemInstruction: string) => {
+    if (!auth.currentUser) return;
+    try {
+      const groupRef = doc(collection(db, 'groups'));
+      await setDoc(groupRef, {
+        name,
+        photoURL,
+        systemInstruction,
+        ownerId: auth.currentUser.uid,
+        members: [auth.currentUser.uid],
+        streakDays: 0,
+        lastMessageDate: null,
+        createdAt: Date.now()
+      });
+      return groupRef.id;
+    } catch (error) {
+      console.error("Error creating group:", error);
+      throw error;
+    }
+  };
+
+  const joinGroup = async (groupId: string) => {
+    if (!auth.currentUser) return;
+    try {
+      const groupRef = doc(db, 'groups', groupId);
+      const groupSnap = await getDoc(groupRef);
+      if (groupSnap.exists()) {
+        const members = groupSnap.data().members || [];
+        if (!members.includes(auth.currentUser.uid)) {
+          await updateDoc(groupRef, {
+            members: [...members, auth.currentUser.uid]
+          });
+        }
+      }
+    } catch (error) {
+      console.error("Error joining group:", error);
+      throw error;
+    }
+  };
+
+  const renameGroup = async (groupId: string, newName: string) => {
+    try {
+      await updateDoc(doc(db, 'groups', groupId), { name: newName });
+    } catch (error) {
+      console.error("Error renaming group:", error);
+    }
+  };
+
+  const updateGroup = async (groupId: string, data: { name?: string; photoURL?: string | null; systemInstruction?: string }) => {
+    try {
+      await updateDoc(doc(db, 'groups', groupId), data);
+    } catch (error) {
+      console.error("Error updating group:", error);
+    }
+  };
+
+  const updateGroupStreak = async (groupId: string, newStreak: number) => {
+    try {
+      await updateDoc(doc(db, 'groups', groupId), { streakDays: newStreak });
+    } catch (error) {
+      console.error("Error updating group streak:", error);
+    }
+  };
+
+  const updateGroupMessage = async (groupId: string, messageId: string, data: Partial<GroupMessage>) => {
+    try {
+      await updateDoc(doc(db, `groups/${groupId}/messages`, messageId), data);
+    } catch (error) {
+      console.error("Error updating group message:", error);
+    }
+  };
+
+  const removeMember = async (groupId: string, userId: string) => {
+    try {
+      const groupRef = doc(db, 'groups', groupId);
+      const groupSnap = await getDoc(groupRef);
+      if (groupSnap.exists()) {
+        const members = groupSnap.data().members || [];
+        await updateDoc(groupRef, { members: members.filter((m: string) => m !== userId) });
+      }
+    } catch (error) {
+      console.error("Error removing member:", error);
+    }
+  };
+
+  const deleteGroup = async (groupId: string) => {
+    try {
+      await deleteDoc(doc(db, 'groups', groupId));
+    } catch (error) {
+      console.error("Error deleting group:", error);
+    }
+  };
+
+  return {
+    groups,
+    createGroup,
+    joinGroup,
+    renameGroup,
+    updateGroupStreak,
+    updateGroup,
+    updateGroupMessage,
+    removeMember,
+    deleteGroup
+  };
 }
 
 export function useUserStore() {
