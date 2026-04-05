@@ -4,10 +4,14 @@ import { v4 as uuidv4 } from 'uuid';
 import { db, auth, handleFirestoreError, OperationType } from './firebase';
 import { collection, doc, setDoc, deleteDoc, onSnapshot, query, orderBy, getDoc, updateDoc, arrayUnion, where, addDoc } from 'firebase/firestore';
 
+function getSessionStorageKey(uid: string | null): string {
+  return uid ? `broxa_ai_sessions_${uid}` : 'broxa_ai_sessions';
+}
+
 export function useChatStore() {
   const [sessions, setSessions] = useState<ChatSession[]>(() => {
     try {
-      const saved = localStorage.getItem('broxa_ai_sessions');
+      const saved = localStorage.getItem(getSessionStorageKey(auth.currentUser?.uid || null));
       return saved ? JSON.parse(saved) : [];
     } catch (e) {
       console.warn('localStorage is not available', e);
@@ -17,13 +21,48 @@ export function useChatStore() {
 
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
 
+  // React to auth changes - load sessions for the logged-in user
   useEffect(() => {
+    const unsub = auth.onAuthStateChanged((user) => {
+      const uid = user ? user.uid : null;
+      try {
+        const saved = localStorage.getItem(getSessionStorageKey(uid));
+        const userSessions = saved ? JSON.parse(saved) : [];
+        setSessions(userSessions);
+        setCurrentSessionId(userSessions[0]?.id || null);
+      } catch (e) {
+        setSessions([]);
+        setCurrentSessionId(null);
+      }
+    });
+    return () => unsub();
+  }, []);
+
+  const saveSessions = (newSessions: ChatSession[]) => {
     try {
-      localStorage.setItem('broxa_ai_sessions', JSON.stringify(sessions));
+      const uid = auth.currentUser?.uid;
+      localStorage.setItem(getSessionStorageKey(uid), JSON.stringify(newSessions));
     } catch (e) {
       console.warn('localStorage is not available', e);
     }
+  };
+
+  useEffect(() => {
+    saveSessions(sessions);
   }, [sessions]);
+
+  const clearSessions = () => {
+    try {
+      const uid = auth.currentUser?.uid;
+      if (uid) {
+        localStorage.removeItem(getSessionStorageKey(uid));
+      }
+      setSessions([]);
+      setCurrentSessionId(null);
+    } catch (e) {
+      console.warn('localStorage is not available', e);
+    }
+  };
 
   const createSession = () => {
     const newSession: ChatSession = {
@@ -206,7 +245,8 @@ export function useChatStore() {
     removePinnedText,
     addStroke,
     setStrokes,
-    updateSessionTitle
+    updateSessionTitle,
+    clearSessions
   };
 }
 
@@ -244,34 +284,21 @@ export function useSettingsStore() {
     }
   }, [settings]);
 
-  const updateSettings = (newSettings: Partial<typeof settings>) => {
-    setSettings((s: any) => {
-      const updated = { ...s, ...newSettings };
-      if (auth.currentUser) {
-        updateDoc(doc(db, 'users', auth.currentUser.uid), { settings: updated }).catch(console.error);
-      }
-      return updated;
+  const updateSetting = (key: string, value: unknown) => {
+    setSettings(prev => {
+      const newSettings = { ...prev, [key]: value };
+      return newSettings;
     });
   };
 
-  return { settings, updateSettings };
-}
+  const updateSettings = (partialSettings: Partial<typeof settings>) => {
+    setSettings(prev => {
+      const newSettings = { ...prev, ...partialSettings };
+      return newSettings;
+    });
+  };
 
-export interface ReleaseNoteImage {
-  id: string;
-  url: string;
-  x: number;
-  y: number;
-  scale: number;
-  rotation: number;
-}
-
-export interface ReleaseNoteBadge {
-  id: string;
-  type: 'BETA' | 'EM DESENVOLVIMENTO' | 'NOVO' | 'REMOVIDO' | 'EM BREVE';
-  x: number;
-  y: number;
-  scale: number;
+  return { settings, updateSetting, updateSettings };
 }
 
 export interface ReleaseNote {
@@ -281,8 +308,6 @@ export interface ReleaseNote {
   description: string;
   changes: string[];
   imageUrl?: string;
-  date: number;
-  // Customization fields
   titleRgb?: boolean;
   outlineColor?: string;
   backgroundColor?: string;
@@ -293,138 +318,140 @@ export interface ReleaseNote {
   badges?: ReleaseNoteBadge[];
 }
 
-export interface Feedback {
+export interface ReleaseNoteImage {
   id: string;
-  messageId: string;
-  isPositive: boolean;
-  comment: string;
-  date: number;
-  userEmail?: string;
-  model: string;
-  prompt: string;
-  response: string;
+  url: string;
+  caption: string;
 }
 
-export interface AIModel {
+export interface ReleaseNoteBadge {
+  id: string;
+  text: string;
+  color: string;
+}
+
+export interface Feedback {
+  id: string;
+  userId: string;
+  userEmail: string;
+  message: string;
+  timestamp: number;
+}
+
+export interface AiModel {
   id: string;
   key: string;
   name: string;
   description: string;
-  badgeType?: 'BETA' | 'EM DESENVOLVIMENTO' | 'NOVO' | 'REMOVIDO' | 'EM BREVE' | 'NENHUMA';
+  badgeType?: string;
+  isPublic: boolean;
 }
 
-export function useAdminStore(isAdmin: boolean = false) {
+export interface Group {
+  id: string;
+  name: string;
+  description: string;
+  owner: string;
+  members: string[];
+  createdAt: number;
+  systemInstruction: string;
+  streakDays: number;
+}
+
+interface UserDoc {
+  uid: string;
+  email: string;
+  role: string;
+  displayName: string;
+  photoURL: string;
+  lastMessageDate: string;
+  streakDays: number;
+  violationsCount: number;
+  isBanned: boolean;
+  appealStatus: string | null;
+  appealText: string | null;
+  hasSeenRoleNotification: boolean;
+  seenReleaseNotes: string[];
+  unlockedFeatures: string[];
+  hasSetProfile: boolean;
+  freezesAvailable: number;
+  lastFreezeMonth: string;
+}
+
+export function useAdminStore(isAdmin: boolean) {
   const [releaseNotes, setReleaseNotes] = useState<ReleaseNote[]>([]);
   const [feedbacks, setFeedbacks] = useState<Feedback[]>([]);
-  const [aiModels, setAiModels] = useState<AIModel[]>([]);
-  const [users, setUsers] = useState<any[]>([]);
-  const [allGroups, setAllGroups] = useState<any[]>([]);
-  const [isMaintenanceMode, setIsMaintenanceMode] = useState<boolean>(false);
+  const [aiModels, setAiModels] = useState<AiModel[]>([]);
+  const [users, setUsers] = useState<UserDoc[]>([]);
+  const [isMaintenanceMode, setIsMaintenanceMode] = useState(false);
+  const [allGroups, setAllGroups] = useState<Group[]>([]);
 
   useEffect(() => {
-    const qNotes = query(collection(db, 'releaseNotes'), orderBy('date', 'desc'));
-    const unsubscribeNotes = onSnapshot(qNotes, (snapshot) => {
-      const notes = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      })) as ReleaseNote[];
-      setReleaseNotes(notes);
-    }, (error) => {
-      handleFirestoreError(error, OperationType.LIST, 'releaseNotes');
-    });
+    let unsubscribeDoc: (() => void)[] = [];
 
-    let unsubscribeFeedbacks: () => void = () => { };
-    let unsubscribeUsers: () => void = () => { };
-    let unsubscribeAllGroups: () => void = () => { };
-    if (isAdmin) {
-      const qFeedbacks = query(collection(db, 'feedbacks'), orderBy('date', 'desc'));
-      unsubscribeFeedbacks = onSnapshot(qFeedbacks, (snapshot) => {
-        const fb = snapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data()
-        })) as Feedback[];
-        setFeedbacks(fb);
-      }, (error) => {
-        handleFirestoreError(error, OperationType.LIST, 'feedbacks');
-      });
+    const unsubReleaseNotes = onSnapshot(
+      query(collection(db, 'releaseNotes'), orderBy('timestamp', 'desc')),
+      (snapshot) => {
+        const notes = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as ReleaseNote));
+        setReleaseNotes(notes);
+      }
+    );
+    unsubscribeDoc.push(unsubReleaseNotes);
 
-      const qUsers = query(collection(db, 'users'));
-      unsubscribeUsers = onSnapshot(qUsers, (snapshot) => {
-        const usrs = snapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data()
-        }));
-        setUsers(usrs);
-      }, (error) => {
-        handleFirestoreError(error, OperationType.LIST, 'users');
-      });
+    const unsubFeedbacks = onSnapshot(
+      query(collection(db, 'feedbacks'), orderBy('timestamp', 'desc')),
+      (snapshot) => {
+        const feedbacksList = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Feedback));
+        setFeedbacks(feedbacksList);
+      }
+    );
+    unsubscribeDoc.push(unsubFeedbacks);
 
-      const qGroups = query(collection(db, 'groups'));
-      unsubscribeAllGroups = onSnapshot(qGroups, (snapshot) => {
-        const grps = snapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data()
-        }));
-        setAllGroups(grps);
-      }, (error) => {
-        handleFirestoreError(error, OperationType.LIST, 'groups');
-      });
-    }
-
-    const qModels = query(collection(db, 'aiModels'));
-    const unsubscribeModels = onSnapshot(qModels, (snapshot) => {
-      if (snapshot.empty) {
-        // Initialize default models if none exist
-        const defaultModels: AIModel[] = [
-          { id: 'thinking', key: 'thinking', name: 'Thinking 1.1', description: 'Pensa mais para gerar respostas melhores', badgeType: 'NENHUMA' },
-          { id: 'fast', key: 'fast', name: 'Fast 1.1', description: 'Respostas imediatas', badgeType: 'NENHUMA' },
-          { id: 'search', key: 'search', name: 'Search 0.8', description: 'Bypass da Morgana', badgeType: 'BETA' },
-          { id: 'as', key: 'as', name: 'A.S 0.5', description: 'Resumo', badgeType: 'EM DESENVOLVIMENTO' }
-        ];
-        if (isAdmin) {
-          defaultModels.forEach(model => {
-            setDoc(doc(db, 'aiModels', model.id), model).catch(e => console.error("Error creating default model:", e));
-          });
-        }
-        setAiModels(defaultModels);
-      } else {
-        const models = snapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data()
-        })) as AIModel[];
+    const unsubAiModels = onSnapshot(
+      query(collection(db, 'aiModels'), orderBy('timestamp', 'desc')),
+      (snapshot) => {
+        const models = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as AiModel));
         setAiModels(models);
       }
-    }, (error) => {
-      handleFirestoreError(error, OperationType.LIST, 'aiModels');
-    });
+    );
+    unsubscribeDoc.push(unsubAiModels);
 
-    const docGlobal = doc(db, 'settings', 'global');
-    const unsubscribeGlobal = onSnapshot(docGlobal, (snapshot) => {
-      if (snapshot.exists()) {
-        setIsMaintenanceMode(snapshot.data().isMaintenanceMode || false);
+    const unsubUsers = onSnapshot(
+      query(collection(db, 'users'), orderBy('lastMessageDate', 'asc')),
+      (snapshot) => {
+        const usersList = snapshot.docs.map(doc => ({ uid: doc.id, ...doc.data() } as UserDoc));
+        setUsers(usersList);
       }
-    }, (error) => {
-      console.error("Error fetching global settings:", error);
+    );
+    unsubscribeDoc.push(unsubUsers);
+
+    const unsubGroups = onSnapshot(
+      query(collection(db, 'groups'), orderBy('createdAt', 'desc')),
+      (snapshot) => {
+        const groupsList = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Group));
+        setAllGroups(groupsList);
+      }
+    );
+    unsubscribeDoc.push(unsubGroups);
+
+    const unsubMaintenance = onSnapshot(doc(db, 'settings', 'global'), (docSnap) => {
+      if (docSnap.exists()) {
+        setIsMaintenanceMode(docSnap.data().isMaintenanceMode || false);
+      }
     });
+    unsubscribeDoc.push(unsubMaintenance);
 
     return () => {
-      unsubscribeNotes();
-      unsubscribeFeedbacks();
-      unsubscribeModels();
-      unsubscribeUsers();
-      unsubscribeAllGroups();
-      unsubscribeGlobal();
+      unsubscribeDoc.forEach(unsub => unsub());
     };
-  }, [isAdmin]);
+  }, []);
 
-  const addReleaseNote = async (note: Omit<ReleaseNote, 'id' | 'date'>) => {
-    if (!auth.currentUser) return;
+  const addReleaseNote = async (noteData: Omit<ReleaseNote, 'id'>) => {
+    if (!isAdmin) return;
     try {
-      const newNoteRef = doc(collection(db, 'releaseNotes'));
-      await setDoc(newNoteRef, {
-        ...note,
-        date: Date.now(),
-        authorUid: auth.currentUser.uid
+      await addDoc(collection(db, 'releaseNotes'), {
+        ...noteData,
+        timestamp: Date.now()
       });
     } catch (error) {
       console.error("Error adding release note:", error);
@@ -432,32 +459,31 @@ export function useAdminStore(isAdmin: boolean = false) {
     }
   };
 
-  const updateReleaseNote = async (id: string, note: Partial<Omit<ReleaseNote, 'id' | 'date'>>) => {
-    if (!auth.currentUser) return;
+  const updateReleaseNote = async (noteId: string, noteData: Partial<ReleaseNote>) => {
+    if (!isAdmin) return;
     try {
-      const noteRef = doc(db, 'releaseNotes', id);
-      await updateDoc(noteRef, note);
+      await updateDoc(doc(db, 'releaseNotes', noteId), noteData);
     } catch (error) {
       console.error("Error updating release note:", error);
       throw error;
     }
   };
 
-  const deleteReleaseNote = async (id: string) => {
+  const deleteReleaseNote = async (noteId: string) => {
+    if (!isAdmin) return;
     try {
-      await deleteDoc(doc(db, 'releaseNotes', id));
+      await deleteDoc(doc(db, 'releaseNotes', noteId));
     } catch (error) {
       console.error("Error deleting release note:", error);
       throw error;
     }
   };
 
-  const addFeedback = async (feedback: Omit<Feedback, 'id' | 'date'>) => {
+  const addFeedback = async (feedbackData: Omit<Feedback, 'id'>) => {
     try {
-      const newRef = doc(collection(db, 'feedbacks'));
-      await setDoc(newRef, {
-        ...feedback,
-        date: Date.now()
+      await addDoc(collection(db, 'feedbacks'), {
+        ...feedbackData,
+        timestamp: Date.now()
       });
     } catch (error) {
       console.error("Error adding feedback:", error);
@@ -465,18 +491,20 @@ export function useAdminStore(isAdmin: boolean = false) {
     }
   };
 
-  const deleteFeedback = async (id: string) => {
+  const deleteFeedback = async (feedbackId: string) => {
+    if (!isAdmin) return;
     try {
-      await deleteDoc(doc(db, 'feedbacks', id));
+      await deleteDoc(doc(db, 'feedbacks', feedbackId));
     } catch (error) {
       console.error("Error deleting feedback:", error);
       throw error;
     }
   };
 
-  const updateAiModel = async (id: string, updates: Partial<AIModel>) => {
+  const updateAiModel = async (modelId: string, modelData: Partial<AiModel>) => {
+    if (!isAdmin) return;
     try {
-      await updateDoc(doc(db, 'aiModels', id), updates);
+      await updateDoc(doc(db, 'aiModels', modelId), modelData);
     } catch (error) {
       console.error("Error updating AI model:", error);
       throw error;
@@ -499,7 +527,7 @@ export function useAdminStore(isAdmin: boolean = false) {
     try {
       await updateDoc(doc(db, 'users', userId), {
         role: newRole,
-        hasSeenRoleNotification: false // Reset notification when role changes to admin/dev
+        hasSeenRoleNotification: false
       });
     } catch (error) {
       console.error("Error updating user role:", error);
@@ -617,7 +645,6 @@ export function useUserStore() {
             setAppealText(data.appealText || null);
             setIsUserLoaded(true);
           } else {
-            // Create user doc if it doesn't exist
             setDoc(userRef, {
               email: user.email,
               role: 'user',
@@ -670,7 +697,6 @@ export function useUserStore() {
   const markAsSeen = async (id: string) => {
     if (!auth.currentUser) return;
 
-    // Optimistic update
     setSeenReleaseNotes(prev => {
       if (prev.includes(id)) return prev;
       return [...prev, id];
@@ -707,26 +733,32 @@ export function useUserStore() {
     const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
 
     if (diffDays > 1) {
-      const missedDays = diffDays - 1;
-      if (newFreezes < missedDays && streakDays > 0) {
-        // Streak broken
-        try {
-          await updateDoc(doc(db, 'users', auth.currentUser.uid), {
-            streakDays: 0,
-            freezesAvailable: newFreezes,
-            lastFreezeMonth: newLastFreezeMonth
-          });
-          return true;
-        } catch (error) {
-          console.error("Error updating broken streak:", error);
-        }
+      setStreakDays(0);
+      try {
+        await updateDoc(doc(db, 'users', auth.currentUser.uid), { streakDays: 0 });
+      } catch (error) {
+        console.error("Error resetting streak:", error);
       }
+      return false;
+    } else if (diffDays === 1) {
+      setStreakDays(prev => prev + 1);
+      try {
+        await updateDoc(doc(db, 'users', auth.currentUser.uid), {
+          streakDays: streakDays + 1,
+          lastMessageDate: todayStr,
+          freezesAvailable: newFreezes,
+          lastFreezeMonth: newLastFreezeMonth
+        });
+      } catch (error) {
+        console.error("Error updating streak:", error);
+      }
+      return true;
     }
     return false;
   };
 
-  const updateStreak = async () => {
-    if (!auth.currentUser) return;
+  const updateLastMessageDate = async () => {
+    if (!auth.currentUser) return false;
 
     const today = new Date();
     const todayStr = today.toISOString().slice(0, 10);
@@ -740,41 +772,27 @@ export function useUserStore() {
       newLastFreezeMonth = currentMonthStr;
     }
 
+    if (lastMessageDate === todayStr) return false;
+
+    const todayDate = new Date(todayStr);
     let newStreak = streakDays;
-
-    if (lastMessageDate === todayStr) {
-      // Already messaged today, just update month if needed
-      if (lastFreezeMonth !== currentMonthStr) {
-        try {
-          await updateDoc(doc(db, 'users', auth.currentUser.uid), {
-            freezesAvailable: newFreezes,
-            lastFreezeMonth: newLastFreezeMonth
-          });
-        } catch (e) { console.error(e); }
-      }
-      return;
-    }
-
-    if (!lastMessageDate) {
-      newStreak = 1;
-    } else {
+    if (lastMessageDate) {
       const lastDate = new Date(lastMessageDate);
-      const todayDate = new Date(todayStr);
       const diffTime = Math.abs(todayDate.getTime() - lastDate.getTime());
       const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
-
       if (diffDays === 1) {
         newStreak += 1;
       } else if (diffDays > 1) {
-        const missedDays = diffDays - 1;
-        if (newFreezes >= missedDays) {
-          newFreezes -= missedDays;
-          newStreak += 1;
-        } else {
-          newStreak = 1;
-        }
+        newStreak = 0;
       }
+    } else {
+      newStreak = 1;
     }
+
+    setStreakDays(newStreak);
+    setLastMessageDate(todayStr);
+    setFreezesAvailable(newFreezes);
+    setLastFreezeMonth(newLastFreezeMonth);
 
     try {
       await updateDoc(doc(db, 'users', auth.currentUser.uid), {
@@ -784,44 +802,65 @@ export function useUserStore() {
         lastFreezeMonth: newLastFreezeMonth
       });
     } catch (error) {
-      console.error("Error updating streak:", error);
+      console.error("Error updating last message date:", error);
     }
+
+    return true;
   };
 
-  const updateProfile = async (name: string, photo: string | null) => {
+  const freezeStreak = async () => {
+    if (!auth.currentUser || freezesAvailable <= 0) return false;
+
+    const today = new Date();
+    const todayStr = today.toISOString().slice(0, 10);
+    const currentMonthStr = today.toISOString().slice(0, 7);
+
+    let newFreezes = freezesAvailable - 1;
+    let newLastFreezeMonth = currentMonthStr;
+
+    setFreezesAvailable(newFreezes);
+    setLastFreezeMonth(newLastFreezeMonth);
+    setLastMessageDate(todayStr);
+
+    try {
+      await updateDoc(doc(db, 'users', auth.currentUser.uid), {
+        freezesAvailable: newFreezes,
+        lastFreezeMonth: newLastFreezeMonth,
+        lastMessageDate: todayStr
+      });
+    } catch (error) {
+      console.error("Error freezing streak:", error);
+    }
+
+    return true;
+  };
+
+  const markFeatureAsSeen = async (feature: string) => {
     if (!auth.currentUser) return;
+
+    setUnlockedFeatures(prev => {
+      if (prev.includes(feature)) return prev;
+      return [...prev, feature];
+    });
+
     try {
       const userRef = doc(db, 'users', auth.currentUser.uid);
       await updateDoc(userRef, {
-        displayName: name,
-        photoURL: photo,
-        hasSetProfile: true
+        unlockedFeatures: arrayUnion(feature)
       });
     } catch (error) {
-      handleFirestoreError(error, OperationType.UPDATE, `users/${auth.currentUser.uid}`);
-    }
-  };
-
-  const markFeatureAsSeen = async (featureName: string) => {
-    if (!auth.currentUser) return;
-
-    setUnlockedFeatures(prev => [...prev, featureName]);
-
-    try {
-      const userRef = doc(db, 'users', auth.currentUser.uid);
-      await updateDoc(userRef, {
-        unlockedFeatures: arrayUnion(featureName)
-      });
-    } catch (error) {
-      handleFirestoreError(error, OperationType.UPDATE, `users/${auth.currentUser.uid}`);
+      console.error("Error marking feature as seen:", error);
     }
   };
 
   const markRoleNotificationAsSeen = async () => {
     if (!auth.currentUser) return;
+
+    setHasSeenRoleNotification(true);
+
     try {
-      setHasSeenRoleNotification(true);
-      await updateDoc(doc(db, 'users', auth.currentUser.uid), {
+      const userRef = doc(db, 'users', auth.currentUser.uid);
+      await updateDoc(userRef, {
         hasSeenRoleNotification: true
       });
     } catch (error) {
@@ -829,189 +868,23 @@ export function useUserStore() {
     }
   };
 
-  const incrementViolations = async () => {
-    if (!auth.currentUser) return;
-    const userRef = doc(db, 'users', auth.currentUser.uid);
-    const newCount = violationsCount + 1;
-    setViolationsCount(newCount);
-
-    const updates: any = { violationsCount: newCount };
-    if (newCount >= 10) {
-      updates.isBanned = true;
-      setIsBanned(true);
-    }
-
-    try {
-      await updateDoc(userRef, updates);
-    } catch (error) {
-      console.error("Error updating violations:", error);
-    }
+  return {
+    userRole, setUserRole,
+    streakDays, setStreakDays,
+    lastMessageDate, setLastMessageDate,
+    freezesAvailable, setFreezesAvailable,
+    lastFreezeMonth, setLastFreezeMonth,
+    checkStreak, updateLastMessageDate, freezeStreak,
+    markFeatureAsSeen, unlockedFeatures,
+    displayName, setDisplayName, photoURL, setPhotoURL,
+    hasSetProfile, setHasSetProfile,
+    seenReleaseNotes, setSeenReleaseNotes, markAsSeen,
+    hasSeenRoleNotification, setHasSeenRoleNotification,
+    markRoleNotificationAsSeen,
+    isUserLoaded,
+    violationsCount, setViolationsCount,
+    isBanned, setIsBanned,
+    appealStatus, setAppealStatus,
+    appealText, setAppealText
   };
-
-  const submitAppeal = async (text: string) => {
-    if (!auth.currentUser) return;
-    const userRef = doc(db, 'users', auth.currentUser.uid);
-    try {
-      await updateDoc(userRef, {
-        appealStatus: 'pending',
-        appealText: text
-      });
-      setAppealStatus('pending');
-      setAppealText(text);
-    } catch (error) {
-      console.error("Error submitting appeal:", error);
-    }
-  };
-
-  return { seenReleaseNotes, markAsSeen, userRole, hasSeenRoleNotification, markRoleNotificationAsSeen, streakDays, lastMessageDate, freezesAvailable, updateStreak, checkStreak, displayName, photoURL, hasSetProfile, updateProfile, unlockedFeatures, markFeatureAsSeen, isUserLoaded, violationsCount, isBanned, appealStatus, appealText, incrementViolations, submitAppeal };
-}
-
-export function useGroupStore() {
-  const [groups, setGroups] = useState<Group[]>([]);
-
-  useEffect(() => {
-    let unsubscribeGroups: () => void = () => { };
-
-    const unsubscribeAuth = auth.onAuthStateChanged((user) => {
-      if (!user) {
-        setGroups([]);
-        unsubscribeGroups();
-        return;
-      }
-
-      const q = query(
-        collection(db, 'groups'),
-        where('members', 'array-contains', user.uid),
-        orderBy('createdAt', 'desc')
-      );
-
-      unsubscribeGroups = onSnapshot(q, (snapshot) => {
-        const groupsData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Group));
-        setGroups(groupsData);
-      }, (error) => {
-        handleFirestoreError(error, OperationType.LIST, 'groups');
-      });
-    });
-
-    return () => {
-      unsubscribeAuth();
-      unsubscribeGroups();
-    };
-  }, []);
-
-  const createGroup = async (name: string) => {
-    if (!auth.currentUser) return;
-    const newGroup: Omit<Group, 'id'> = {
-      name,
-      ownerId: auth.currentUser.uid,
-      photoURL: null,
-      systemInstruction: '',
-      members: [auth.currentUser.uid],
-      streakDays: 0,
-      lastMessageDate: null,
-      createdAt: Date.now()
-    };
-    const newDocRef = doc(collection(db, 'groups'));
-    await setDoc(newDocRef, newGroup);
-    return newDocRef.id;
-  };
-
-  const joinGroup = async (groupId: string) => {
-    if (!auth.currentUser) return;
-    const groupRef = doc(db, 'groups', groupId);
-    await updateDoc(groupRef, {
-      members: arrayUnion(auth.currentUser.uid)
-    });
-  };
-
-  const renameGroup = async (groupId: string, newName: string) => {
-    if (!auth.currentUser) return;
-    const groupRef = doc(db, 'groups', groupId);
-    await updateDoc(groupRef, { name: newName });
-  };
-
-  const updateGroup = async (groupId: string, updates: Partial<Group>) => {
-    if (!auth.currentUser) return;
-    const groupRef = doc(db, 'groups', groupId);
-    await updateDoc(groupRef, updates);
-  };
-
-  const removeMember = async (groupId: string, userId: string) => {
-    if (!auth.currentUser) return;
-    const groupRef = doc(db, 'groups', groupId);
-    const groupSnap = await getDoc(groupRef);
-    if (!groupSnap.exists()) return;
-
-    const data = groupSnap.data() as Group;
-    if (data.ownerId !== auth.currentUser.uid) return; // Only owner can remove
-
-    const newMembers = data.members.filter(id => id !== userId);
-    await updateDoc(groupRef, { members: newMembers });
-
-    // Notify the removed user
-    try {
-      await addDoc(collection(db, 'notifications'), {
-        userId: userId,
-        message: `Você foi removido do grupo "${data.name}".`,
-        timestamp: Date.now(),
-        read: false
-      });
-    } catch (e) {
-      console.error("Error creating notification:", e);
-    }
-  };
-
-  const updateGroupStreak = async (groupId: string) => {
-    const groupRef = doc(db, 'groups', groupId);
-    const groupSnap = await getDoc(groupRef);
-    if (!groupSnap.exists()) return;
-
-    const data = groupSnap.data() as Group;
-    const today = new Date().toISOString().split('T')[0];
-
-    if (data.lastMessageDate === today) return;
-
-    let newStreak = data.streakDays || 0;
-
-    if (data.lastMessageDate) {
-      const lastDate = new Date(data.lastMessageDate);
-      const currentDate = new Date(today);
-      const diffTime = Math.abs(currentDate.getTime() - lastDate.getTime());
-      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-
-      if (diffDays === 1) {
-        newStreak += 1;
-      } else if (diffDays > 1) {
-        newStreak = 1;
-      }
-    } else {
-      newStreak = 1;
-    }
-
-    await updateDoc(groupRef, {
-      streakDays: newStreak,
-      lastMessageDate: today
-    });
-  };
-
-  const deleteGroup = async (groupId: string) => {
-    if (!auth.currentUser) return;
-    try {
-      const groupRef = doc(db, 'groups', groupId);
-      await deleteDoc(groupRef);
-    } catch (error) {
-      handleFirestoreError(error, OperationType.DELETE, `groups/${groupId}`);
-    }
-  };
-
-  const updateGroupMessage = async (groupId: string, messageId: string, updates: Partial<GroupMessage>) => {
-    try {
-      const messageRef = doc(db, `groups/${groupId}/messages`, messageId);
-      await updateDoc(messageRef, updates);
-    } catch (error) {
-      console.error("Error updating group message:", error);
-    }
-  };
-
-  return { groups, createGroup, joinGroup, renameGroup, updateGroup, removeMember, updateGroupStreak, deleteGroup, updateGroupMessage };
 }

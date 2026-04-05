@@ -988,7 +988,7 @@ export default function ChatPage() {
     return () => clearTimeout(timer1);
   }, []);
 
-  const { sessions, currentSessionId, setCurrentSessionId, currentSession, createSession, addMessage, updateMessage, deleteMessage, deleteSession, togglePinSession, togglePinMessage, addPinnedText, removePinnedText, addStroke, setStrokes, updateSessionTitle } = useChatStore();
+  const { sessions, currentSessionId, setCurrentSessionId, currentSession, createSession, addMessage, updateMessage, deleteMessage, deleteSession, togglePinSession, togglePinMessage, addPinnedText, removePinnedText, addStroke, setStrokes, updateSessionTitle, clearSessions } = useChatStore();
   const { settings, updateSettings } = useSettingsStore();
   const { groups, createGroup, joinGroup, renameGroup, updateGroupStreak, updateGroup, removeMember, deleteGroup, updateGroupMessage } = useGroupStore();
 
@@ -1094,6 +1094,7 @@ export default function ChatPage() {
   const [totoStream, setTotoStream] = useState<MediaStream | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const totoIntervalRef = useRef<any>(null);
+  const hasShownRoleNotificationRef = useRef(false);
   const [isModelDropdownOpen, setIsModelDropdownOpen] = useState(false);
   const [isDevModelsModalOpen, setIsDevModelsModalOpen] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
@@ -1318,7 +1319,7 @@ export default function ChatPage() {
         ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
         canvas.toBlob(async (blob) => {
           if (blob) {
-            await handleSend("[TOTO_AUTO] Você é um tutor extremamente focado. Sua ÚNICA E EXCLUSIVA tarefa é analisar esta imagem. Se houver uma questão, exercício ou instrução legível, resolva-a de forma clara, objetiva e muito bem explicada em português, SEM SURPREENDER. Você está PROIBIDO de inventar informações, deduzir coisas não mostradas ou dar explicações sobre coisas que não estão presentes na imagem. Se a imagem não contiver exercícios ou textos nítidos para resolver, reponda somente: 'Não consegui identificar nenhuma questão na imagem enviada.' Não diga mais nada.", [{ url: URL.createObjectURL(blob), mimeType: "image/jpeg" }], 'toto');
+            await handleSend("[TOTO_AUTO] Você é o Totó. Analise esta captura de tela com atenção. Identifique todo o conteúdo visível na imagem e responda de forma clara e útil em português. Se houver exercícios de inglês, resolva-os passo a passo. Se houver texto legível, explique ou traduza. Se for uma tela/interface, descreva o que está sendo mostrado. Seja conciso mas completo. Se não conseguir identificar nada útil na imagem, diga apenas que não conseguiu identificar o conteúdo.", [{ url: URL.createObjectURL(blob), mimeType: "image/jpeg" }], 'toto');
             setAskTotoAgain(true);
             stopTotoAuto();
           }
@@ -1368,7 +1369,7 @@ export default function ChatPage() {
       if (!isTabVisible) {
         totoIntervalRef.current = setInterval(() => {
           setTotoRecordingTime(prev => {
-            if (prev >= 60) {
+            if (prev >= 30) {
               stopTotoAuto();
               return 60;
             }
@@ -1522,13 +1523,17 @@ export default function ChatPage() {
     if (auth.currentUser && userRole && (userRole === 'admin' || userRole === 'developer') && !hasSeenRoleNotification) {
       setRoleNotificationModal({ role: userRole === 'admin' ? 'Administrador' : 'Desenvolvedor' });
       markRoleNotificationAsSeen();
+      hasShownRoleNotificationRef.current = true;
     }
   }, [userRole, hasSeenRoleNotification, auth.currentUser]);
 
+  const hasShownReleaseNoteRef = useRef(false);
+
   useEffect(() => {
-    if (!isUserLoaded) return;
+    if (!isUserLoaded || hasShownReleaseNoteRef.current) return;
     const unseen = releaseNotes.find(note => !seenReleaseNotes.includes(note.id));
     if (unseen) {
+      hasShownReleaseNoteRef.current = true;
       setCurrentReleaseNote(unseen);
     }
   }, [releaseNotes, seenReleaseNotes, isUserLoaded]);
@@ -2201,7 +2206,7 @@ export default function ChatPage() {
         const modelToUseApi = modelToUse === 'toto' ? 'gemini-3-flash-preview' : modelToUse;
 
         if (modelToUse === 'toto') {
-          customInstruction = "Você é o Totó, um assistente especializado em resolver questões de inglês. Analise a imagem fornecida, identifique a questão e forneça a resposta correta de forma curta e objetiva, justificando brevemente em português.";
+          customInstruction = "Você é o Totó, um assistente visual. Você receberá captures de tela do usuário. Analise a imagem com cuidado e responda de forma direta e útil sobre o conteúdo visível. Se houver exercícios de inglês, resolva-os claramente em português. Se houver texto legível, explique ou traduza. Se for uma interface/website, descreva o que está na tela. Seja conciso. Se não conseguir identificar nada relevante na imagem, responda apenas: 'Não consegui identificar conteúdo relevante na imagem. Tente enviar novamente com melhor visibilidade.' Nunca invente informações.";
         }
 
         const history = groupMessages.map(m => ({
@@ -3902,6 +3907,7 @@ export default function ChatPage() {
                   </button>
                   <HoldButton
                     onConfirm={() => {
+                      clearSessions();
                       setSelectedGroupId(null);
                       logOut();
                       setIsLogoutModalOpen(false);
@@ -4765,6 +4771,11 @@ export default function ChatPage() {
                                   {selectedModel === model.key && <Check className="w-5 h-5 text-[var(--text-base)]" />}
                                 </button>
                               ))}
+
+                              <div className="px-3 py-2 mx-2 my-1 bg-[var(--bg-surface)] rounded-xl border border-[var(--border-subtle)] flex items-center justify-between">
+                                <span className="text-xs text-[var(--text-muted)]">Não sabe como usar?</span>
+                                <span className="bg-yellow-500 text-black px-1.5 py-0.5 rounded font-bold text-[10px]">BETA</span>
+                              </div>
 
                               {(isAdmin || userRole === 'developer') && (
                                 <>
