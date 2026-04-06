@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
-import { Menu, Plus, MessageSquare, Trash2, Send, Image as ImageIcon, X, Settings, Pin, Highlighter, AlertTriangle, Undo2, Redo2, Eraser, Copy, Check, ChevronDown, ShieldAlert, LogIn, LogOut, Search, GitCompare, Edit, Edit2, ThumbsUp, ThumbsDown, AlertCircle, ChevronUp, RefreshCw, Cpu, Flame, Snowflake, Bot, User, Lock, ChevronRight, ShieldCheck, LayoutDashboard, Globe, Dog, Monitor, Shield, Palette, FolderOpen, List, Grid3X3, Download, UserPlus } from 'lucide-react';
+import { Menu, Plus, MessageSquare, Trash2, Send, Image as ImageIcon, X, Settings, Pin, Highlighter, AlertTriangle, Undo2, Redo2, Eraser, Copy, Check, ChevronDown, ShieldAlert, LogIn, LogOut, Search, GitCompare, Edit, Edit2, ThumbsUp, ThumbsDown, AlertCircle, ChevronUp, RefreshCw, Cpu, Flame, Snowflake, Bot, User, Lock, ChevronRight, ShieldCheck, LayoutDashboard, Globe, Dog, Monitor, Shield, Palette, FolderOpen, List, Grid3X3, Download, UserPlus, ChevronLeft } from 'lucide-react';
 import { useChatStore, useSettingsStore, useAdminStore, useUserStore, useGroupStore, ReleaseNote, ReleaseNoteImage, ReleaseNoteBadge } from '../store';
 import { Group, GroupMessage } from '../types';
 import { db } from '../firebase';
@@ -806,39 +806,6 @@ const GroupMessageItem = React.memo(({ msg, settings, isCurrentUser, onFeedbackR
   return prevProps.msg === nextProps.msg && prevProps.settings === nextProps.settings && prevProps.isCurrentUser === nextProps.isCurrentUser;
 });
 
-const TypingTitle = ({ text }: { text: string }) => {
-  const [displayedText, setDisplayedText] = useState('');
-  const [isTyping, setIsTyping] = useState(false);
-  const prevTextRef = useRef(text);
-
-  useEffect(() => {
-    if (text !== prevTextRef.current && text !== 'Nova Conversa') {
-      setIsTyping(true);
-      setDisplayedText('');
-      let i = 0;
-      const interval = setInterval(() => {
-        setDisplayedText(text.slice(0, i + 1));
-        i++;
-        if (i >= text.length) {
-          clearInterval(interval);
-          setIsTyping(false);
-        }
-      }, 50);
-      prevTextRef.current = text;
-      return () => clearInterval(interval);
-    } else {
-      setDisplayedText(text);
-      prevTextRef.current = text;
-    }
-  }, [text]);
-
-  return (
-    <span className="text-sm truncate">
-      {displayedText}
-      {isTyping && <span className="animate-pulse">|</span>}
-    </span>
-  );
-};
 
 // Local forbidden words removed to use central moderation service with anti-bypass support.
 
@@ -1133,6 +1100,8 @@ export default function ChatPage() {
   const [isGroupSettingsModalOpen, setIsGroupSettingsModalOpen] = useState(false);
   const [isGroupMembersModalOpen, setIsGroupMembersModalOpen] = useState(false);
   const [groupSettingsData, setGroupSettingsData] = useState<{ name: string, photoURL: string, systemInstruction: string }>({ name: '', photoURL: '', systemInstruction: '' });
+  const [isGroupHeaderPopoverOpen, setIsGroupHeaderPopoverOpen] = useState(false);
+  const groupHeaderPopoverRef = useRef<HTMLDivElement>(null);
   const [inviteModalData, setInviteModalData] = useState<{ groupId: string, groupName: string, inviterName: string } | null>(null);
   const [confirmModalData, setConfirmModalData] = useState<{ title: string, message: string, onConfirm: () => void } | null>(null);
 
@@ -1291,6 +1260,16 @@ export default function ChatPage() {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [isProfilePopoverOpen]);
 
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (isGroupHeaderPopoverOpen && groupHeaderPopoverRef.current && !groupHeaderPopoverRef.current.contains(e.target as Node)) {
+        setIsGroupHeaderPopoverOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [isGroupHeaderPopoverOpen]);
+
   // Load draft when switching session/group
   useEffect(() => {
     const id = selectedGroupId || currentSessionId;
@@ -1344,7 +1323,7 @@ export default function ChatPage() {
   const {
     seenReleaseNotes, markAsSeen, userRole, hasSeenRoleNotification,
     markRoleNotificationAsSeen, streakDays, lastMessageDate, freezesAvailable,
-    updateStreak, checkStreak, displayName, photoURL, hasSetProfile,
+    updateLastMessageDate, checkStreak, displayName, photoURL, hasSetProfile,
     updateProfile, unlockedFeatures, markFeatureAsSeen, isUserLoaded,
     violationsCount, isBanned, appealStatus, incrementViolations, submitAppeal
   } = useUserStore();
@@ -2614,7 +2593,7 @@ export default function ChatPage() {
       return;
     }
 
-    updateStreak();
+    updateLastMessageDate();
 
     let sessionId = currentSessionId;
     if (!sessionId) {
@@ -2863,7 +2842,7 @@ export default function ChatPage() {
       <div className="flex flex-col overflow-hidden flex-1">
         <div className="flex items-center gap-3 overflow-hidden">
           <MessageSquare className="w-4 h-4 shrink-0" />
-          <TypingTitle text={session.title} />
+          <span className="text-sm truncate">{session.title}</span>
         </div>
         {drafts[session.id] && currentSessionId !== session.id && (
           <span className="text-[10px] font-bold text-yellow-500 ml-7">
@@ -4545,7 +4524,7 @@ export default function ChatPage() {
                           setIsSettingsOpen(false);
                           setIsLogoutModalOpen(true);
                         }}
-                        className="flex items-center justify-center gap-2 w-full py-2.5 px-4 bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white rounded-xl transition-colors font-medium text-sm"
+                        className="flex items-center justify-center gap-2 w-full py-2.5 px-4 bg-[var(--bg-surface)] text-[var(--text-base)] hover:bg-[var(--border-strong)] rounded-xl transition-colors font-medium text-sm"
                       >
                         <LogOut className="w-5 h-5" />
                         Sair da conta
@@ -5273,30 +5252,31 @@ export default function ChatPage() {
           </div>
 
           {/* === MOBILE: circle buttons === */}
-          <div className="flex md:hidden items-center justify-start gap-2 px-2 py-2">
-            <button onClick={() => { handleNewChat(); setIsSidebarOpen(false); }} className="flex flex-col items-center gap-1.5">
-              <div className="w-14 h-14 rounded-full bg-[var(--bg-surface)] flex items-center justify-center border border-[var(--border-strong)] hover:bg-[var(--border-strong)] transition-colors">
-                <Plus className="w-6 h-6 text-[var(--text-base)]" />
-              </div>
-              <span className="text-[10px] text-[var(--text-muted)] font-medium">Nova conversa</span>
-            </button>
+          <div className="flex md:hidden items-center justify-start gap-1.5 px-2 py-2">
             {auth.currentUser && (
               <button onClick={() => { setIsGroupModalOpen(true); setIsSidebarOpen(false); }} className="flex flex-col items-center gap-1.5">
-                <div className="w-14 h-14 rounded-full bg-[var(--bg-surface)] flex items-center justify-center border border-[var(--border-strong)] hover:bg-[var(--border-strong)] transition-colors">
-                  <UserPlus className="w-6 h-6 text-[var(--text-base)]" />
+                <div className="w-12 h-12 rounded-full bg-[var(--bg-surface)] flex items-center justify-center border border-[var(--border-strong)] hover:bg-[var(--border-strong)] transition-colors">
+                  <UserPlus className="w-5 h-5 text-[var(--text-base)]" />
                 </div>
-                <span className="text-[10px] text-[var(--text-muted)] font-medium">Novo grupo</span>
+                <span className="text-[10px] text-[var(--text-muted)] font-medium">Grupos</span>
               </button>
             )}
             {auth.currentUser && (
               <button onClick={() => { setIsGalleryOpen(true); setIsSidebarOpen(false); }} className="flex flex-col items-center gap-1.5">
-                <div className="w-14 h-14 rounded-full bg-[var(--bg-surface)] flex items-center justify-center border border-[var(--border-strong)] hover:bg-[var(--border-strong)] transition-colors">
-                  <FolderOpen className="w-6 h-6 text-[var(--text-base)]" />
+                <div className="w-12 h-12 rounded-full bg-[var(--bg-surface)] flex items-center justify-center border border-[var(--border-strong)] hover:bg-[var(--border-strong)] transition-colors">
+                  <FolderOpen className="w-5 h-5 text-[var(--text-base)]" />
                 </div>
                 <span className="text-[10px] text-[var(--text-muted)] font-medium">Galeria</span>
               </button>
             )}
+            <button onClick={() => { handleNewChat(); setIsSidebarOpen(false); }} className="flex flex-col items-center gap-1.5">
+              <div className="w-12 h-12 rounded-full bg-[var(--bg-surface)] flex items-center justify-center border border-[var(--border-strong)] hover:bg-[var(--border-strong)] transition-colors">
+                <Plus className="w-5 h-5 text-[var(--text-base)]" />
+              </div>
+              <span className="text-[10px] text-[var(--text-muted)] font-medium">Nova conversa</span>
+            </button>
           </div>
+          <div className="md:hidden border-t border-[var(--border-subtle)] mx-4 my-1" />
 
           {/* === MOBILE: groups section === */}
           <div className="md:hidden">
@@ -5484,25 +5464,76 @@ export default function ChatPage() {
                   <button
                     onClick={() => setSelectedGroupId(null)}
                     className="p-2 -ml-2 text-[var(--text-muted)] hover:text-[var(--text-base)] hover:bg-[var(--bg-surface)] rounded-full transition-colors"
-                    title="Sair do Grupo"
+                    title="Voltar"
                   >
-                    <Undo2 className="w-5 h-5" />
+                    <ChevronLeft className="w-5 h-5" />
                   </button>
-                  <div className="w-10 h-10 rounded-full bg-[var(--color-sec)] text-white flex items-center justify-center shadow-md overflow-hidden">
-                    {groups.find(g => g.id === selectedGroupId)?.photoURL ? (
-                      <img src={groups.find(g => g.id === selectedGroupId)?.photoURL!} alt="Group" className="w-full h-full object-cover" />
-                    ) : (
-                      <MessageSquare className="w-5 h-5" />
-                    )}
-                  </div>
-                  <div>
-                    <h2 className="font-bold text-[var(--text-base)] text-lg leading-tight">
-                      {groups.find(g => g.id === selectedGroupId)?.name || 'Grupo'}
-                    </h2>
-                    <div className="text-xs text-[var(--text-muted)] flex items-center gap-1">
-                      <Flame className="w-3 h-3 text-orange-500" />
-                      {groups.find(g => g.id === selectedGroupId)?.streakDays || 0} dias de ofensiva
+                  <div
+                    className="relative flex items-center gap-3 cursor-pointer"
+                    ref={groupHeaderPopoverRef}
+                    onClick={() => setIsGroupHeaderPopoverOpen(!isGroupHeaderPopoverOpen)}
+                  >
+                    <div className="w-10 h-10 rounded-full bg-[var(--color-sec)] text-white flex items-center justify-center shadow-md overflow-hidden">
+                      {groups.find(g => g.id === selectedGroupId)?.photoURL ? (
+                        <img src={groups.find(g => g.id === selectedGroupId)?.photoURL!} alt="Group" className="w-full h-full object-cover" />
+                      ) : (
+                        <MessageSquare className="w-5 h-5" />
+                      )}
                     </div>
+                    <div>
+                      <h2 className="font-bold text-[var(--text-base)] text-lg leading-tight">
+                        {groups.find(g => g.id === selectedGroupId)?.name || 'Grupo'}
+                      </h2>
+                      <div className="text-xs text-[var(--text-muted)] flex items-center gap-1">
+                        <Flame className="w-3 h-3 text-orange-500" />
+                        {groups.find(g => g.id === selectedGroupId)?.streakDays || 0} dias de ofensiva
+                      </div>
+                    </div>
+                    <AnimatePresence>
+                      {isGroupHeaderPopoverOpen && (
+                        <motion.div
+                          initial={{ opacity: 0, y: -8 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          exit={{ opacity: 0, y: -8 }}
+                          className="absolute top-full left-0 mt-2 w-48 bg-[var(--bg-panel)] border border-[var(--border-strong)] rounded-xl shadow-2xl z-[999] overflow-hidden"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setIsGroupHeaderPopoverOpen(false);
+                              const group = groups.find(g => g.id === selectedGroupId);
+                              if (group) {
+                                setGroupSettingsData({
+                                  name: group.name,
+                                  photoURL: group.photoURL || '',
+                                  systemInstruction: group.systemInstruction || ''
+                                });
+                                setIsGroupSettingsModalOpen(true);
+                              }
+                            }}
+                            className="w-full flex items-center gap-3 px-4 py-3 hover:bg-[var(--bg-surface)] transition-colors"
+                          >
+                            <Settings className="w-4 h-4 text-white" />
+                            <span className="text-sm font-medium text-white">Configurações</span>
+                          </button>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setIsGroupHeaderPopoverOpen(false);
+                              setGroupToLeaveId(selectedGroupId);
+                              setLeaveGroupName(groups.find(g => g.id === selectedGroupId)?.name || '');
+                              setGroupLeaveInput('');
+                              setIsGroupLeaveModalOpen(true);
+                            }}
+                            className="w-full flex items-center gap-3 px-4 py-3 hover:bg-[var(--bg-surface)] transition-colors border-t border-[var(--border-subtle)]"
+                          >
+                            <LogOut className="w-4 h-4 text-white" />
+                            <span className="text-sm font-medium text-white">Sair</span>
+                          </button>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
                   </div>
                 </div>
               ) : (

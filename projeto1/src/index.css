@@ -164,22 +164,6 @@
     color: white;
   }
 
-  .broxa-title {
-    font-family: 'Boldonse', sans-serif;
-    background: linear-gradient(90deg, var(--text-base) 0%, var(--text-base) 40%, var(--color-sec) 50%, var(--text-base) 60%, var(--text-base) 100%);
-    background-size: 200% auto;
-    color: transparent;
-    -webkit-background-clip: text;
-    background-clip: text;
-    animation: shine 3s linear infinite;
-  }
-
-  @keyframes shine {
-    to {
-      background-position: 200% center;
-    }
-  }
-
   @keyframes shake {
 
     0%,
