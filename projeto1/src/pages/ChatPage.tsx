@@ -5,7 +5,7 @@ import { Menu, Plus, MessageSquare, Trash2, Send, Image as ImageIcon, X, Setting
 import { useChatStore, useSettingsStore, useAdminStore, useUserStore, useGroupStore, ReleaseNote, ReleaseNoteImage, ReleaseNoteBadge } from '../store';
 import { Group, GroupMessage } from '../types';
 import { db } from '../firebase';
-import { collection, doc, onSnapshot, query, orderBy, addDoc, serverTimestamp, getDoc, where, updateDoc } from 'firebase/firestore';
+import { collection, doc, onSnapshot, query, orderBy, addDoc, serverTimestamp, getDoc, where, updateDoc, deleteField } from 'firebase/firestore';
 import { auth, signInWithGoogle, logOut, handleFirestoreError, OperationType } from '../firebase';
 import { AuthModal } from '../components/AuthModal';
 import { generateResponse, generateResponseStream, generateTitle } from '../services/ai';
@@ -1277,6 +1277,19 @@ export default function ChatPage() {
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [isModelDropdownOpen]);
+
+  // Profile popover
+  const [isProfilePopoverOpen, setIsProfilePopoverOpen] = useState(false);
+  const profilePopoverRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (isProfilePopoverOpen && profilePopoverRef.current && !profilePopoverRef.current.contains(e.target as Node)) {
+        setIsProfilePopoverOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [isProfilePopoverOpen]);
 
   // Load draft when switching session/group
   useEffect(() => {
@@ -4380,9 +4393,14 @@ export default function ChatPage() {
                     onClick={async () => {
                       try {
                         const groupDoc = doc(db, 'groups', groupToLeaveId!);
-                        await updateDoc(groupDoc, {
-                          members: (await getDoc(groupDoc)).data()?.members?.filter((m: any) => m.userId !== auth.currentUser?.uid) || []
-                        });
+                        const snap = await getDoc(groupDoc);
+                        const currentMembers = snap.data()?.members ?? [];
+                        const newMembers = currentMembers.filter((m: any) => m.userId !== auth.currentUser?.uid);
+                        if (newMembers.length === 0) {
+                          await updateDoc(groupDoc, { members: deleteField() });
+                        } else {
+                          await updateDoc(groupDoc, { members: newMembers });
+                        }
                       } catch (e: any) {
                         console.error('Error leaving group:', e);
                       }
@@ -5177,7 +5195,7 @@ export default function ChatPage() {
 
         <div className={`fixed inset-y-0 left-0 z-50 w-full md:w-72 bg-[var(--bg-panel)] border-r border-[var(--border-subtle)] transform transition-transform duration-300 ease-in-out flex flex-col ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} md:relative md:translate-x-0 md:rounded-none`}>
           <div className="p-4 flex items-center justify-between">
-            <div className={`flex items-center text-lg font-bold ${settings.enableEffects ? 'broxa-title' : 'text-[var(--text-base)]'}`}>
+            <div className="flex items-center text-lg font-bold text-[var(--text-base)]">
               {settings.customTitleFont === 'BROXA AI' ? 'BROXA AI' : settings.customTitleFont}
             </div>
             <button onClick={() => setIsSidebarOpen(false)} className="md:hidden p-3 -mr-2 text-[var(--text-muted)] hover:text-[var(--text-base)]">
@@ -5235,19 +5253,19 @@ export default function ChatPage() {
               {auth.currentUser && (
                 <button
                   onClick={() => setIsGroupModalOpen(true)}
-                  className="flex items-center justify-center gap-1.5 px-2 py-2 bg-[var(--bg-surface)] hover:bg-[var(--border-strong)] border border-[var(--border-strong)] rounded-xl text-xs font-medium transition-colors"
-                  title="Criar Grupo"
+                  className="flex items-center gap-1.5 px-2 py-2 bg-[var(--bg-surface)] hover:bg-[var(--border-strong)] border border-[var(--border-strong)] rounded-xl text-xs font-medium transition-colors"
+                  title="Grupos"
                 >
-                  <UserPlus className="w-3.5 h-3.5" />
+                  <UserPlus className="w-3.5 h-3.5" /> Grupos
                 </button>
               )}
               {auth.currentUser && (
                 <button
                   onClick={() => setIsGalleryOpen(true)}
-                  className="flex items-center justify-center gap-1.5 px-2 py-2 bg-[var(--bg-surface)] hover:bg-[var(--border-strong)] border border-[var(--border-strong)] rounded-xl text-xs font-medium transition-colors"
+                  className="flex items-center gap-1.5 px-2 py-2 bg-[var(--bg-surface)] hover:bg-[var(--border-strong)] border border-[var(--border-strong)] rounded-xl text-xs font-medium transition-colors"
                   title="Galeria"
                 >
-                  <FolderOpen className="w-3.5 h-3.5" />
+                  <FolderOpen className="w-3.5 h-3.5" /> Galeria
                 </button>
               )}
             </div>
@@ -5255,7 +5273,7 @@ export default function ChatPage() {
           </div>
 
           {/* === MOBILE: circle buttons === */}
-          <div className="flex md:hidden items-center justify-around px-6 py-3">
+          <div className="flex md:hidden items-center justify-start gap-2 px-2 py-2">
             <button onClick={() => { handleNewChat(); setIsSidebarOpen(false); }} className="flex flex-col items-center gap-1.5">
               <div className="w-14 h-14 rounded-full bg-[var(--bg-surface)] flex items-center justify-center border border-[var(--border-strong)] hover:bg-[var(--border-strong)] transition-colors">
                 <Plus className="w-6 h-6 text-[var(--text-base)]" />
@@ -5386,30 +5404,50 @@ export default function ChatPage() {
             {/* Profile / Settings */}
             {auth.currentUser ? (
               <>
-                <button
-                  onClick={() => setIsSettingsOpen(true)}
-                  className="flex items-center gap-3 w-full p-2.5 rounded-xl hover:bg-[var(--bg-surface)] transition-colors"
-                >
-                  <div className="w-8 h-8 rounded-full overflow-hidden flex-shrink-0 border border-[var(--border-subtle)]">
-                    {(photoURL || auth.currentUser.photoURL) ? (
-                      <img src={photoURL || auth.currentUser.photoURL!} alt="Avatar" className="w-full h-full object-cover" />
-                    ) : (
-                      <div className="w-full h-full bg-[var(--bg-surface)] flex items-center justify-center">
-                        <User className="w-4 h-4 text-[var(--text-muted)]" />
-                      </div>
+                <div className="relative" ref={profilePopoverRef}>
+                  <button
+                    onClick={() => setIsProfilePopoverOpen(!isProfilePopoverOpen)}
+                    className="flex items-center gap-3 w-full p-2.5 rounded-xl hover:bg-[var(--bg-surface)] transition-colors"
+                  >
+                    <div className="w-8 h-8 rounded-full overflow-hidden flex-shrink-0 border border-[var(--border-subtle)]">
+                      {(photoURL || auth.currentUser.photoURL) ? (
+                        <img src={photoURL || auth.currentUser.photoURL!} alt="Avatar" className="w-full h-full object-cover" />
+                      ) : (
+                        <div className="w-full h-full bg-[var(--bg-surface)] flex items-center justify-center">
+                          <User className="w-4 h-4 text-[var(--text-muted)]" />
+                        </div>
+                      )}
+                    </div>
+                    <span className="text-sm text-[var(--text-base)] font-medium truncate">
+                      {displayName || auth.currentUser.displayName?.split(' ')[0] || 'Usuário'}
+                    </span>
+                  </button>
+                  <AnimatePresence>
+                    {isProfilePopoverOpen && (
+                      <motion.div
+                        initial={{ opacity: 0, y: -4 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -4 }}
+                        className="absolute bottom-full left-0 mb-2 w-full bg-[var(--bg-panel)] border border-[var(--border-strong)] rounded-xl shadow-xl overflow-hidden z-50"
+                      >
+                        <button
+                          onClick={() => { setIsProfilePopoverOpen(false); setIsSettingsOpen(true); }}
+                          className="flex items-center gap-3 w-full p-2.5 rounded-xl hover:bg-[var(--bg-surface)] transition-colors"
+                        >
+                          <Settings className="w-4 h-4 text-white" />
+                          <span className="text-sm font-medium text-white">Configurações</span>
+                        </button>
+                        <button
+                          onClick={() => { setIsProfilePopoverOpen(false); setIsLogoutModalOpen(true); }}
+                          className="flex items-center gap-3 w-full p-2.5 rounded-xl hover:bg-[var(--bg-surface)] transition-colors border-t border-[var(--border-subtle)]"
+                        >
+                          <LogOut className="w-4 h-4 text-white" />
+                          <span className="text-sm font-medium text-white">Sair</span>
+                        </button>
+                      </motion.div>
                     )}
-                  </div>
-                  <span className="text-sm text-[var(--text-base)] font-medium truncate">
-                    {displayName || auth.currentUser.displayName?.split(' ')[0] || 'Usuário'}
-                  </span>
-                </button>
-                <button
-                  onClick={() => setIsLogoutModalOpen(true)}
-                  className="flex items-center gap-3 w-full p-2.5 rounded-xl hover:bg-red-500/10 text-red-500 transition-colors"
-                >
-                  <LogOut className="w-4 h-4" />
-                  Sair da conta
-                </button>
+                  </AnimatePresence>
+                </div>
               </>
             ) : (
               <button
@@ -7067,7 +7105,7 @@ export default function ChatPage() {
                 <div className="flex-1 overflow-y-auto custom-scrollbar">
                   {galleryItems.length === 0 ? (
                     <div className="flex flex-col items-center justify-center h-64 text-center">
-                      <GalleryIcon className="w-12 h-12 text-[var(--text-muted)] mb-4" />
+                      <FolderOpen className="w-12 h-12 text-[var(--text-muted)] mb-4" />
                       <p className="text-[var(--text-muted)] font-medium">Nenhum item encontrado</p>
                       <p className="text-xs text-[var(--text-muted)] mt-1">Envie fotos ou gere mapas mentais para visualizá-los aqui.</p>
                     </div>
