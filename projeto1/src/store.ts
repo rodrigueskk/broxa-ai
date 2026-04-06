@@ -379,7 +379,7 @@ export function useAdminStore(isAdmin: boolean) {
     let unsubscribeDoc: (() => void)[] = [];
 
     const unsubReleaseNotes = onSnapshot(
-      query(collection(db, 'releaseNotes'), orderBy('timestamp', 'desc')),
+      collection(db, 'releaseNotes'),
       (snapshot) => {
         const notes = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as ReleaseNote));
         setReleaseNotes(notes);
@@ -388,7 +388,7 @@ export function useAdminStore(isAdmin: boolean) {
     unsubscribeDoc.push(unsubReleaseNotes);
 
     const unsubFeedbacks = onSnapshot(
-      query(collection(db, 'feedbacks'), orderBy('timestamp', 'desc')),
+      collection(db, 'feedbacks'),
       (snapshot) => {
         const feedbacksList = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Feedback));
         setFeedbacks(feedbacksList);
@@ -397,7 +397,7 @@ export function useAdminStore(isAdmin: boolean) {
     unsubscribeDoc.push(unsubFeedbacks);
 
     const unsubAiModels = onSnapshot(
-      query(collection(db, 'aiModels'), orderBy('timestamp', 'desc')),
+      collection(db, 'aiModels'),
       (snapshot) => {
         const models = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as AiModel));
         setAiModels(models);
@@ -406,7 +406,7 @@ export function useAdminStore(isAdmin: boolean) {
     unsubscribeDoc.push(unsubAiModels);
 
     const unsubUsers = onSnapshot(
-      query(collection(db, 'users'), orderBy('lastMessageDate', 'asc')),
+      collection(db, 'users'),
       (snapshot) => {
         const usersList = snapshot.docs.map(doc => ({ uid: doc.id, ...doc.data() } as UserDoc));
         setUsers(usersList);
@@ -415,7 +415,7 @@ export function useAdminStore(isAdmin: boolean) {
     unsubscribeDoc.push(unsubUsers);
 
     const unsubGroups = onSnapshot(
-      query(collection(db, 'groups'), orderBy('createdAt', 'desc')),
+      collection(db, 'groups'),
       (snapshot) => {
         const groupsList = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Group));
         setAllGroups(groupsList);
