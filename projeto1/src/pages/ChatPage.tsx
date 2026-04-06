@@ -139,6 +139,8 @@ const MessageItem = React.memo(({ msg, sessionId, settings, isHighlightMode, isE
   const [feedbackText, setFeedbackText] = useState('');
   const [hasSubmittedFeedback, setHasSubmittedFeedback] = useState(false);
 
+  const [showLongPressHint, setShowLongPressHint] = useState(false);
+
   const handleFeedbackSubmit = async () => {
     if (!feedbackText.trim() || !feedbackType) return;
     try {
@@ -163,6 +165,27 @@ const MessageItem = React.memo(({ msg, sessionId, settings, isHighlightMode, isE
     navigator.clipboard.writeText(msg.content);
     setIsCopied(true);
     setTimeout(() => setIsCopied(false), 2000);
+  };
+
+  const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const handleTouchStartCopy = () => {
+    if (msg.role !== 'ai' || !msg.content) return;
+    setShowLongPressHint(true);
+    longPressTimerRef.current = setTimeout(() => {
+      handleCopy();
+      setShowLongPressHint(false);
+      if (navigator.vibrate) navigator.vibrate(10);
+    }, 500);
+  };
+  const handleTouchEndCopy = () => {
+    if (longPressTimerRef.current) clearTimeout(longPressTimerRef.current);
+    if (showLongPressHint) setShowLongPressHint(false);
+  };
+  const handleContextMenuCopy = (e: React.MouseEvent) => {
+    if (msg.role === 'ai') {
+      e.preventDefault();
+      handleCopy();
+    }
   };
 
   useEffect(() => {
@@ -282,11 +305,15 @@ const MessageItem = React.memo(({ msg, sessionId, settings, isHighlightMode, isE
       )}
       <div
         ref={containerRef}
-        className={`relative max-w-[90%] md:max-w-[75%] rounded-3xl px-4 py-3 md:px-6 md:py-4 shadow-sm group ${msg.role === 'user' ? 'rounded-tr-sm border border-[var(--border-subtle)]' : 'bg-transparent text-[var(--text-base)]'}`}
+        className={`relative max-w-[90%] md:max-w-[75%] rounded-3xl px-4 py-3 md:px-6 md:py-4 shadow-sm group ${msg.role === 'user' ? 'rounded-tr-sm border border-[var(--border-subtle)] select-none' : 'bg-transparent text-[var(--text-base)] select-text'}`}
         style={msg.role === 'user' ? {
           backgroundColor: settings.userMessageColor || '#ffffff',
           color: ['#000000', '#4b5563', '#4c1d95', '#1d4ed8'].includes(settings.userMessageColor) ? '#ffffff' : '#000000'
         } : {}}
+        onTouchStart={handleTouchStartCopy}
+        onTouchEnd={handleTouchEndCopy}
+        onTouchMove={handleTouchEndCopy}
+        onContextMenu={handleContextMenuCopy}
       >
         {msg.role === 'ai' && (
           <canvas
@@ -506,7 +533,7 @@ const MessageItem = React.memo(({ msg, sessionId, settings, isHighlightMode, isE
         )}
 
         {msg.role === 'ai' && (
-          <div className="absolute -top-5 right-4 flex flex-row justify-end gap-1 z-20 md:opacity-0 group-hover:opacity-100 transition-opacity bg-[var(--bg-base)] border border-[var(--border-strong)] rounded-xl p-1 shadow-sm">
+          <div className="mt-2 flex items-center gap-1">
             <button
               onClick={() => togglePinMessage(sessionId, msg.id)}
               className={`p-1.5 rounded-lg transition-colors ${msg.isPinned ? 'text-[var(--color-sec)] bg-[var(--bg-surface)]' : 'text-[var(--text-muted)] hover:text-[var(--text-base)] hover:bg-[var(--bg-surface)]'}`}
@@ -521,9 +548,8 @@ const MessageItem = React.memo(({ msg, sessionId, settings, isHighlightMode, isE
             >
               {isCopied ? <Check className="w-3.5 h-3.5 text-[var(--color-sec)]" /> : <Copy className="w-3.5 h-3.5" />}
             </button>
-            {msg.role === 'ai' && !hasSubmittedFeedback && (
+            {!hasSubmittedFeedback && (
               <>
-                <div className="w-px h-4 bg-[var(--border-subtle)] mx-1" />
                 <button
                   onClick={() => { setFeedbackType('like'); setIsFeedbackModalOpen(true); }}
                   className="p-1.5 rounded-lg transition-colors text-[var(--text-muted)] hover:text-green-500 hover:bg-green-500/10"
@@ -540,14 +566,11 @@ const MessageItem = React.memo(({ msg, sessionId, settings, isHighlightMode, isE
                 </button>
               </>
             )}
-            {msg.role === 'ai' && hasSubmittedFeedback && (
-              <>
-                <div className="w-px h-4 bg-[var(--border-subtle)] mx-1" />
-                <span className="text-xs text-[var(--text-muted)] flex items-center gap-1">
-                  <Check className="w-3 h-3 text-green-500" />
-                  Obrigado pelo feedback!
-                </span>
-              </>
+            {hasSubmittedFeedback && (
+              <span className="text-xs text-[var(--text-muted)] flex items-center gap-1 ml-1">
+                <Check className="w-3 h-3 text-green-500" />
+                Obrigado pelo feedback!
+              </span>
             )}
           </div>
         )}
@@ -1189,6 +1212,7 @@ export default function ChatPage() {
   const [isUserSettingsOpen, setIsUserSettingsOpen] = useState(false);
   const [isProfilePopoverOpen, setIsProfilePopoverOpen] = useState(false);
   const profilePopoverRef = useRef<HTMLDivElement>(null);
+  const [settingsTab, setSettingsTab] = useState('geral');
   const [tempDisplayName, setTempDisplayName] = useState('');
   const [tempPhotoURL, setTempPhotoURL] = useState('');
   const [activeSettingsTab, setActiveSettingsTab] = useState<'profile' | 'security'>('profile');
@@ -1957,10 +1981,11 @@ export default function ChatPage() {
   useEffect(() => {
     document.documentElement.style.setProperty('--color-sec', settings.secondaryColor);
     document.documentElement.style.setProperty('--selection-color', settings.selectionColor || '#3b82f6');
+    document.documentElement.classList.remove('theme-light', 'theme-grey');
     if (settings.theme === 'light') {
       document.documentElement.classList.add('theme-light');
-    } else {
-      document.documentElement.classList.remove('theme-light');
+    } else if (settings.theme === 'grey') {
+      document.documentElement.classList.add('theme-grey');
     }
   }, [settings.secondaryColor, settings.theme, settings.selectionColor]);
 
@@ -2249,8 +2274,8 @@ export default function ChatPage() {
 
     // Only trigger if horizontal swipe is greater than vertical swipe
     if (Math.abs(distanceX) > Math.abs(distanceY)) {
-      // Swipe right from the left edge to open sidebar
-      if (isRightSwipe && touchStart < 60) {
+      // Swipe right anywhere to open sidebar
+      if (isRightSwipe) {
         setIsSidebarOpen(true);
       } else if (distanceX > 50 && isSidebarOpen) {
         // Swipe left to close sidebar
@@ -2963,6 +2988,7 @@ export default function ChatPage() {
                       value={newSessionName}
                       onChange={(e) => setNewSessionName(e.target.value)}
                       placeholder="Novo nome da conversa"
+                      maxLength={20}
                       className="w-full bg-[var(--bg-input)] border border-[var(--border-strong)] rounded-xl px-4 py-3 text-[var(--text-base)] focus:outline-none focus:border-[var(--color-sec)] transition-colors"
                     />
                   </div>
@@ -4223,185 +4249,76 @@ export default function ChatPage() {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="fixed inset-0 z-[150] flex items-center justify-center bg-black/80 backdrop-blur-md"
+              onClick={handleCloseSettings}
+              className="fixed inset-0 z-[150] bg-black/80 backdrop-blur-md"
             >
               <motion.div
-                initial={{ y: '100%', opacity: 0 }}
-                animate={{ y: 0, opacity: 1 }}
-                exit={{ y: '100%', opacity: 0 }}
+                initial={{ x: -300, opacity: 0 }}
+                animate={{ x: 0, opacity: 1 }}
+                exit={{ x: -300, opacity: 0 }}
                 transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-                className="bg-[var(--bg-panel)] rounded-3xl border border-[var(--border-strong)] w-full max-w-xl md:max-w-2xl lg:max-w-3xl m-4 shadow-2xl flex flex-col max-h-[85vh]"
+                onClick={(e) => e.stopPropagation()}
+                className="fixed inset-y-0 left-0 z-[160] w-full max-w-[800px] bg-[var(--bg-surface)] border-r border-[var(--border-subtle)] flex"
               >
-                {/* Header */}
-                <div className="flex items-center gap-3 p-6 pb-4 border-b border-[var(--border-strong)] shrink-0">
-                  <motion.div
-                    whileHover={{ rotate: 90 }}
-                    transition={{ duration: 0.4 }}
-                    className="w-10 h-10 rounded-xl bg-[var(--color-sec)]/10 flex items-center justify-center"
-                  >
-                    <Settings className="w-5 h-5 text-[var(--color-sec)]" />
-                  </motion.div>
-                  <h3 className="text-lg font-bold text-[var(--text-base)] tracking-wider uppercase">Configurações</h3>
-                  <button onClick={handleCloseSettings} className="ml-auto p-2 hover:bg-[var(--bg-surface)] rounded-full transition-colors"><X className="w-5 h-5 text-[var(--text-muted)]" /></button>
+                {/* Left sidebar nav */}
+                <div className="w-64 flex-shrink-0 flex flex-col border-r border-[var(--border-subtle)]">
+                  <div className="flex items-center justify-between p-4 border-b border-[var(--border-subtle)]">
+                    <h3 className="text-lg font-semibold text-[var(--text-base)]">Configurações</h3>
+                    <button onClick={handleCloseSettings} className="p-1.5 hover:bg-[var(--bg-base)] rounded-full transition-colors"><X className="w-5 h-5 text-[var(--text-muted)]" /></button>
+                  </div>
+                  <div className="flex-1 overflow-y-auto p-2 space-y-1">
+                    {['Geral', 'Aparência', 'Perfil', 'Segurança', 'Inteligência Artificial', 'Dispositivos'].map((tab) => (
+                      <button
+                        key={tab}
+                        onClick={() => setSettingsTab(tab.toLowerCase() as any)}
+                        className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-colors ${settingsTab === tab.toLowerCase() ? 'bg-[var(--color-sec)]/20 text-[var(--color-sec)] font-medium' : 'text-[var(--text-muted)] hover:text-[var(--text-base)] hover:bg-[var(--bg-base)]'}`}
+                      >
+                        {tab}
+                      </button>
+                    ))}
+                  </div>
+                  {auth.currentUser && (
+                    <div className="p-4 border-t border-[var(--border-subtle)]">
+                      <button
+                        onClick={() => {
+                          setIsSettingsOpen(false);
+                          setIsLogoutModalOpen(true);
+                        }}
+                        className="flex items-center justify-center gap-2 w-full py-2.5 px-4 bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white rounded-xl transition-colors font-medium text-sm"
+                      >
+                        <LogOut className="w-5 h-5" />
+                        Sair da conta
+                      </button>
+                    </div>
+                  )}
                 </div>
 
-                {/* Scrollable content */}
-                <div className="flex-1 overflow-y-auto custom-scrollbar p-6 pt-5 space-y-8">
-
-                  {/* ========== TEMAS ========== */}
-                  <section>
-                    <div className="flex items-center gap-3 mb-4">
-                      <span className="text-xs font-black text-[var(--text-muted)] tracking-[0.2em] uppercase">Temas</span>
-                    </div>
-                    <div className="pl-12 space-y-4">
-                      {/* Dark/Light */}
-                      <div className="grid grid-cols-2 gap-3">
-                        <motion.button
-                          whileHover={{ scale: 1.03 }}
-                          whileTap={{ scale: 0.97 }}
-                          onClick={() => setTempSettings({ ...tempSettings, theme: 'dark' })}
-                          className={`p-4 rounded-2xl border-2 transition-all flex flex-col items-center gap-3 ${tempSettings.theme === 'dark' ? 'border-[var(--color-sec)] shadow-[0_0_12px_rgba(234,179,8,0.2)]' : 'border-[var(--border-subtle)] hover:border-[var(--text-muted)]'}`}
-                        >
-                          <div className="w-8 h-8 rounded-full bg-zinc-900 border border-zinc-700 flex items-center justify-center">
-                            <div className="w-2 h-2 rounded-full bg-zinc-400" />
-                          </div>
-                          <span className="text-sm font-bold text-[var(--text-base)]">Escuro</span>
-                          {tempSettings.theme === 'dark' && <motion.div layoutId="themeCheck" className="w-5 h-5 rounded-full bg-[var(--color-sec)] flex items-center justify-center"><Check className="w-3 h-3 text-black" /></motion.div>}
-                        </motion.button>
-                        <motion.button
-                          whileHover={{ scale: 1.03 }}
-                          whileTap={{ scale: 0.97 }}
-                          onClick={() => setTempSettings({ ...tempSettings, theme: 'light' })}
-                          className={`p-4 rounded-2xl border-2 transition-all flex flex-col items-center gap-3 ${tempSettings.theme === 'light' ? 'border-[var(--color-sec)] shadow-[0_0_12px_rgba(234,179,8,0.2)]' : 'border-[var(--border-subtle)] hover:border-[var(--text-muted)]'}`}
-                        >
-                          <div className="w-8 h-8 rounded-full bg-zinc-100 border border-zinc-300 flex items-center justify-center">
-                            <div className="w-2 h-2 rounded-full bg-zinc-500" />
-                          </div>
-                          <span className="text-sm font-bold text-[var(--text-base)]">Claro</span>
-                          {tempSettings.theme === 'light' && <motion.div layoutId="themeCheck" className="w-5 h-5 rounded-full bg-[var(--color-sec)] flex items-center justify-center"><Check className="w-3 h-3 text-black" /></motion.div>}
-                        </motion.button>
-                      </div>
-                      {/* Preset themes */}
-                      <div className={`space-y-3 ${streakDays < 15 ? 'opacity-50 pointer-events-none' : ''}`}>
-                        <div className="flex items-center gap-2">
-                          <Palette className="w-4 h-4 text-[var(--text-muted)]" />
-                          <span className="text-[var(--text-base)] font-medium">Temas Prontos</span>
-                          {streakDays < 15 && <span className="text-xs text-orange-500 flex items-center gap-1 font-bold"><Flame className="w-3 h-3" /> 15 dias</span>}
-                        </div>
-                        <div className="flex flex-wrap gap-2">
-                          {[
-                            { name: 'Drácula', theme: 'dark', secondary: '#ff79c6', userMsg: '#4c1d95', selection: '#bd93f9' },
-                            { name: 'Hacker', theme: 'dark', secondary: '#22c55e', userMsg: '#000000', selection: '#22c55e' },
-                            { name: 'Oceano', theme: 'dark', secondary: '#0ea5e9', userMsg: '#1d4ed8', selection: '#3b82f6' },
-                            { name: 'Cinza Metálico', theme: 'dark', secondary: '#9ca3af', userMsg: '#4b5563', selection: '#6b7280' },
-                            { name: 'Lavanda', theme: 'light', secondary: '#a855f7', userMsg: '#ffffff', selection: '#c084fc' }
-                          ].map((t, i) => (
-                            <motion.button
-                              key={t.name}
-                              initial={{ opacity: 0, scale: 0.9 }}
-                              animate={{ opacity: 1, scale: 1 }}
-                              transition={{ delay: 0.1 + i * 0.05 }}
-                              whileHover={{ scale: 1.05, y: -2 }}
-                              whileTap={{ scale: 0.97 }}
-                              onClick={() => setTempSettings({
-                                ...tempSettings,
-                                theme: t.theme,
-                                secondaryColor: t.secondary,
-                                userMessageColor: t.userMsg,
-                                selectionColor: t.selection
-                              })}
-                              className="px-4 py-2.5 rounded-xl border border-[var(--border-strong)] bg-[var(--bg-surface)] transition-all font-medium flex items-center gap-2 text-sm"
-                              style={{ color: t.theme === 'dark' ? '#f8f9fa' : '#212529', backgroundColor: t.theme === 'dark' ? '#121212' : '#f8f9fa' }}
-                            >
-                              <div className="w-3 h-3 rounded-full" style={{ backgroundColor: t.secondary }}></div>
-                              {t.name}
-                            </motion.button>
-                          ))}
-                        </div>
+                {/* Right content */}
+                <div className="flex-1 overflow-y-auto">
+                  {/* === GERAL === */}
+                  {settingsTab === 'geral' && (
+                    <div className="p-6">
+                      <h2 className="text-lg font-semibold text-[var(--text-base)] mb-4">Padrão de Cores</h2>
+                      <div className="flex gap-4">
+                        {['dark', 'grey', 'light'].map((t) => (
+                          <button
+                            key={t}
+                            onClick={() => setTempSettings({...tempSettings, theme: t})}
+                            className={`flex-1 rounded-xl border-2 transition-all p-4 text-center ${tempSettings.theme === t ? 'border-[var(--color-sec)]' : 'border-[var(--border-subtle)] hover:border-[var(--text-muted)]'}`}
+                          >
+                            <div className={`w-full h-24 rounded-lg mb-2 ${t === 'dark' ? 'bg-[#000000]' : t === 'grey' ? 'bg-[#2f2f2f]' : 'bg-[#f4f4f5]'}`} />
+                            <span className="text-sm font-medium capitalize text-[var(--text-base)]">{t}</span>
+                          </button>
+                        ))}
                       </div>
                     </div>
-                  </section>
+                  )}
 
-                  {/* ========== CORES ========== */}
-                  <section>
-                    <motion.div
-                      initial={{ opacity: 0, x: -20 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      transition={{ delay: 0.1 }}
-                      className="flex items-center gap-3 mb-4"
-                    >
-                      <motion.div
-                        whileHover={{ scale: 1.2, rotate: -6 }}
-                        transition={{ type: 'spring', stiffness: 400 }}
-                        className="w-8 h-8 rounded-lg bg-blue-500/10 flex items-center justify-center"
-                      >
-                        <Palette className="w-4 h-4 text-blue-400" />
-                      </motion.div>
-                      <span className="text-xs font-black text-[var(--text-muted)] tracking-[0.2em] uppercase">Cores</span>
-                    </motion.div>
-                    <div className="pl-12 space-y-4">
-                      {/* Nova UI photo cards */}
-                      {newUiBeforeImg && newUiAfterImg && (
-                        <motion.div
-                          initial={{ opacity: 0, y: 10 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          transition={{ delay: 0.05 }}
-                          className="space-y-3"
-                        >
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-3">
-                              <Palette className="w-4 h-4 text-[var(--text-muted)]" />
-                              <span className="text-[var(--text-base)] font-bold">Visual do Site</span>
-                            </div>
-                            <span className="text-xs px-2 py-0.5 rounded-full font-bold bg-[var(--color-sec)]/20 text-[var(--color-sec)]">NOVA UI</span>
-                          </div>
-                          <div className="grid grid-cols-2 gap-3">
-                            <motion.button
-                              whileHover={{ scale: 1.03 }}
-                              whileTap={{ scale: 0.97 }}
-                              onClick={() => handleUiVersionChange('before')}
-                              className={`relative rounded-2xl overflow-hidden border-2 transition-all ${selectedUiVersion === 'before' ? 'border-[var(--color-sec)] shadow-[0_0_12px_rgba(234,179,8,0.3)]' : 'border-[var(--border-subtle)] hover:border-[var(--text-muted)]'}`}
-                            >
-                              <div className="aspect-video relative">
-                                <img src={newUiBeforeImg} alt="Atual" className="w-full h-full object-cover" />
-                                <div className="absolute inset-0 bg-black/20" />
-                              </div>
-                              {selectedUiVersion === 'before' && (
-                                <div className="absolute top-2 right-2 w-6 h-6 bg-[var(--color-sec)] rounded-full flex items-center justify-center shadow-md">
-                                  <Check className="w-3.5 h-3.5 text-black" />
-                                </div>
-                              )}
-                              <div className="absolute bottom-0 left-0 right-0 bg-black/60 backdrop-blur-sm px-3 py-1.5">
-                                <span className="text-xs font-bold text-white">Atual</span>
-                              </div>
-                            </motion.button>
-                            <motion.button
-                              whileHover={{ scale: 1.03 }}
-                              whileTap={{ scale: 0.97 }}
-                              onClick={() => handleUiVersionChange('after')}
-                              className={`relative rounded-2xl overflow-hidden border-2 transition-all ${selectedUiVersion === 'after' ? 'border-[var(--color-sec)] shadow-[0_0_12px_rgba(234,179,8,0.3)]' : 'border-[var(--border-subtle)] hover:border-[var(--text-muted)]'}`}
-                            >
-                              <div className="aspect-video relative">
-                                <img src={newUiAfterImg} alt="Nova" className="w-full h-full object-cover" />
-                                <div className="absolute inset-0 bg-black/20" />
-                              </div>
-                              {selectedUiVersion === 'after' && (
-                                <div className="absolute top-2 right-2 w-6 h-6 bg-[var(--color-sec)] rounded-full flex items-center justify-center shadow-md">
-                                  <Check className="w-3.5 h-3.5 text-black" />
-                                </div>
-                              )}
-                              <div className="absolute bottom-0 left-0 right-0 bg-black/60 backdrop-blur-sm px-3 py-1.5">
-                                <span className="text-xs font-bold text-white">Nova UI</span>
-                              </div>
-                            </motion.button>
-                          </div>
-                        </motion.div>
-                      )}
-                      {/* Secondary Color */}
-                      <div className="space-y-3">
-                        <div className="flex items-center gap-3">
-                          <span className="text-[var(--text-base)] font-medium">Cor Secundária</span>
-                        </div>
+                  {/* === APARÊNCIA === */}
+                  {settingsTab === 'aparência' && (
+                    <div className="p-6 space-y-6">
+                      <div>
+                        <h2 className="text-lg font-semibold text-[var(--text-base)] mb-3">Cor Secundária</h2>
                         <ColorPickerDropdown
                           valueColor={tempSettings.secondaryColor || '#22c55e'}
                           colorMap={[
@@ -4414,230 +4331,305 @@ export default function ChatPage() {
                           onSelect={(color) => setTempSettings({ ...tempSettings, secondaryColor: color })}
                         />
                       </div>
-                      {/* User Message Color */}
-                      <div className="space-y-3">
-                        <div className="flex items-center gap-3">
-                          <span className="text-[var(--text-base)] font-medium">Cor das Suas Mensagens</span>
-                        </div>
-                        <ColorPickerDropdown
-                          valueColor={tempSettings.userMessageColor || '#ffffff'}
-                          colorMap={[
-                            { value: '#ffffff', label: 'Branco' },
-                            { value: '#000000', label: 'Preto' },
-                            { value: '#4b5563', label: 'Cinza' },
-                            { value: '#4c1d95', label: 'Roxo Escuro' },
-                            { value: '#1d4ed8', label: 'Azul Escuro' },
-                          ]}
-                          onSelect={(color) => setTempSettings({ ...tempSettings, userMessageColor: color })}
-                        />
-                      </div>
-                      {/* Selection Color */}
-                      <div className="space-y-3">
-                        <div className="flex items-center gap-3">
-                          <span className="text-[var(--text-base)] font-medium">Cor de Seleção</span>
-                        </div>
-                        <ColorPickerDropdown
-                          valueColor={tempSettings.selectionColor || '#3b82f6'}
-                          colorMap={[
-                            { value: '#22c55e', label: 'Verde' },
-                            { value: '#eab308', label: 'Amarelo' },
-                            { value: '#ec4899', label: 'Rosa' },
-                            { value: '#3b82f6', label: 'Azul' },
-                            { value: '#a855f7', label: 'Roxo' },
-                          ]}
-                          onSelect={(color) => setTempSettings({ ...tempSettings, selectionColor: color })}
-                        />
-                      </div>
-                    </div>
-                  </section>
-
-                  {/* ========== EFEITOS VISUAIS ========== */}
-                  <section>
-                    <div className="flex items-center gap-3 mb-4">
-                      <span className="text-xs font-black text-[var(--text-muted)] tracking-[0.2em] uppercase">Efeitos Visuais</span>
-                    </div>
-                    <div className="pl-12 space-y-4">
-                      {/* On/Off - Toggle Switch */}
-                      <div className="flex items-center gap-3 bg-[var(--bg-surface)] rounded-xl px-4 py-3 border border-[var(--border-subtle)]">
-                        <span className="text-sm text-[var(--text-base)]">Ativado</span>
-                        <div className="ml-auto">
-                          <button
-                            onClick={() => setTempSettings({ ...tempSettings, enableEffects: !tempSettings.enableEffects })}
-                            className={`relative inline-flex items-center h-6 rounded-full w-11 transition-colors ${tempSettings.enableEffects ? 'bg-[var(--color-sec)]' : 'bg-[var(--bg-input)]'}`}
-                          >
-                            <span
-                              className={`inline-block w-4 h-4 transform bg-white rounded-full transition-transform ${tempSettings.enableEffects ? 'translate-x-6' : 'translate-x-1'}`}
-                            />
-                          </button>
-                        </div>
-                      </div>
-                      {/* Background Image */}
-                      <div className={`space-y-3 ${streakDays < 15 ? 'opacity-50 pointer-events-none' : ''}`}>
-                        <div className="flex items-center gap-2">
-                          <ImageIcon className="w-4 h-4 text-[var(--text-muted)]" />
-                          <span className="text-[var(--text-base)] font-medium">Imagem de Fundo</span>
-                          {streakDays < 15 && <span className="text-xs text-orange-500 flex items-center gap-1 font-bold"><Flame className="w-3 h-3" /> 15 dias</span>}
-                        </div>
-                        <div className="flex items-center gap-4">
-                          <motion.div
-                            whileHover={{ scale: 1.05 }}
-                            whileTap={{ scale: 0.95 }}
-                            className="w-28 h-28 rounded-2xl border-2 border-dashed border-[var(--border-strong)] flex flex-col items-center justify-center cursor-pointer hover:border-[var(--color-sec)] hover:bg-[var(--bg-surface)] transition-colors relative overflow-hidden"
-                            onClick={() => document.getElementById('bg-upload')?.click()}
-                            onDragOver={(e) => { e.preventDefault(); }}
-                            onDrop={(e) => {
-                              e.preventDefault();
-                              const file = e.dataTransfer.files?.[0];
-                              if (file) handleBgUpload(file);
-                            }}
-                          >
-                            {tempSettings.backgroundImage ? (
-                              <img src={tempSettings.backgroundImage} alt="Background" className="w-full h-full object-cover" />
-                            ) : (
-                              <>
-                                <ImageIcon className="w-7 h-7 text-[var(--text-muted)] mb-1" />
-                                <span className="text-[10px] text-[var(--text-muted)] text-center px-2">Clique ou arraste</span>
-                              </>
-                            )}
-                            <input
-                              id="bg-upload"
-                              type="file"
-                              accept="image/*"
-                              className="hidden"
-                              onChange={(e) => {
-                                const file = e.target.files?.[0];
-                                if (file) handleBgUpload(file);
-                              }}
-                            />
-                          </motion.div>
-                          {tempSettings.backgroundImage && (
-                            <motion.button
-                              whileHover={{ scale: 1.05 }}
-                              whileTap={{ scale: 0.95 }}
-                              onClick={() => setTempSettings({ ...tempSettings, backgroundImage: null })}
-                              className="text-sm text-red-500 hover:text-red-400"
-                            >
-                              Remover Fundo
-                            </motion.button>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  </section>
-
-                  {/* ========== INTELIGÊNCIA ARTIFICIAL ========== */}
-                  <section>
-                    <motion.div
-                      initial={{ opacity: 0, x: -20 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      transition={{ delay: 0.2 }}
-                      className="flex items-center gap-3 mb-4"
-                    >
-                      <motion.div
-                        whileHover={{ scale: 1.2, rotate: -6 }}
-                        transition={{ type: 'spring', stiffness: 400 }}
-                        className="w-8 h-8 rounded-lg bg-green-500/10 flex items-center justify-center"
-                      >
-                        <Bot className="w-4 h-4 text-green-400" />
-                      </motion.div>
-                      <span className="text-xs font-black text-[var(--text-muted)] tracking-[0.2em] uppercase">Inteligência Artificial</span>
-                    </motion.div>
-                    <div className="pl-12 space-y-4">
-                      {/* Font selector - locked at 10 days */}
-                      <div className={`space-y-3 ${streakDays < 10 ? 'opacity-50 pointer-events-none' : ''}`}>
-                        <div className="flex items-center gap-2">
-                          <Palette className="w-4 h-4 text-[var(--text-muted)]" />
-                          <span className="text-[var(--text-base)] font-medium">Fonte do Título</span>
-                          {streakDays < 10 && <span className="text-xs text-orange-500 flex items-center gap-1 font-bold"><Flame className="w-3 h-3" /> 10 dias</span>}
-                        </div>
-                        <select
-                          value={tempSettings.customTitleFont || 'BROXA AI'}
-                          onChange={e => setTempSettings({ ...tempSettings, customTitleFont: e.target.value })}
-                          className="w-full bg-[var(--bg-input)] text-[var(--text-base)] border border-[var(--border-subtle)] rounded-xl p-4 focus:outline-none focus:border-[var(--color-sec)]"
-                        >
-                          <option value="BROXA AI">Normal (BROXA AI)</option>
-                          <option value="𝕭𝕽𝕺𝖃𝕬 𝕬𝕴">Gótico (𝕭𝕽𝕺𝖃𝕬 𝕬𝕴)</option>
-                          <option value="𝐁𝐑𝐎𝐗𝐀 𝐀𝐈">Negrito Serif (𝐁𝐑𝐎𝐗𝐀 𝐀𝐈)</option>
-                          <option value="𝘉𝘙𝘖𝘟𝘈 𝘈𝘐">Itálico (𝘉𝘙𝘖𝘟𝘈 𝘈𝘐)</option>
-                          <option value="𝘽𝙍Ｏ𝙓𝘼 𝘼𝙄">Negrito Itálico (𝘽𝙍Ｏ𝙓𝘼 𝘼𝙄)</option>
-                          <option value="𝙱𝚁𝙾𝚇𝙰 𝙰𝙸">Máquina de Escrever (𝙱𝚁𝙾𝚇𝙰 𝙰𝙸)</option>
-                          <option value="𝗕𝗥𝗢𝗫𝗔 𝗔𝗜">Negrito Sans (𝗕𝗥𝗢𝗫𝗔 𝗔𝗜)</option>
-                          <option value="𝔅ℜ𝔒𝔛𝔄 𝔄ℑ">Medieval (𝔅ℜ𝔒𝔛𝔄 𝔄ℑ)</option>
-                          <option value="𝔹ℝ𝕆𝕏𝔸 𝔸𝕀">Contorno (𝔹ℝ𝕆𝕏𝔸 𝔸𝕀)</option>
-                          <option value="ＢＲＯＸＡ ＡＩ">Espaçado (ＢＲＯＸＡ ＡＩ)</option>
-                          <option value="ⓑⓡⓞⓧⓐ ⓐⓘ">Círculos (ⓑⓡⓞⓧⓐ ⓐⓘ)</option>
-                          <option value="🅑🅡🅞🅧🅐 🅐🅘">Círculos Escuros (🅑🅡🅞🅧🅐 🅐🅘)</option>
-                          <option value="🅱🆁🅾🆇🅰 🅰🅸">Quadrados (🅱🆁🅾🆇🅰 🅰🅸)</option>
-                          <option value="ᗷᖇO᙭ᗩ ᗩI">Curvado (ᗷᖇO᙭ᗩ ᗩI)</option>
-                          <option value="乃尺ㄖ乂卂 卂丨">Asiático (乃尺ㄖ乂卂 卂丨)</option>
-                          <option value="ᏰᏒᎧጀᏗ ᏗᎥ">Mágico (ᏰᏒᎧጀᏗ ᏗᎥ)</option>
-                          <option value="฿ⱤØӾ₳ ₳ł">Moeda (฿ⱤØӾ₳ ₳ł)</option>
-                        </select>
-                      </div>
-                      {/* Custom AI instruction */}
-                      <div className={`space-y-3 ${streakDays < 20 ? 'opacity-50 pointer-events-none' : ''}`}>
-                        <div className="flex items-center gap-2">
-                          <Bot className="w-4 h-4 text-[var(--text-muted)]" />
-                          <span className="text-[var(--text-base)] font-medium">Comportamento da IA</span>
-                          {streakDays < 20 && <span className="text-xs text-orange-500 flex items-center gap-1 font-bold"><Flame className="w-3 h-3" /> 20 dias</span>}
-                        </div>
-                        <textarea
-                          value={tempSettings.customInstruction || ''}
-                          onChange={e => {
-                            setTempSettings({ ...tempSettings, customInstruction: e.target.value });
-                            setSettingsError(null);
-                          }}
-                          disabled={selectedModel === 'as'}
-                          placeholder={selectedModel === 'as' ? "Não disponível para o modelo A.S" : "Ex: Responda como um pirata..."}
-                          className={`w-full bg-[var(--bg-input)] text-[var(--text-base)] border ${settingsError ? 'border-red-500' : 'border-[var(--border-subtle)]'} rounded-xl p-4 min-h-[120px] resize-y focus:outline-none focus:border-[var(--color-sec)] disabled:opacity-50 disabled:cursor-not-allowed`}
-                        />
-                        {selectedModel === 'as' && (
-                          <span className="text-xs text-[var(--text-muted)]">O comportamento customizado não é aplicável ao modelo A.S.</span>
-                        )}
-                        {settingsError && (
-                          <motion.div
-                            initial={{ opacity: 0, y: -10 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            className="text-red-500 text-sm mt-1 p-3 bg-red-500/10 rounded-xl border border-red-500/20 flex items-start gap-2"
-                          >
-                            <AlertTriangle className="w-5 h-5 shrink-0 mt-0.5" />
-                            <span>{settingsError}</span>
-                          </motion.div>
-                        )}
+                      <div>
+                        <h2 className="text-lg font-semibold text-[var(--text-base)] mb-3">Efeitos Visuais</h2>
                         <button
-                          onClick={() => setTempSettings({ ...tempSettings, customInstruction: '' })}
-                          className="text-sm text-[var(--color-sec)] hover:underline text-left"
+                          onClick={() => setTempSettings({...tempSettings, enableEffects: !tempSettings.enableEffects})}
+                          className={`relative inline-flex items-center h-6 w-11 rounded-full transition-colors ${tempSettings.enableEffects ? 'bg-[var(--color-sec)]' : 'bg-[var(--bg-input)]'}`}
                         >
-                          Não curtiu o comportamento da IA? Clique aqui para redefinir.
+                          <span className={`inline-block w-4 h-4 bg-white rounded-full transition-transform ${tempSettings.enableEffects ? 'translate-x-6' : 'translate-x-1'}`} />
                         </button>
                       </div>
+                      {streakDays >= 15 && (
+                        <div>
+                          <h2 className="text-lg font-semibold text-[var(--text-base)] mb-3">Imagem de Fundo</h2>
+                          <div className="flex items-center gap-4">
+                            <div
+                              className="w-28 h-28 rounded-2xl border-2 border-dashed border-[var(--border-subtle)] flex flex-col items-center justify-center cursor-pointer hover:border-[var(--color-sec)] hover:bg-[var(--bg-surface)] transition-colors relative overflow-hidden"
+                              onClick={() => document.getElementById('bg-upload')?.click()}
+                              onDragOver={(e) => { e.preventDefault(); }}
+                              onDrop={(e) => {
+                                e.preventDefault();
+                                const file = e.dataTransfer.files?.[0];
+                                if (file) handleBgUpload(file);
+                              }}
+                            >
+                              {tempSettings.backgroundImage ? (
+                                <img src={tempSettings.backgroundImage} alt="Background" className="w-full h-full object-cover" />
+                              ) : (
+                                <>
+                                  <ImageIcon className="w-7 h-7 text-[var(--text-muted)] mb-1" />
+                                  <span className="text-[10px] text-[var(--text-muted)] text-center px-2">Clique ou arraste</span>
+                                </>
+                              )}
+                              <input
+                                id="bg-upload"
+                                type="file"
+                                accept="image/*"
+                                className="hidden"
+                                onChange={(e) => {
+                                  const file = e.target.files?.[0];
+                                  if (file) handleBgUpload(file);
+                                }}
+                              />
+                            </div>
+                            {tempSettings.backgroundImage && (
+                              <button
+                                onClick={() => setTempSettings({ ...tempSettings, backgroundImage: null })}
+                                className="text-sm text-red-500 hover:text-red-400"
+                              >
+                                Remover Fundo
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      )}
                     </div>
-                  </section>
+                  )}
 
-                  {/* ========== DISPOSITIVOS ========== */}
-                  <section>
-                    <motion.div
-                      initial={{ opacity: 0, x: -20 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      transition={{ delay: 0.25 }}
-                      className="flex items-center gap-3 mb-4"
-                    >
-                      <motion.div
-                        whileHover={{ scale: 1.2, rotate: -6 }}
-                        transition={{ type: 'spring', stiffness: 400 }}
-                        className="w-8 h-8 rounded-lg bg-indigo-500/10 flex items-center justify-center"
+                  {/* === PERFIL === */}
+                  {settingsTab === 'perfil' && (
+                    <div className="p-6 space-y-6">
+                      <h2 className="text-lg font-semibold text-[var(--text-base)]">Perfil</h2>
+                      <div>
+                        <ImageUpload
+                          value={tempPhotoURL}
+                          onChange={setTempPhotoURL}
+                          label="Foto de Perfil (Opcional)"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-[var(--text-muted)] mb-1">Nome</label>
+                        <input
+                          type="text"
+                          value={tempDisplayName}
+                          onChange={(e) => setTempDisplayName(e.target.value)}
+                          placeholder="Seu nome"
+                          maxLength={50}
+                          className="w-full bg-[var(--bg-input)] border border-[var(--border-subtle)] rounded-xl px-4 py-3 text-[var(--text-base)] focus:outline-none focus:border-[var(--color-sec)] transition-colors"
+                        />
+                      </div>
+                      <button
+                        onClick={() => {
+                          if (tempDisplayName.trim()) {
+                            updateProfile(tempDisplayName.trim(), tempPhotoURL);
+                            setSettingsTab('geral');
+                          }
+                        }}
+                        disabled={!tempDisplayName.trim()}
+                        className="w-full py-3 bg-[var(--color-sec)] text-white rounded-xl hover:opacity-90 transition-opacity font-medium disabled:opacity-50 disabled:cursor-not-allowed"
                       >
-                        <Monitor className="w-4 h-4 text-indigo-400" />
-                      </motion.div>
-                      <span className="text-xs font-black text-[var(--text-muted)] tracking-[0.2em] uppercase">Dispositivos</span>
-                    </motion.div>
-                    <div className="pl-12 space-y-4">
-                      <motion.div
-                        initial={{ opacity: 0, y: 10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: 0.1 }}
-                        className="bg-[var(--bg-surface)] border border-[var(--border-subtle)] rounded-2xl p-5"
-                      >
+                        Salvar Perfil
+                      </button>
+                    </div>
+                  )}
+
+                  {/* === SEGURANÇA === */}
+                  {settingsTab === 'segurança' && (
+                    <div className="p-6 space-y-6">
+                      <h2 className="text-lg font-semibold text-[var(--text-base)]">Segurança</h2>
+                      {isGoogleUserWithoutPassword && (
+                        <div className="p-3 bg-yellow-500/10 border border-yellow-500/20 rounded-xl">
+                          <p className="text-xs text-yellow-600 font-medium">
+                            Estamos atualizando a segurança do site e melhorando os sistemas. Defina sua senha agora!
+                          </p>
+                        </div>
+                      )}
+                      {!securityOtpStep ? (
+                        <>
+                          <div>
+                            <label className="block text-sm font-medium text-[var(--text-muted)] mb-1">Nova Senha</label>
+                            <input
+                              type="password"
+                              value={newPassword}
+                              onChange={(e) => setNewPassword(e.target.value)}
+                              placeholder="Mínimo 6 caracteres"
+                              className="w-full bg-[var(--bg-input)] border border-[var(--border-subtle)] rounded-xl px-4 py-3 text-[var(--text-base)] focus:outline-none focus:border-[var(--color-sec)] transition-colors"
+                            />
+                            {newPassword && (
+                              <div className="mt-2 flex items-center gap-2">
+                                <div className="flex-1 h-1.5 bg-[var(--bg-surface)] rounded-full overflow-hidden">
+                                  <div
+                                    className={`h-full transition-all duration-300 ${(() => {
+                                      const pass = newPassword;
+                                      if (pass.length < 6) return 'bg-red-500 w-1/3';
+                                      const hasLetters = /[a-zA-Z]/.test(pass);
+                                      const hasNumbers = /[0-9]/.test(pass);
+                                      const hasSpecial = /[^a-zA-Z0-9]/.test(pass);
+                                      if (hasLetters && hasNumbers && hasSpecial && pass.length >= 8) return 'bg-green-500 w-full';
+                                      if (hasLetters && hasNumbers) return 'bg-yellow-500 w-2/3';
+                                      return 'bg-red-500 w-1/3';
+                                    })()}`}
+                                  ></div>
+                                </div>
+                                <span className="text-[10px] uppercase font-bold text-[var(--text-muted)]">
+                                  {(() => {
+                                    const pass = newPassword;
+                                    if (pass.length < 6) return 'Fraca';
+                                    const hasLetters = /[a-zA-Z]/.test(pass);
+                                    const hasNumbers = /[0-9]/.test(pass);
+                                    const hasSpecial = /[^a-zA-Z0-9]/.test(pass);
+                                    if (hasLetters && hasNumbers && hasSpecial && pass.length >= 8) return 'Forte';
+                                    if (hasLetters && hasNumbers) return 'Média';
+                                    return 'Fraca';
+                                  })()}
+                                </span>
+                              </div>
+                            )}
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-[var(--text-muted)] mb-1">Confirmar Senha</label>
+                            <input
+                              type="password"
+                              value={confirmNewPassword}
+                              onChange={(e) => setConfirmNewPassword(e.target.value)}
+                              placeholder="Confirmar sua nova senha"
+                              className="w-full bg-[var(--bg-input)] border border-[var(--border-subtle)] rounded-xl px-4 py-3 text-[var(--text-base)] focus:outline-none focus:border-[var(--color-sec)] transition-colors"
+                            />
+                          </div>
+                          <button
+                            onClick={() => {
+                              if (newPassword.length >= 6 && newPassword === confirmNewPassword) {
+                                setAuthModalStep('create_google_password');
+                                setAuthModalPassword(newPassword);
+                                setIsAuthModalOpen(true);
+                                setIsUserSettingsOpen(false);
+                                setNewPassword('');
+                                setConfirmNewPassword('');
+                              } else if (newPassword.length < 6) {
+                                setErrorToast('A senha deve ter pelo menos 6 caracteres.');
+                                setToastType('error');
+                              } else if (newPassword !== confirmNewPassword) {
+                                setErrorToast('As senhas não coincidem.');
+                                setToastType('error');
+                              }
+                            }}
+                            disabled={!newPassword || !confirmNewPassword}
+                            className="w-full py-3 bg-[var(--color-sec)] text-white rounded-xl hover:opacity-90 transition-opacity font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                          >
+                            Continuar e Enviar Código
+                          </button>
+                        </>
+                      ) : (
+                        <div className="text-center py-4">
+                          <ShieldCheck className="w-12 h-12 text-[var(--color-sec)] mx-auto mb-4" />
+                          <p className="text-sm text-[var(--text-base)] mb-4">
+                            Um código de verificação foi enviado para seu e-mail para validar a nova senha.
+                          </p>
+                          <button
+                            onClick={() => {
+                              setSecurityOtpStep(false);
+                              setAuthModalStep('create_google_password');
+                              setAuthModalPassword(newPassword);
+                              setIsAuthModalOpen(true);
+                              setIsUserSettingsOpen(false);
+                            }}
+                            className="w-full py-3 bg-[var(--color-sec)] text-white rounded-xl font-bold shadow-lg hover:opacity-90 transition-opacity"
+                          >
+                            Abrir Verificador de Código
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* === INTELIGÊNCIA ARTIFICIAL === */}
+                  {settingsTab === 'inteligência artificial' && (
+                    <div className="p-6 space-y-6">
+                      <div>
+                        <h2 className="text-lg font-semibold text-[var(--text-base)] mb-3">Fonte do Título</h2>
+                        {streakDays < 10 ? (
+                          <div className={`space-y-3 opacity-50 pointer-events-none`}>
+                            <div className="flex items-center gap-2">
+                              <Flame className="w-4 h-4 text-orange-500" />
+                              <span className="text-xs text-orange-500 font-bold">Desbloqueie com 10 dias de ofensiva</span>
+                            </div>
+                            <select
+                              value={tempSettings.customTitleFont || 'BROXA AI'}
+                              disabled
+                              className="w-full bg-[var(--bg-input)] text-[var(--text-base)] border border-[var(--border-subtle)] rounded-xl p-4 opacity-50"
+                            >
+                              <option value="BROXA AI">Normal (BROXA AI)</option>
+                            </select>
+                          </div>
+                        ) : (
+                          <select
+                            value={tempSettings.customTitleFont || 'BROXA AI'}
+                            onChange={e => setTempSettings({ ...tempSettings, customTitleFont: e.target.value })}
+                            className="w-full bg-[var(--bg-input)] text-[var(--text-base)] border border-[var(--border-subtle)] rounded-xl p-4 focus:outline-none focus:border-[var(--color-sec)]"
+                          >
+                            <option value="BROXA AI">Normal (BROXA AI)</option>
+                            <option value="𝕭𝕽𝕺𝖃𝕬 𝕬𝕴">Gótico (𝕭𝕽𝕺𝖃𝕬 𝕬𝕴)</option>
+                            <option value="𝐁𝐑𝐎𝐗𝐀 𝐀𝐈">Negrito Serif (𝐁𝐑𝐎𝐗𝐀 𝐀𝐈)</option>
+                            <option value="𝘉𝘙𝘖𝘟𝘈 𝘈𝘐">Itálico (𝘉𝘙𝘖𝘟𝘈 𝘈𝘐)</option>
+                            <option value="𝘽𝙍Ｏ𝙓𝘼 𝘼𝙄">Negrito Itálico (𝘽𝙍Ｏ𝙓𝘼 𝘼𝙄)</option>
+                            <option value="𝙱𝚁𝙾𝚇𝙰 𝙰𝙸">Máquina de Escrever (𝙱𝚁𝙾𝚇𝙰 𝙰𝙸)</option>
+                            <option value="𝗕𝗥𝗢𝗫𝗔 𝗔𝗜">Negrito Sans (𝗕𝗥𝗢𝗫𝗔 𝗔𝗜)</option>
+                            <option value="𝔅ℜ𝔒𝔛𝔄 𝔄ℑ">Medieval (𝔅ℜ𝔒𝔛𝔄 𝔄ℑ)</option>
+                            <option value="𝔹ℝ𝕆𝕏𝔸 𝔸𝕀">Contorno (𝔹ℝ𝕆𝕏𝔸 𝔸𝕀)</option>
+                            <option value="ＢＲＯＸＡ ＡＩ">Espaçado (ＢＲＯＸＡ ＡＩ)</option>
+                            <option value="ⓑⓡⓞⓧⓐ ⓐⓘ">Círculos (ⓑⓡⓞⓧⓐ ⓐⓘ)</option>
+                            <option value="🅑🅡🅞🅧🅐 🅐🅘">Círculos Escuros (🅑🅡🅞🅧🅐 🅐🅘)</option>
+                            <option value="🅱🆁🅾🆇🅰 🅰🅸">Quadrados (🅱🆁🅾🆇🅰 🅰🅸)</option>
+                            <option value="ᗷᖇO᙭ᗩ ᗩI">Curvado (ᗷᖇO᙭ᗩ ᗩI)</option>
+                            <option value="乃尺ㄖ乂卂 卂丨">Asiático (乃尺ㄖ乂卂 卂丨)</option>
+                            <option value="ᏰᏒᎧጀᏗ ᏗᎥ">Mágico (ᏰᏒᎧጀᏗ ᏗᎥ)</option>
+                            <option value="฿ⱤØӾ₳ ₳ł">Moeda (฿ⱤØӾ₳ ₳ł)</option>
+                          </select>
+                        )}
+                      </div>
+                      <div>
+                        <h2 className="text-lg font-semibold text-[var(--text-base)] mb-3">Comportamento da IA</h2>
+                        {streakDays < 20 ? (
+                          <div className={`opacity-50 pointer-events-none`}>
+                            <div className="flex items-center gap-2 mb-2">
+                              <Flame className="w-4 h-4 text-orange-500" />
+                              <span className="text-xs text-orange-500 font-bold">Desbloqueie com 20 dias de ofensiva</span>
+                            </div>
+                            <textarea
+                              value=""
+                              disabled
+                              className="w-full bg-[var(--bg-input)] text-[var(--text-base)] border border-[var(--border-subtle)] rounded-xl p-4 min-h-[120px] opacity-50"
+                            />
+                          </div>
+                        ) : (
+                          <>
+                            <textarea
+                              value={tempSettings.customInstruction || ''}
+                              onChange={e => {
+                                setTempSettings({ ...tempSettings, customInstruction: e.target.value });
+                                setSettingsError(null);
+                              }}
+                              disabled={selectedModel === 'as'}
+                              placeholder={selectedModel === 'as' ? "Não disponível para o modelo A.S" : "Ex: Responda como um pirata..."}
+                              className={`w-full bg-[var(--bg-input)] text-[var(--text-base)] border ${settingsError ? 'border-red-500' : 'border-[var(--border-subtle)]'} rounded-xl p-4 min-h-[120px] resize-y focus:outline-none focus:border-[var(--color-sec)] disabled:opacity-50 disabled:cursor-not-allowed`}
+                            />
+                            {selectedModel === 'as' && (
+                              <span className="text-xs text-[var(--text-muted)]">O comportamento customizado não é aplicável ao modelo A.S.</span>
+                            )}
+                            {settingsError && (
+                              <div className="text-red-500 text-sm mt-1 p-3 bg-red-500/10 rounded-xl border border-red-500/20 flex items-start gap-2">
+                                <AlertTriangle className="w-5 h-5 shrink-0 mt-0.5" />
+                                <span>{settingsError}</span>
+                              </div>
+                            )}
+                            <button
+                              onClick={() => setTempSettings({ ...tempSettings, customInstruction: '' })}
+                              className="text-sm text-[var(--color-sec)] hover:underline text-left mt-3 block"
+                            >
+                              Não curtiu o comportamento da IA? Clique aqui para redefinir.
+                            </button>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* === DISPOSITIVOS === */}
+                  {settingsTab === 'dispositivos' && (
+                    <div className="p-6 space-y-6">
+                      <h2 className="text-lg font-semibold text-[var(--text-base)]">Dispositivos</h2>
+                      <div className="bg-[var(--bg-base)] border border-[var(--border-subtle)] rounded-2xl p-5">
                         <div className="flex items-center gap-4">
                           <div className="w-12 h-12 rounded-xl bg-green-500/10 flex items-center justify-center shrink-0">
                             <Monitor className="w-6 h-6 text-green-400" />
@@ -4650,35 +4642,12 @@ export default function ChatPage() {
                             <div className="text-sm text-[var(--text-muted)] mt-0.5">{navigator?.userAgent?.includes('Mobile') ? 'Dispositivo Móvel' : 'Navegador Web'} • {new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</div>
                           </div>
                         </div>
-                      </motion.div>
-                      <motion.div
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        transition={{ delay: 0.2 }}
-                        className="text-center py-10"
-                      >
+                      </div>
+                      <div className="text-center py-10">
                         <Shield className="w-14 h-14 text-[var(--text-muted)] mx-auto mb-3 opacity-20" />
                         <p className="text-sm font-medium text-[var(--text-muted)]">Nenhum outro dispositivo conectado</p>
                         <p className="text-xs text-[var(--text-muted)] mt-1.5">Quando fizer login em outro dispositivo, ele aparecerá aqui</p>
-                      </motion.div>
-                    </div>
-                  </section>
-
-                  {/* Logout button */}
-                  {auth.currentUser && (
-                    <div className="pt-4 border-t border-[var(--border-subtle)]">
-                      <motion.button
-                        whileHover={{ scale: 1.02 }}
-                        whileTap={{ scale: 0.98 }}
-                        onClick={() => {
-                          setIsSettingsOpen(false);
-                          setIsLogoutModalOpen(true);
-                        }}
-                        className="flex items-center justify-center gap-2 w-full py-3 px-4 bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white rounded-xl transition-colors font-medium"
-                      >
-                        <LogOut className="w-5 h-5" />
-                        Sair da conta
-                      </motion.button>
+                      </div>
                     </div>
                   )}
                 </div>
@@ -4937,11 +4906,10 @@ export default function ChatPage() {
           )}
         </AnimatePresence>
 
-        <div className={`fixed inset-y-0 left-0 z-50 w-[85vw] max-w-[288px] md:w-72 bg-[var(--bg-panel)] border-r border-[var(--border-subtle)] transform transition-transform duration-300 ease-in-out flex flex-col ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} md:relative md:translate-x-0 md:rounded-none rounded-r-[40px]`}>
+        <div className={`fixed inset-y-0 left-0 z-50 w-full md:w-72 bg-[var(--bg-panel)] border-r border-[var(--border-subtle)] transform transition-transform duration-300 ease-in-out flex flex-col ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} md:relative md:translate-x-0 md:rounded-none`}>
           <div className="p-4 flex items-center justify-between">
-            <div className={`flex items-center gap-3 text-lg font-bold ${settings.enableEffects ? 'broxa-title' : 'text-[var(--text-base)]'}`}>
-              <Logo className="w-8 h-8 text-[var(--color-sec)]" />
-              {settings.customTitleFont || 'BROXA AI'}
+            <div className={`flex items-center text-lg font-bold ${settings.enableEffects ? 'broxa-title' : 'text-[var(--text-base)]'}`}>
+              {settings.customTitleFont === 'BROXA AI' ? 'BroxaAI' : settings.customTitleFont}
             </div>
             <button onClick={() => setIsSidebarOpen(false)} className="md:hidden p-3 -mr-2 text-[var(--text-muted)] hover:text-[var(--text-base)]">
               <X className="w-6 h-6" />
@@ -4970,8 +4938,48 @@ export default function ChatPage() {
               </div>
             )}
 
-            {auth.currentUser && (
-              <div className="mb-4">
+            <div className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider px-4 mb-2">Histórico</div>
+            <div className="space-y-1">
+              {historyLoadStatus === 'loading' && (
+                <div className="flex flex-col items-center justify-center p-6 text-center">
+                  <div className="w-8 h-8 border-4 border-[#1ed760] border-t-transparent rounded-full animate-spin mb-3"></div>
+                </div>
+              )}
+              {historyLoadStatus === 'success' && (
+                <motion.div
+                  initial={{ scale: 0 }}
+                  animate={{ scale: [0, 1.2, 1] }}
+                  transition={{ type: "spring", stiffness: 300, damping: 15 }}
+                  className="flex flex-col items-center justify-center p-6 text-center mt-2 overflow-hidden"
+                >
+                  <SpotifySuccess />
+                </motion.div>
+              )}
+              {historyLoadStatus === 'error' && (
+                <div className="flex flex-col items-center justify-center p-6 text-center">
+                  <div className="w-12 h-12 bg-red-500 rounded-full flex items-center justify-center mb-4 shadow-lg">
+                    <X className="w-6 h-6 text-white" />
+                  </div>
+                  <span className="text-sm font-bold text-red-500 mb-2">Ocorreu um erro</span>
+                  <button
+                    onClick={() => window.location.reload()}
+                    className="p-3 bg-[var(--bg-surface)] hover:bg-[var(--border-strong)] rounded-full transition-all group"
+                    title="Atualizar página"
+                  >
+                    <RefreshCw className="w-5 h-5 text-[var(--text-base)] group-hover:animate-spin" />
+                  </button>
+                </div>
+              )}
+
+              {(historyLoadStatus === 'success' || historyLoadStatus === 'loaded') && (
+                <AnimatePresence>
+                  {unpinnedSessions.map(renderSession)}
+                </AnimatePresence>
+              )}
+            </div>
+
+            {auth.currentUser && groups.length > 0 && (
+              <div className="mb-4 mt-2">
                 <div className="flex items-center justify-between px-4 mb-2">
                   <div className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider">Grupos</div>
                   <button
@@ -5018,46 +5026,6 @@ export default function ChatPage() {
                 </div>
               </div>
             )}
-
-            <div className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider px-4 mb-2">Histórico</div>
-            <div className="space-y-1">
-              {historyLoadStatus === 'loading' && (
-                <div className="flex flex-col items-center justify-center p-6 text-center">
-                  <div className="w-8 h-8 border-4 border-[#1ed760] border-t-transparent rounded-full animate-spin mb-3"></div>
-                </div>
-              )}
-              {historyLoadStatus === 'success' && (
-                <motion.div
-                  initial={{ scale: 0 }}
-                  animate={{ scale: [0, 1.2, 1] }}
-                  transition={{ type: "spring", stiffness: 300, damping: 15 }}
-                  className="flex flex-col items-center justify-center p-6 text-center mt-2 overflow-hidden"
-                >
-                  <SpotifySuccess />
-                </motion.div>
-              )}
-              {historyLoadStatus === 'error' && (
-                <div className="flex flex-col items-center justify-center p-6 text-center">
-                  <div className="w-12 h-12 bg-red-500 rounded-full flex items-center justify-center mb-4 shadow-lg">
-                    <X className="w-6 h-6 text-white" />
-                  </div>
-                  <span className="text-sm font-bold text-red-500 mb-2">Ocorreu um erro</span>
-                  <button
-                    onClick={() => window.location.reload()}
-                    className="p-3 bg-[var(--bg-surface)] hover:bg-[var(--border-strong)] rounded-full transition-all group"
-                    title="Atualizar página"
-                  >
-                    <RefreshCw className="w-5 h-5 text-[var(--text-base)] group-hover:animate-spin" />
-                  </button>
-                </div>
-              )}
-
-              {(historyLoadStatus === 'success' || historyLoadStatus === 'loaded') && (
-                <AnimatePresence>
-                  {unpinnedSessions.map(renderSession)}
-                </AnimatePresence>
-              )}
-            </div>
           </div>
 
           <div className="mt-4 border-t border-[var(--border-subtle)]">
