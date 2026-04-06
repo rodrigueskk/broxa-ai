@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
-import { Menu, Plus, MessageSquare, Trash2, Send, Image as ImageIcon, X, Settings, Pin, Highlighter, AlertTriangle, Undo2, Redo2, Eraser, Copy, Check, ChevronDown, ShieldAlert, LogIn, LogOut, Search, GitCompare, Edit, Edit2, ThumbsUp, ThumbsDown, AlertCircle, ChevronUp, RefreshCw, Cpu, Flame, Snowflake, Bot, User, Lock, ChevronRight, ShieldCheck, LayoutDashboard, Globe, Dog, Monitor, Shield, Palette, Sparkles } from 'lucide-react';
+import { Menu, Plus, MessageSquare, Trash2, Send, Image as ImageIcon, X, Settings, Pin, Highlighter, AlertTriangle, Undo2, Redo2, Eraser, Copy, Check, ChevronDown, ShieldAlert, LogIn, LogOut, Search, GitCompare, Edit, Edit2, ThumbsUp, ThumbsDown, AlertCircle, ChevronUp, RefreshCw, Cpu, Flame, Snowflake, Bot, User, Lock, ChevronRight, ShieldCheck, LayoutDashboard, Globe, Dog, Monitor, Shield, Palette } from 'lucide-react';
 import { useChatStore, useSettingsStore, useAdminStore, useUserStore, useGroupStore, ReleaseNote, ReleaseNoteImage, ReleaseNoteBadge } from '../store';
 import { Group, GroupMessage } from '../types';
 import { db } from '../firebase';
@@ -19,6 +19,75 @@ import { MindMap } from '../components/MindMap';
 import { checkContent, getViolationMessage } from '../services/moderation';
 import { BanScreen } from '../components/BanScreen';
 import { SpotifySuccess } from '../components/SpotifySuccess';
+
+interface ColorPickerDropdownProps {
+  valueColor: string;
+  colorMap: { value: string; label: string }[];
+  onSelect: (color: string) => void;
+}
+
+const ColorPickerDropdown: React.FC<ColorPickerDropdownProps> = ({ valueColor, colorMap, onSelect }) => {
+  const [open, setOpen] = useState(false);
+  const currentColorLabel = colorMap.find(c => c.value === valueColor)?.label || 'Customizada';
+  const containerRef = React.useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    };
+    if (open) document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [open]);
+
+  return (
+    <div ref={containerRef} className="relative">
+      <button
+        onClick={() => setOpen(o => !o)}
+        className="flex items-center justify-between w-full bg-[var(--bg-surface)] rounded-xl px-4 py-3 border border-[var(--border-strong)] shadow-sm hover:border-[var(--border-subtle)] transition-colors"
+      >
+        <span className="text-sm text-[var(--text-base)] font-medium">{currentColorLabel}</span>
+        <div className="flex items-center gap-2">
+          <div
+            className="w-5 h-5 rounded-full border-2 border-[var(--border-strong)]"
+            style={{ backgroundColor: valueColor }}
+          />
+          <ChevronDown className={`w-4 h-4 text-[var(--text-muted)] transition-transform ${open ? 'rotate-180' : ''}`} />
+        </div>
+      </button>
+      <AnimatePresence>
+        {open && (
+          <motion.div
+            initial={{ opacity: 0, y: -4 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -4 }}
+            className="absolute bottom-full left-0 mb-1 w-full bg-[var(--bg-panel)] border border-[var(--border-strong)] rounded-xl shadow-xl overflow-hidden z-50"
+          >
+            <div className="py-1">
+              {colorMap.map((color) => (
+                <button
+                  key={color.value}
+                  onClick={() => {
+                    onSelect(color.value);
+                    setOpen(false);
+                  }}
+                  className={`flex items-center justify-between w-full text-left px-4 py-2.5 text-sm hover:bg-[var(--bg-surface)] transition-colors ${valueColor === color.value ? 'bg-[var(--bg-surface)]' : ''}`}
+                >
+                  <span className="text-[var(--text-base)]">{color.label}</span>
+                  <div
+                    className="w-5 h-5 rounded-full border-2 border-[var(--border-strong)]"
+                    style={{ backgroundColor: color.value }}
+                  />
+                </button>
+              ))}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+};
 
 const RespostaOptions = ({ disabled }: { disabled: boolean }) => {
   const [selected, setSelected] = useState<string | null>(null);
@@ -1118,6 +1187,8 @@ export default function ChatPage() {
   const shownFeatureRef = useRef<Set<string>>(new Set());
   const [isProfileSetupOpen, setIsProfileSetupOpen] = useState(false);
   const [isUserSettingsOpen, setIsUserSettingsOpen] = useState(false);
+  const [isProfilePopoverOpen, setIsProfilePopoverOpen] = useState(false);
+  const profilePopoverRef = useRef<HTMLDivElement>(null);
   const [tempDisplayName, setTempDisplayName] = useState('');
   const [tempPhotoURL, setTempPhotoURL] = useState('');
   const [activeSettingsTab, setActiveSettingsTab] = useState<'profile' | 'security'>('profile');
@@ -1137,6 +1208,17 @@ export default function ChatPage() {
     });
     return () => unsubscribe();
   }, []);
+
+  // Click-outside handler for profile popover
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (isProfilePopoverOpen && profilePopoverRef.current && !profilePopoverRef.current.contains(e.target as Node)) {
+        setIsProfilePopoverOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [isProfilePopoverOpen]);
 
   // Security Banner & Warning States
   const [isSecurityBannerDismissed, setIsSecurityBannerDismissed] = useState(() => {
@@ -1453,8 +1535,11 @@ export default function ChatPage() {
     return () => unsubscribe();
   }, [selectedGroupId]);
 
+  const hasShownProfileSetupRef = useRef(false);
+
   useEffect(() => {
-    if (isUserLoaded && auth.currentUser && hasSetProfile === false && !isProfileSetupOpen) {
+    if (isUserLoaded && auth.currentUser && hasSetProfile === false && !isProfileSetupOpen && !hasShownProfileSetupRef.current) {
+      hasShownProfileSetupRef.current = true;
       setIsProfileSetupOpen(true);
       setTempDisplayName(displayName || auth.currentUser.displayName || '');
       setTempPhotoURL(photoURL || auth.currentUser.photoURL || '');
@@ -1515,7 +1600,6 @@ export default function ChatPage() {
   const [selectedUiVersion, setSelectedUiVersion] = useState<'before' | 'after'>('before');
   const [isNovaUiConfirmOpen, setIsNovaUiConfirmOpen] = useState(false);
   const [pendingUiVersion, setPendingUiVersion] = useState<'before' | 'after' | null>(null);
-  const [activeSettingsTabMain, setActiveSettingsTabMain] = useState<'general' | 'devices'>('general');
 
   useEffect(() => {
     const unsub = onSnapshot(doc(db, 'settings', 'global'), (docSnap) => {
@@ -4166,21 +4250,9 @@ export default function ChatPage() {
 
                   {/* ========== TEMAS ========== */}
                   <section>
-                    <motion.div
-                      initial={{ opacity: 0, x: -20 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      transition={{ delay: 0.05 }}
-                      className="flex items-center gap-3 mb-4"
-                    >
-                      <motion.div
-                        whileHover={{ scale: 1.2, rotate: -6 }}
-                        transition={{ type: 'spring', stiffness: 400 }}
-                        className="w-8 h-8 rounded-lg bg-purple-500/10 flex items-center justify-center"
-                      >
-                        <Palette className="w-4 h-4 text-purple-400" />
-                      </motion.div>
+                    <div className="flex items-center gap-3 mb-4">
                       <span className="text-xs font-black text-[var(--text-muted)] tracking-[0.2em] uppercase">Temas</span>
-                    </motion.div>
+                    </div>
                     <div className="pl-12 space-y-4">
                       {/* Dark/Light */}
                       <div className="grid grid-cols-2 gap-3">
@@ -4328,112 +4400,76 @@ export default function ChatPage() {
                       {/* Secondary Color */}
                       <div className="space-y-3">
                         <div className="flex items-center gap-3">
-                          <Palette className="w-4 h-4 text-[var(--text-muted)]" />
                           <span className="text-[var(--text-base)] font-medium">Cor Secundária</span>
                         </div>
-                        <div className="flex items-center gap-2 bg-[var(--bg-surface)] rounded-full px-4 py-2.5 border border-[var(--border-strong)] shadow-sm">
-                          {['#22c55e', '#eab308', '#ec4899', '#3b82f6', '#a855f7'].map((color, i) => (
-                            <motion.button
-                              key={'sec' + color}
-                              initial={{ scale: 0 }}
-                              animate={{ scale: 1 }}
-                              transition={{ delay: 0.1 + i * 0.05, type: 'spring' }}
-                              whileHover={{ scale: 1.2 }}
-                              whileTap={{ scale: 0.9 }}
-                              onClick={() => setTempSettings({ ...tempSettings, secondaryColor: color })}
-                              className={`w-7 h-7 rounded-full transition-all flex-shrink-0 ${tempSettings.secondaryColor === color ? 'ring-2 ring-offset-2 ring-[var(--color-sec)] ring-offset-[var(--bg-surface)]' : ''}`}
-                              style={{ backgroundColor: color }}
-                            />
-                          ))}
-                        </div>
+                        <ColorPickerDropdown
+                          valueColor={tempSettings.secondaryColor || '#22c55e'}
+                          colorMap={[
+                            { value: '#22c55e', label: 'Verde' },
+                            { value: '#eab308', label: 'Amarelo' },
+                            { value: '#ec4899', label: 'Rosa' },
+                            { value: '#3b82f6', label: 'Azul' },
+                            { value: '#a855f7', label: 'Roxo' },
+                          ]}
+                          onSelect={(color) => setTempSettings({ ...tempSettings, secondaryColor: color })}
+                        />
                       </div>
                       {/* User Message Color */}
                       <div className="space-y-3">
                         <div className="flex items-center gap-3">
-                          <Palette className="w-4 h-4 text-[var(--text-muted)]" />
                           <span className="text-[var(--text-base)] font-medium">Cor das Suas Mensagens</span>
                         </div>
-                        <div className="flex items-center gap-2 bg-[var(--bg-surface)] rounded-full px-4 py-2.5 border border-[var(--border-strong)] shadow-sm">
-                          {['#ffffff', '#000000', '#4b5563', '#4c1d95', '#1d4ed8'].map((color, i) => (
-                            <motion.button
-                              key={'msg' + color}
-                              initial={{ scale: 0 }}
-                              animate={{ scale: 1 }}
-                              transition={{ delay: 0.15 + i * 0.05, type: 'spring' }}
-                              whileHover={{ scale: 1.2 }}
-                              whileTap={{ scale: 0.9 }}
-                              onClick={() => setTempSettings({ ...tempSettings, userMessageColor: color })}
-                              className={`w-7 h-7 rounded-full transition-all flex-shrink-0 border border-white/10 ${tempSettings.userMessageColor === color || (!tempSettings.userMessageColor && color === '#ffffff') ? 'ring-2 ring-offset-2 ring-[var(--color-sec)] ring-offset-[var(--bg-surface)]' : ''}`}
-                              style={{ backgroundColor: color }}
-                            />
-                          ))}
-                        </div>
+                        <ColorPickerDropdown
+                          valueColor={tempSettings.userMessageColor || '#ffffff'}
+                          colorMap={[
+                            { value: '#ffffff', label: 'Branco' },
+                            { value: '#000000', label: 'Preto' },
+                            { value: '#4b5563', label: 'Cinza' },
+                            { value: '#4c1d95', label: 'Roxo Escuro' },
+                            { value: '#1d4ed8', label: 'Azul Escuro' },
+                          ]}
+                          onSelect={(color) => setTempSettings({ ...tempSettings, userMessageColor: color })}
+                        />
                       </div>
                       {/* Selection Color */}
                       <div className="space-y-3">
                         <div className="flex items-center gap-3">
-                          <Palette className="w-4 h-4 text-[var(--text-muted)]" />
                           <span className="text-[var(--text-base)] font-medium">Cor de Seleção</span>
                         </div>
-                        <div className="flex items-center gap-2 bg-[var(--bg-surface)] rounded-full px-4 py-2.5 border border-[var(--border-strong)] shadow-sm">
-                          {['#22c55e', '#eab308', '#ec4899', '#3b82f6', '#a855f7'].map((color, i) => (
-                            <motion.button
-                              key={'sel' + color}
-                              initial={{ scale: 0 }}
-                              animate={{ scale: 1 }}
-                              transition={{ delay: 0.2 + i * 0.05, type: 'spring' }}
-                              whileHover={{ scale: 1.2 }}
-                              whileTap={{ scale: 0.9 }}
-                              onClick={() => setTempSettings({ ...tempSettings, selectionColor: color })}
-                              className={`w-7 h-7 rounded-full transition-all flex-shrink-0 ${tempSettings.selectionColor === color ? 'ring-2 ring-offset-2 ring-[var(--color-sec)] ring-offset-[var(--bg-surface)]' : ''}`}
-                              style={{ backgroundColor: color }}
-                            />
-                          ))}
-                        </div>
+                        <ColorPickerDropdown
+                          valueColor={tempSettings.selectionColor || '#3b82f6'}
+                          colorMap={[
+                            { value: '#22c55e', label: 'Verde' },
+                            { value: '#eab308', label: 'Amarelo' },
+                            { value: '#ec4899', label: 'Rosa' },
+                            { value: '#3b82f6', label: 'Azul' },
+                            { value: '#a855f7', label: 'Roxo' },
+                          ]}
+                          onSelect={(color) => setTempSettings({ ...tempSettings, selectionColor: color })}
+                        />
                       </div>
                     </div>
                   </section>
 
                   {/* ========== EFEITOS VISUAIS ========== */}
                   <section>
-                    <motion.div
-                      initial={{ opacity: 0, x: -20 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      transition={{ delay: 0.15 }}
-                      className="flex items-center gap-3 mb-4"
-                    >
-                      <motion.div
-                        whileHover={{ scale: 1.2, rotate: -6 }}
-                        transition={{ type: 'spring', stiffness: 400 }}
-                        className="w-8 h-8 rounded-lg bg-amber-500/10 flex items-center justify-center"
-                      >
-                        <Sparkles className="w-4 h-4 text-amber-400" />
-                      </motion.div>
+                    <div className="flex items-center gap-3 mb-4">
                       <span className="text-xs font-black text-[var(--text-muted)] tracking-[0.2em] uppercase">Efeitos Visuais</span>
-                    </motion.div>
+                    </div>
                     <div className="pl-12 space-y-4">
-                      {/* On/Off */}
-                      <div className="grid grid-cols-2 gap-3">
-                        <motion.button
-                          whileHover={{ scale: 1.03 }}
-                          whileTap={{ scale: 0.97 }}
-                          onClick={() => setTempSettings({ ...tempSettings, enableEffects: true })}
-                          className={`p-4 rounded-2xl border-2 transition-all flex flex-col items-center gap-3 ${tempSettings.enableEffects ? 'border-[var(--color-sec)] shadow-[0_0_12px_rgba(234,179,8,0.2)]' : 'border-[var(--border-subtle)] hover:border-[var(--text-muted)]'}`}
-                        >
-                          <Sparkles className="w-6 h-6 text-[var(--color-sec)]" />
-                          <span className="text-sm font-bold text-[var(--text-base)]">Ativado</span>
-                          {tempSettings.enableEffects && <motion.div layoutId="effectsCheck" className="w-5 h-5 rounded-full bg-[var(--color-sec)] flex items-center justify-center"><Check className="w-3 h-3 text-black" /></motion.div>}
-                        </motion.button>
-                        <motion.button
-                          whileHover={{ scale: 1.03 }}
-                          whileTap={{ scale: 0.97 }}
-                          onClick={() => setTempSettings({ ...tempSettings, enableEffects: false })}
-                          className={`p-4 rounded-2xl border-2 transition-all flex flex-col items-center gap-3 ${!tempSettings.enableEffects ? 'border-[var(--color-sec)] shadow-[0_0_12px_rgba(234,179,8,0.2)]' : 'border-[var(--border-subtle)] hover:border-[var(--text-muted)]'}`}
-                        >
-                          <Sparkles className="w-6 h-6 text-[var(--text-muted)] opacity-30" />
-                          <span className="text-sm font-bold text-[var(--text-base)]">Desativado</span>
-                          {!tempSettings.enableEffects && <motion.div layoutId="effectsCheck" className="w-5 h-5 rounded-full bg-[var(--color-sec)] flex items-center justify-center"><Check className="w-3 h-3 text-black" /></motion.div>}
-                        </motion.button>
+                      {/* On/Off - Toggle Switch */}
+                      <div className="flex items-center gap-3 bg-[var(--bg-surface)] rounded-xl px-4 py-3 border border-[var(--border-subtle)]">
+                        <span className="text-sm text-[var(--text-base)]">Ativado</span>
+                        <div className="ml-auto">
+                          <button
+                            onClick={() => setTempSettings({ ...tempSettings, enableEffects: !tempSettings.enableEffects })}
+                            className={`relative inline-flex items-center h-6 rounded-full w-11 transition-colors ${tempSettings.enableEffects ? 'bg-[var(--color-sec)]' : 'bg-[var(--bg-input)]'}`}
+                          >
+                            <span
+                              className={`inline-block w-4 h-4 transform bg-white rounded-full transition-transform ${tempSettings.enableEffects ? 'translate-x-6' : 'translate-x-1'}`}
+                            />
+                          </button>
+                        </div>
                       </div>
                       {/* Background Image */}
                       <div className={`space-y-3 ${streakDays < 15 ? 'opacity-50 pointer-events-none' : ''}`}>
@@ -5024,45 +5060,112 @@ export default function ChatPage() {
             </div>
           </div>
 
-          <div className="p-4 border-t border-[var(--border-subtle)]">
+          <div className="mt-4 border-t border-[var(--border-subtle)]">
             {isAdmin && (
               <button
                 onClick={() => setIsAdminPanelOpen(true)}
-                className="flex items-center gap-3 text-sm text-[var(--color-sec)] hover:text-white transition-colors w-full p-2 rounded-xl hover:bg-[var(--color-sec)]/20 mb-2"
+                className="flex items-center gap-3 text-sm text-[var(--color-sec)] hover:text-white transition-colors w-full p-2 rounded-xl hover:bg-[var(--color-sec)]/20"
               >
                 <ShieldAlert className="w-4 h-4" />
                 Painel Admin
               </button>
             )}
-            <button
-              onClick={() => setIsSettingsOpen(true)}
-              className="flex items-center gap-3 text-sm text-[var(--text-muted)] hover:text-[var(--text-base)] transition-colors w-full p-2 rounded-xl hover:bg-[var(--bg-surface)] mb-2"
-            >
-              <Settings className="w-4 h-4" />
-              Configurações
-            </button>
-            {auth.currentUser ? (
+            <div className="relative" ref={profilePopoverRef}>
               <button
-                onClick={() => {
-                  setTempDisplayName(displayName || auth.currentUser?.displayName || '');
-                  setTempPhotoURL(photoURL || auth.currentUser?.photoURL || '');
-                  setIsUserSettingsOpen(true);
-                  setIsSidebarOpen(false);
-                }}
-                className="flex items-center gap-3 text-sm text-[var(--text-muted)] hover:text-[var(--text-base)] transition-colors w-full p-2 rounded-xl hover:bg-[var(--bg-surface)]"
+                onClick={() => setIsProfilePopoverOpen(o => !o)}
+                className="flex items-center gap-3 w-full p-2.5 rounded-xl hover:bg-[var(--bg-surface)] transition-colors"
               >
-                <User className="w-4 h-4" />
-                Usuário
+                {auth.currentUser ? (
+                  <>
+                    <div className="w-8 h-8 rounded-full overflow-hidden flex-shrink-0 border border-[var(--border-subtle)]">
+                      {(photoURL || auth.currentUser.photoURL) ? (
+                        <img src={photoURL || auth.currentUser.photoURL!} alt="Avatar" className="w-full h-full object-cover" />
+                      ) : (
+                        <div className="w-full h-full bg-[var(--bg-surface)] flex items-center justify-center">
+                          <User className="w-4 h-4 text-[var(--text-muted)]" />
+                        </div>
+                      )}
+                    </div>
+                    <span className="text-sm text-[var(--text-base)] font-medium truncate">
+                      {displayName || auth.currentUser.displayName?.split(' ')[0] || 'Usuário'}
+                    </span>
+                  </>
+                ) : (
+                  <>
+                    <div className="w-8 h-8 rounded-full bg-[var(--bg-surface)] flex items-center justify-center flex-shrink-0 border border-[var(--border-subtle)]">
+                      <User className="w-4 h-4 text-[var(--text-muted)]" />
+                    </div>
+                    <span className="text-sm text-[var(--text-muted)] font-medium">Fazer Login</span>
+                  </>
+                )}
               </button>
-            ) : (
-              <button
-                onClick={() => setIsAuthModalOpen(true)}
-                className="flex items-center gap-3 text-sm text-[var(--text-muted)] hover:text-[var(--text-base)] transition-colors w-full p-2 rounded-xl hover:bg-[var(--bg-surface)]"
-              >
-                <LogIn className="w-4 h-4" />
-                Fazer Login
-              </button>
-            )}
+
+              <AnimatePresence>
+                {isProfilePopoverOpen && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: 8 }}
+                    className="absolute bottom-full left-0 mb-2 w-full min-w-[200px] bg-[var(--bg-panel)] border border-[var(--border-strong)] rounded-xl shadow-2xl overflow-hidden z-50"
+                  >
+                    <div className="py-1">
+                      {auth.currentUser ? (
+                        <>
+                          <button
+                            onClick={() => { setIsProfilePopoverOpen(false); setIsSettingsOpen(true); }}
+                            className="flex items-center gap-3 w-full text-left px-3 py-2.5 text-sm text-[var(--text-base)] hover:bg-[var(--bg-surface)] transition-colors"
+                          >
+                            <Settings className="w-4 h-4 text-[var(--text-muted)]" />
+                            Configurações
+                          </button>
+                          <button
+                            onClick={() => {
+                              setIsProfilePopoverOpen(false);
+                              setTempDisplayName(displayName || auth.currentUser?.displayName || '');
+                              setTempPhotoURL(photoURL || auth.currentUser?.photoURL || '');
+                              setIsUserSettingsOpen(true);
+                            }}
+                            className="flex items-center gap-3 w-full text-left px-3 py-2.5 text-sm text-[var(--text-base)] hover:bg-[var(--bg-surface)] transition-colors"
+                          >
+                            <User className="w-4 h-4 text-[var(--text-muted)]" />
+                            Perfil
+                          </button>
+                          <button
+                            onClick={() => {
+                              setIsProfilePopoverOpen(false);
+                              setTempDisplayName(displayName || auth.currentUser?.displayName || '');
+                              setTempPhotoURL(photoURL || auth.currentUser?.photoURL || '');
+                              setActiveSettingsTab('profile');
+                              setIsUserSettingsOpen(true);
+                            }}
+                            className="flex items-center gap-3 w-full text-left px-3 py-2.5 text-sm text-[var(--text-base)] hover:bg-[var(--bg-surface)] transition-colors"
+                          >
+                            <Lock className="w-4 h-4 text-[var(--text-muted)]" />
+                            Segurança
+                          </button>
+                          <div className="my-1 border-t border-[var(--border-subtle)]" />
+                          <button
+                            onClick={() => { setIsProfilePopoverOpen(false); setIsLogoutModalOpen(true); }}
+                            className="flex items-center gap-3 w-full text-left px-3 py-2.5 text-sm text-red-500 hover:bg-red-500/10 transition-colors"
+                          >
+                            <LogOut className="w-4 h-4" />
+                            Sair da conta
+                          </button>
+                        </>
+                      ) : (
+                        <button
+                          onClick={() => { setIsProfilePopoverOpen(false); setIsAuthModalOpen(true); }}
+                          className="flex items-center gap-3 w-full text-left px-3 py-2.5 text-sm text-[var(--text-base)] hover:bg-[var(--bg-surface)] transition-colors"
+                        >
+                          <LogIn className="w-4 h-4 text-[var(--text-muted)]" />
+                          Entrar ou criar conta
+                        </button>
+                      )}
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
           </div>
         </div>
 
