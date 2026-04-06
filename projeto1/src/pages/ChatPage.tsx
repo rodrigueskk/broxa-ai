@@ -1319,7 +1319,7 @@ export default function ChatPage() {
         ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
         canvas.toBlob(async (blob) => {
           if (blob) {
-            await handleSend("[TOTO_AUTO] Você é o Totó. Analise esta captura de tela com atenção. Identifique todo o conteúdo visível na imagem e responda de forma clara e útil em português. Se houver exercícios de inglês, resolva-os passo a passo. Se houver texto legível, explique ou traduza. Se for uma tela/interface, descreva o que está sendo mostrado. Seja conciso mas completo. Se não conseguir identificar nada útil na imagem, diga apenas que não conseguiu identificar o conteúdo.", [{ url: URL.createObjectURL(blob), mimeType: "image/jpeg" }], 'toto');
+            await handleSend("[TOTO_AUTO] Você é um tutor extremamente focado. Sua ÚNICA E EXCLUSIVA tarefa é analisar esta imagem. Se houver uma questão, exercício ou instrução legível, resolva-a de forma clara, objetiva e muito bem explicada em português, SEM SURPREENDER. Você está PROIBIDO de inventar informações, deduzir coisas não mostradas ou dar explicações sobre coisas que não estão presentes na imagem. Se a imagem não contiver exercícios ou textos nítidos para resolver, reponda somente: 'Não consegui identificar nenhuma questão na imagem enviada.' Não diga mais nada.", [{ url: URL.createObjectURL(blob), mimeType: "image/jpeg" }], 'toto');
             setAskTotoAgain(true);
             stopTotoAuto();
           }
@@ -1482,6 +1482,9 @@ export default function ChatPage() {
   const [isAdmin, setIsAdmin] = useState(false);
   const { releaseNotes, feedbacks, aiModels, users, allGroups, addReleaseNote, updateReleaseNote, deleteReleaseNote, updateAiModel, addFeedback, updateUserStreak, updateUserRole, updateUserBannedStatus, updateAdminGroupStreak, deleteAdminGroup, approveAppeal, denyAppeal, isMaintenanceMode, setMaintenanceMode } = useAdminStore(isAdmin);
   const [isAdminPanelOpen, setIsAdminPanelOpen] = useState(false);
+  const [newUiBeforeImg, setNewUiBeforeImg] = useState<string | null>(null);
+  const [newUiAfterImg, setNewUiAfterImg] = useState<string | null>(null);
+  const [isNewUiPhotoModalOpen, setIsNewUiPhotoModalOpen] = useState(false);
   const [adminTab, setAdminTab] = useState<'releaseNotes' | 'feedbacks' | 'models' | 'users' | 'groups' | 'appeals' | 'settings'>('releaseNotes');
   const [userSearchTerm, setUserSearchTerm] = useState('');
   const [groupSearchTerm, setGroupSearchTerm] = useState('');
@@ -1505,6 +1508,20 @@ export default function ChatPage() {
     images: [] as ReleaseNoteImage[],
     badges: [] as ReleaseNoteBadge[]
   });
+
+  const [enableNewUi, setEnableNewUi] = useState(false);
+
+  useEffect(() => {
+    const unsub = onSnapshot(doc(db, 'settings', 'global'), (docSnap) => {
+      if (docSnap.exists()) {
+        const data = docSnap.data();
+        setEnableNewUi(data.enableNewUi ?? false);
+        setNewUiBeforeImg(data.newUiBeforeImg || null);
+        setNewUiAfterImg(data.newUiAfterImg || null);
+      }
+    });
+    return () => unsub();
+  }, []);
 
   useEffect(() => {
     const unsubscribe = auth.onAuthStateChanged((user) => {
@@ -2206,7 +2223,7 @@ export default function ChatPage() {
         const modelToUseApi = modelToUse === 'toto' ? 'gemini-3-flash-preview' : modelToUse;
 
         if (modelToUse === 'toto') {
-          customInstruction = "Você é o Totó, um assistente visual. Você receberá captures de tela do usuário. Analise a imagem com cuidado e responda de forma direta e útil sobre o conteúdo visível. Se houver exercícios de inglês, resolva-os claramente em português. Se houver texto legível, explique ou traduza. Se for uma interface/website, descreva o que está na tela. Seja conciso. Se não conseguir identificar nada relevante na imagem, responda apenas: 'Não consegui identificar conteúdo relevante na imagem. Tente enviar novamente com melhor visibilidade.' Nunca invente informações.";
+          customInstruction = "Você é o Totó, um assistente especializado em resolver questões de inglês. Analise a imagem fornecida, identifique a questão e forneça a resposta correta de forma curta e objetiva, justificando brevemente em português.";
         }
 
         const history = groupMessages.map(m => ({
@@ -3698,6 +3715,96 @@ export default function ChatPage() {
                           </div>
                         </div>
                       </div>
+                      <div className="mt-6">
+                        <h4 className="text-lg font-semibold text-[var(--text-base)] mb-4">Fotos Nova UI</h4>
+                        <p className="text-sm text-[var(--text-muted)] mb-4">Adicione as fotos de antes e depois da nova UI. Elas aparecerão como preview na configuração.</p>
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <p className="text-xs font-bold text-[var(--text-muted)] mb-2">Antes (Foto Atual)</p>
+                            <div className="bg-[var(--bg-input)] border border-[var(--border-strong)] rounded-xl overflow-hidden aspect-video flex items-center justify-center relative">
+                              {newUiBeforeImg ? (
+                                <img src={newUiBeforeImg} alt="Antes" className="w-full h-full object-cover" />
+                              ) : (
+                                <span className="text-4xl text-[var(--text-muted)]">?</span>
+                              )}
+                              {newUiBeforeImg && (
+                                <button
+                                  onClick={async () => {
+                                    setNewUiBeforeImg(null);
+                                    try { await updateDoc(doc(db, 'settings', 'global'), { newUiBeforeImg: null }, { merge: true }); } catch (e) { console.error(e); }
+                                  }}
+                                  className="absolute top-2 right-2 p-1 bg-red-500 rounded-lg text-white hover:bg-red-600 transition-colors"
+                                >
+                                  <X className="w-3 h-3" />
+                                </button>
+                              )}
+                            </div>
+                            {!newUiBeforeImg && (
+                              <label className="mt-2 w-full py-2 px-3 bg-[var(--bg-surface)] border border-[var(--border-strong)] rounded-lg text-center text-sm font-medium text-[var(--text-muted)] hover:text-[var(--text-base)] cursor-pointer transition-colors">
+                                Adicionar Foto
+                                <input
+                                  type="file"
+                                  accept="image/*"
+                                  className="hidden"
+                                  onChange={(e) => {
+                                    const file = e.target.files?.[0];
+                                    if (!file) return;
+                                    const reader = new FileReader();
+                                    reader.onloadend = () => {
+                                      const dataUrl = reader.result as string;
+                                      setNewUiBeforeImg(dataUrl);
+                                      updateDoc(doc(db, 'settings', 'global'), { newUiBeforeImg: dataUrl }, { merge: true }).catch(console.error);
+                                    };
+                                    reader.readAsDataURL(file);
+                                  }}
+                                />
+                              </label>
+                            )}
+                          </div>
+                          <div>
+                            <p className="text-xs font-bold text-[var(--text-muted)] mb-2">Depois (Nova UI)</p>
+                            <div className="bg-[var(--bg-input)] border border-[var(--border-strong)] rounded-xl overflow-hidden aspect-video flex items-center justify-center relative">
+                              {newUiAfterImg ? (
+                                <img src={newUiAfterImg} alt="Depois" className="w-full h-full object-cover" />
+                              ) : (
+                                <span className="text-4xl text-[var(--text-muted)]">?</span>
+                              )}
+                              {newUiAfterImg && (
+                                <button
+                                  onClick={async () => {
+                                    setNewUiAfterImg(null);
+                                    try { await updateDoc(doc(db, 'settings', 'global'), { newUiAfterImg: null }, { merge: true }); } catch (e) { console.error(e); }
+                                  }}
+                                  className="absolute top-2 right-2 p-1 bg-red-500 rounded-lg text-white hover:bg-red-600 transition-colors"
+                                >
+                                  <X className="w-3 h-3" />
+                                </button>
+                              )}
+                            </div>
+                            {!newUiAfterImg && (
+                              <label className="mt-2 w-full py-2 px-3 bg-[var(--bg-surface)] border border-[var(--border-strong)] rounded-lg text-center text-sm font-medium text-[var(--text-muted)] hover:text-[var(--text-base)] cursor-pointer transition-colors">
+                                Adicionar Foto
+                                <input
+                                  type="file"
+                                  accept="image/*"
+                                  className="hidden"
+                                  onChange={(e) => {
+                                    const file = e.target.files?.[0];
+                                    if (!file) return;
+                                    const reader = new FileReader();
+                                    reader.onloadend = () => {
+                                      const dataUrl = reader.result as string;
+                                      setNewUiAfterImg(dataUrl);
+                                      updateDoc(doc(db, 'settings', 'global'), { newUiAfterImg: dataUrl }, { merge: true }).catch(console.error);
+                                    };
+                                    reader.readAsDataURL(file);
+                                  }}
+                                />
+                              </label>
+                            )}
+                          </div>
+                        </div>
+                      </div>
                     </div>
                   )}
                 </div>
@@ -4275,6 +4382,34 @@ export default function ChatPage() {
                     </button>
                   </div>
 
+                  {isAdmin && (
+                    <div className="flex flex-col gap-2 pt-4 border-t border-[var(--border-subtle)]">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <span className="text-[var(--text-base)] font-medium text-sm">Experimentar Nova UI</span>
+                          <span className="bg-yellow-500 text-black px-1.5 py-0.5 rounded font-bold text-[10px]">BETA</span>
+                        </div>
+                        <button
+                          onClick={async () => {
+                            const newVal = !enableNewUi;
+                            setEnableNewUi(newVal);
+                            try {
+                              await updateDoc(doc(db, 'settings', 'global'), { enableNewUi: newVal }, { merge: true });
+                            } catch (e) {
+                              console.error("Erro ao salvar Nova UI:", e);
+                            }
+                          }}
+                          className={`w-12 h-6 rounded-full transition-colors duration-200 relative ${enableNewUi ? 'bg-[var(--color-sec)]' : 'bg-zinc-600'}`}
+                        >
+                          <div className={`w-5 h-5 bg-white rounded-full absolute top-0.5 transition-transform duration-200 shadow ${enableNewUi ? 'translate-x-6' : 'translate-x-0.5'}`} />
+                        </button>
+                      </div>
+                      {enableNewUi && newUiBeforeImg && newUiAfterImg && (
+                        <p className="text-xs text-[var(--text-muted)]">A Nova UI será aplicada na próxima atualização.</p>
+                      )}
+                    </div>
+                  )}
+
                   {auth.currentUser && (
                     <div className="pt-6 border-t border-[var(--border-subtle)]">
                       <button
@@ -4771,11 +4906,6 @@ export default function ChatPage() {
                                   {selectedModel === model.key && <Check className="w-5 h-5 text-[var(--text-base)]" />}
                                 </button>
                               ))}
-
-                              <div className="px-3 py-2 mx-2 my-1 bg-[var(--bg-surface)] rounded-xl border border-[var(--border-subtle)] flex items-center justify-between">
-                                <span className="text-xs text-[var(--text-muted)]">Não sabe como usar?</span>
-                                <span className="bg-yellow-500 text-black px-1.5 py-0.5 rounded font-bold text-[10px]">BETA</span>
-                              </div>
 
                               {(isAdmin || userRole === 'developer') && (
                                 <>

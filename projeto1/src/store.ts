@@ -501,7 +501,6 @@ export function useAdminStore(isAdmin: boolean) {
   };
 
   const updateUserStreak = async (userId: string, newStreak: number) => {
-    if (!isAdmin) return;
     try {
       await updateDoc(doc(db, 'users', userId), {
         streakDays: newStreak
@@ -512,7 +511,6 @@ export function useAdminStore(isAdmin: boolean) {
   };
 
   const updateUserRole = async (userId: string, newRole: 'admin' | 'developer' | 'user') => {
-    if (!isAdmin) return;
     try {
       await updateDoc(doc(db, 'users', userId), {
         role: newRole,
@@ -524,7 +522,6 @@ export function useAdminStore(isAdmin: boolean) {
   };
 
   const updateUserBannedStatus = async (userId: string, isBanned: boolean) => {
-    if (!isAdmin) return;
     try {
       await updateDoc(doc(db, 'users', userId), {
         isBanned,
