@@ -107,10 +107,10 @@
 }
 
 .theme-grey {
-  --bg-base: #171717;
-  --bg-panel: #2f2f2f;
-  --bg-surface: #2f2f2f;
-  --bg-input: #383838;
+  --bg-base: #0f0f0f;
+  --bg-panel: #111111;
+  --bg-surface: #1a1a1a;
+  --bg-input: #222222;
   --text-base: #f4f4f5;
   --text-muted: #a1a1aa;
   --border-subtle: rgba(255, 255, 255, 0.06);

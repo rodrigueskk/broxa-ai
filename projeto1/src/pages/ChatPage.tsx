@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
-import { Menu, Plus, MessageSquare, Trash2, Send, Image as ImageIcon, X, Settings, Pin, Highlighter, AlertTriangle, Undo2, Redo2, Eraser, Copy, Check, ChevronDown, ShieldAlert, LogIn, LogOut, Search, GitCompare, Edit, Edit2, ThumbsUp, ThumbsDown, AlertCircle, ChevronUp, RefreshCw, Cpu, Flame, Snowflake, Bot, User, Lock, ChevronRight, ShieldCheck, LayoutDashboard, Globe, Dog, Monitor, Shield, Palette } from 'lucide-react';
+import { Menu, Plus, MessageSquare, Trash2, Send, Image as ImageIcon, X, Settings, Pin, Highlighter, AlertTriangle, Undo2, Redo2, Eraser, Copy, Check, ChevronDown, ShieldAlert, LogIn, LogOut, Search, GitCompare, Edit, Edit2, ThumbsUp, ThumbsDown, AlertCircle, ChevronUp, RefreshCw, Cpu, Flame, Snowflake, Bot, User, Lock, ChevronRight, ShieldCheck, LayoutDashboard, Globe, Dog, Monitor, Shield, Palette, FolderOpen, List, Grid3X3, Download, UserPlus } from 'lucide-react';
 import { useChatStore, useSettingsStore, useAdminStore, useUserStore, useGroupStore, ReleaseNote, ReleaseNoteImage, ReleaseNoteBadge } from '../store';
 import { Group, GroupMessage } from '../types';
 import { db } from '../firebase';
@@ -1188,6 +1188,7 @@ export default function ChatPage() {
   const totoIntervalRef = useRef<any>(null);
   const hasShownRoleNotificationRef = useRef(false);
   const [isModelDropdownOpen, setIsModelDropdownOpen] = useState(false);
+  const modelDropdownRef = useRef<HTMLDivElement>(null);
   const [isDevModelsModalOpen, setIsDevModelsModalOpen] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
   const [searchStatus, setSearchStatus] = useState<string | null>(null);
@@ -1204,14 +1205,26 @@ export default function ChatPage() {
   const [authModalPassword, setAuthModalPassword] = useState<string | undefined>(undefined);
   const [isOutdated, setIsOutdated] = useState(false);
   const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false);
+  const [logoutInput, setLogoutInput] = useState('');
   const [noteToDelete, setNoteToDelete] = useState<string | null>(null);
   const [isStreakModalOpen, setIsStreakModalOpen] = useState(false);
+
+  // Gallery state
+  const [isGalleryOpen, setIsGalleryOpen] = useState(false);
+  const closeGallery = () => setIsGalleryOpen(false);
+  const [galleryFilter, setGalleryFilter] = useState<'all'|'photos'|'mindmaps'>('all');
+  const [gallerySearch, setGallerySearch] = useState('');
+  const [galleryView, setGalleryView] = useState<'grid'|'list'>('grid');
+  const [selectedGalleryItems, setSelectedGalleryItems] = useState<string[]>([]);
   const [unlockedFeature, setUnlockedFeature] = useState<{ name: string, days: number } | null>(null);
   const shownFeatureRef = useRef<Set<string>>(new Set());
   const [isProfileSetupOpen, setIsProfileSetupOpen] = useState(false);
   const [isUserSettingsOpen, setIsUserSettingsOpen] = useState(false);
-  const [isProfilePopoverOpen, setIsProfilePopoverOpen] = useState(false);
-  const profilePopoverRef = useRef<HTMLDivElement>(null);
+  const [groupToLeaveId, setGroupToLeaveId] = useState<string | null>(null);
+  const [leaveGroupName, setLeaveGroupName] = useState('');
+  const [groupLeaveInput, setGroupLeaveInput] = useState('');
+  const [isGroupLeaveModalOpen, setIsGroupLeaveModalOpen] = useState(false);
+  const [mobileGroupsOpen, setMobileGroupsOpen] = useState(true);
   const [settingsTab, setSettingsTab] = useState('geral');
   const [tempDisplayName, setTempDisplayName] = useState('');
   const [tempPhotoURL, setTempPhotoURL] = useState('');
@@ -1233,16 +1246,6 @@ export default function ChatPage() {
     return () => unsubscribe();
   }, []);
 
-  // Click-outside handler for profile popover
-  useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
-      if (isProfilePopoverOpen && profilePopoverRef.current && !profilePopoverRef.current.contains(e.target as Node)) {
-        setIsProfilePopoverOpen(false);
-      }
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [isProfilePopoverOpen]);
 
   // Security Banner & Warning States
   const [isSecurityBannerDismissed, setIsSecurityBannerDismissed] = useState(() => {
@@ -1263,6 +1266,17 @@ export default function ChatPage() {
   useEffect(() => {
     localStorage.setItem('broxa_ai_drafts', JSON.stringify(drafts));
   }, [drafts]);
+
+  // Click-outside handler for model dropdown
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (isModelDropdownOpen && modelDropdownRef.current && !modelDropdownRef.current.contains(e.target as Node)) {
+        setIsModelDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [isModelDropdownOpen]);
 
   // Load draft when switching session/group
   useEffect(() => {
@@ -1818,6 +1832,159 @@ export default function ChatPage() {
   const pinnedTexts = currentSession?.pinnedTexts || [];
   const hasPinnedItems = pinnedMessages.length > 0 || pinnedTexts.length > 0;
   const hasHighlights = currentSession?.messages.some(m => m.strokes && m.strokes.length > 0);
+
+  // Gallery: collect all photos and mindmaps from sessions and groups
+  interface GalleryItem {
+    id: string;
+    type: 'photo' | 'mindmap';
+    url: string;
+    title: string;
+    modified: Date;
+    size: string;
+    sessionId: string;
+  }
+
+  const galleryItems = useMemo(() => {
+    const items: GalleryItem[] = [];
+    const seen = new Set<string>();
+
+    // Collect from sessions
+    for (const session of sessions) {
+      for (const msg of session.messages) {
+        // Photos: user messages with imageUrls
+        if (msg.role === 'user' && msg.imageUrls && msg.imageUrls.length > 0) {
+          for (const url of msg.imageUrls) {
+            const itemId = `${session.id}-${msg.id}-${url}`;
+            if (seen.has(itemId)) continue;
+            seen.add(itemId);
+            items.push({
+              id: itemId,
+              type: 'photo',
+              url,
+              title: `Foto - ${session.title || 'Conversa sem título'}`,
+              modified: new Date(msg.timestamp || Date.now()),
+              size: '—',
+              sessionId: session.id,
+            });
+          }
+        }
+        // Mindmaps: AI messages with language-mindmap code blocks
+        if (msg.role === 'ai' && msg.content) {
+          const mindmapRegex = /```language-mindmap\s*\n?([\s\S]*?)```/g;
+          let match;
+          while ((match = mindmapRegex.exec(msg.content)) !== null) {
+            const mmId = `${session.id}-${msg.id}-mm`;
+            if (seen.has(mmId)) continue;
+            seen.add(mmId);
+            try {
+              const mindmapData = JSON.parse(match[1].trim());
+              // Show the mindmap as SVG or preview; we store it with a special URL marker
+              items.push({
+                id: mmId,
+                type: 'mindmap',
+                url: match[1].trim(),
+                title: `Mapa Mental - ${session.title || 'Conversa sem título'}`,
+                modified: new Date(msg.timestamp || Date.now()),
+                size: '—',
+                sessionId: session.id,
+              });
+            } catch (e) {
+              // Not valid JSON, skip
+            }
+          }
+        }
+      }
+    }
+
+    // Collect from group messages
+    for (const group of groups) {
+      for (const msg of groupMessages) {
+        if (msg.senderId !== 'ai' && msg.imageUrls && msg.imageUrls.length > 0) {
+          for (const url of msg.imageUrls) {
+            const itemId = `g-${group.id}-${msg.timestamp}-${url}`;
+            if (seen.has(itemId)) continue;
+            seen.add(itemId);
+            items.push({
+              id: itemId,
+              type: 'photo',
+              url,
+              title: `Foto - ${group.name || 'Grupo'}`,
+              modified: new Date(msg.timestamp || Date.now()),
+              size: '—',
+              sessionId: `group-${group.id}`,
+            });
+          }
+        }
+        if (msg.senderId === 'ai' && msg.content) {
+          const mindmapRegex = /```language-mindmap\s*\n?([\s\S]*?)```/g;
+          let match;
+          while ((match = mindmapRegex.exec(msg.content)) !== null) {
+            const mmId = `g-${group.id}-${msg.timestamp}-mm`;
+            if (seen.has(mmId)) continue;
+            seen.add(mmId);
+            try {
+              JSON.parse(match[1].trim());
+              items.push({
+                id: mmId,
+                type: 'mindmap',
+                url: match[1].trim(),
+                title: `Mapa Mental - ${group.name || 'Grupo'}`,
+                modified: new Date(msg.timestamp || Date.now()),
+                size: '—',
+                sessionId: `group-${group.id}`,
+              });
+            } catch (e) { /* skip */ }
+          }
+        }
+      }
+    }
+
+    // Apply filter
+    let filtered = items;
+    if (galleryFilter === 'photos') filtered = items.filter(i => i.type === 'photo');
+    if (galleryFilter === 'mindmaps') filtered = items.filter(i => i.type === 'mindmap');
+
+    // Apply search
+    if (gallerySearch.trim()) {
+      const q = gallerySearch.toLowerCase();
+      filtered = filtered.filter(i => i.title.toLowerCase().includes(q));
+    }
+
+    return filtered;
+  }, [sessions, groups, groupMessages, galleryFilter, gallerySearch]);
+
+  const toggleGalleryItem = (id: string) => {
+    setSelectedGalleryItems(prev =>
+      prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]
+    );
+  };
+
+  const downloadItem = (item: GalleryItem) => {
+    if (item.type === 'photo') {
+      const a = document.createElement('a');
+      a.href = item.url;
+      a.download = `photo-${item.id}.jpg`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+    } else {
+      const blob = new Blob([item.url], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `mindmap-${item.id}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }
+  };
+
+  const downloadSelected = () => {
+    const selected = galleryItems.filter(i => selectedGalleryItems.includes(i.id));
+    selected.forEach(item => downloadItem(item));
+    setSelectedGalleryItems([]);
+  };
 
   const latestState = useRef({ sessions, currentSessionId, setStrokes, addStroke });
   useEffect(() => {
@@ -4138,29 +4305,96 @@ export default function ChatPage() {
                 exit={{ scale: 0.95, opacity: 0 }}
                 className="bg-[var(--bg-base)] border border-[var(--border-strong)] rounded-3xl p-6 max-w-sm w-full shadow-2xl"
               >
-                <h2 className="text-xl font-bold mb-4">Sair da conta</h2>
-                <p className="text-[var(--text-muted)] mb-6">
-                  Tem certeza que deseja sair da sua conta? Você precisará fazer login novamente para acessar seus chats.
+                <h2 className="text-xl font-bold mb-2">Sair da conta</h2>
+                <p className="text-[var(--text-muted)] mb-4 text-sm">
+                  Digite <strong className="text-[var(--text-base)]">sair</strong> para confirmar.
                 </p>
-                <div className="flex justify-end gap-3">
+                <input
+                  type="text"
+                  value={logoutInput}
+                  onChange={(e) => setLogoutInput(e.target.value)}
+                  placeholder="sair"
+                  className="w-full bg-[var(--bg-input)] border border-[var(--border-subtle)] rounded-xl px-4 py-3 text-[var(--text-base)] focus:outline-none focus:border-[var(--color-sec)] mb-4"
+                />
+                <div className="flex gap-3">
                   <button
                     onClick={() => setIsLogoutModalOpen(false)}
-                    className="px-4 py-2 rounded-xl text-[var(--text-muted)] hover:bg-[var(--bg-surface)] transition-colors"
+                    className="flex-1 py-3 rounded-xl bg-[var(--bg-surface)] text-[var(--text-base)] font-medium"
                   >
                     Cancelar
                   </button>
-                  <HoldButton
-                    onConfirm={() => {
+                  <button
+                    disabled={logoutInput.toLowerCase() !== 'sair'}
+                    onClick={() => {
                       clearSessions();
                       setSelectedGroupId(null);
                       logOut();
                       setIsLogoutModalOpen(false);
+                      setLogoutInput('');
                     }}
-                    onCancel={() => showError('Ação cancelada. Segure para confirmar.')}
-                    className="px-4 py-2 bg-red-500 text-white rounded-xl hover:bg-red-600 transition-colors font-medium"
+                    className="flex-1 py-3 rounded-xl bg-red-500 text-white font-medium disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    Sair (Segure)
-                  </HoldButton>
+                    Sair
+                  </button>
+                </div>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Group Leave Modal */}
+        <AnimatePresence>
+          {isGroupLeaveModalOpen && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md"
+            >
+              <motion.div
+                initial={{ scale: 0.95, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                exit={{ scale: 0.95, opacity: 0 }}
+                className="bg-[var(--bg-base)] border border-[var(--border-strong)] rounded-3xl p-6 max-w-sm w-full shadow-2xl"
+              >
+                <h2 className="text-xl font-bold mb-2">Sair do Grupo</h2>
+                <p className="text-[var(--text-muted)] mb-4 text-sm">
+                  Digite o nome <strong className="text-[var(--text-base)]">{leaveGroupName}</strong> para confirmar.
+                </p>
+                <input
+                  type="text"
+                  value={groupLeaveInput}
+                  onChange={(e) => setGroupLeaveInput(e.target.value)}
+                  placeholder="Nome do grupo"
+                  className="w-full bg-[var(--bg-input)] border border-[var(--border-subtle)] rounded-xl px-4 py-3 text-[var(--text-base)] focus:outline-none focus:border-[var(--color-sec)] mb-4"
+                />
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => { setIsGroupLeaveModalOpen(false); setLeaveGroupName(''); setGroupLeaveInput(''); }}
+                    className="flex-1 py-3 rounded-xl bg-[var(--bg-surface)] text-[var(--text-base)] font-medium"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    disabled={groupLeaveInput !== leaveGroupName}
+                    onClick={async () => {
+                      try {
+                        const groupDoc = doc(db, 'groups', groupToLeaveId!);
+                        await updateDoc(groupDoc, {
+                          members: (await getDoc(groupDoc)).data()?.members?.filter((m: any) => m.userId !== auth.currentUser?.uid) || []
+                        });
+                      } catch (e: any) {
+                        console.error('Error leaving group:', e);
+                      }
+                      setIsGroupLeaveModalOpen(false);
+                      setLeaveGroupName('');
+                      setGroupLeaveInput('');
+                      if (selectedGroupId === groupToLeaveId) setSelectedGroupId(null);
+                    }}
+                    className="flex-1 py-3 rounded-xl bg-red-500 text-white font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    Sair
+                  </button>
                 </div>
               </motion.div>
             </motion.div>
@@ -4374,15 +4608,6 @@ export default function ChatPage() {
                           ]}
                           onSelect={(color) => setTempSettings({ ...tempSettings, secondaryColor: color })}
                         />
-                      </div>
-                      <div>
-                        <h2 className="text-lg font-semibold text-[var(--text-base)] mb-3">Efeitos Visuais</h2>
-                        <button
-                          onClick={() => setTempSettings({...tempSettings, enableEffects: !tempSettings.enableEffects})}
-                          className={`relative inline-flex items-center h-6 w-11 rounded-full transition-colors ${tempSettings.enableEffects ? 'bg-[var(--color-sec)]' : 'bg-[var(--bg-input)]'}`}
-                        >
-                          <span className={`inline-block w-4 h-4 bg-white rounded-full transition-transform ${tempSettings.enableEffects ? 'translate-x-6' : 'translate-x-1'}`} />
-                        </button>
                       </div>
                       {streakDays >= 15 && (
                         <div>
@@ -4960,74 +5185,141 @@ export default function ChatPage() {
             </button>
           </div>
 
-          <div className="px-3 pb-4 space-y-2">
-            <button
-              onClick={handleNewChat}
-              className="w-full flex items-center gap-2 px-4 py-3 bg-[var(--bg-surface)] hover:bg-[var(--border-strong)] border border-[var(--border-strong)] rounded-2xl text-sm font-medium transition-colors"
-            >
-              <Plus className="w-4 h-4" />
-              Nova Conversa
+          {/* === DESKTOP: collapsible groups + function buttons === */}
+          <div className="hidden md:block">
+            {auth.currentUser && groups.length > 0 && (
+              <div className="px-3 mb-1">
+                <button
+                  onClick={() => setMobileGroupsOpen(!mobileGroupsOpen)}
+                  className="w-full flex items-center justify-between px-3 py-1.5 text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider hover:text-[var(--text-base)] transition-colors"
+                >
+                  Grupos
+                  <ChevronDown className={`w-4 h-4 transition-transform ${mobileGroupsOpen ? 'rotate-180' : ''}`} />
+                </button>
+                <AnimatePresence>
+                  {mobileGroupsOpen && (
+                    <motion.div initial={{opacity:0,height:0}} animate={{opacity:1,height:'auto'}} exit={{opacity:0,height:0}} className="space-y-0.5 overflow-hidden">
+                      {groups.map(group => (
+                        <div key={group.id} className="group/grp relative">
+                          <button
+                            onClick={() => { setSelectedGroupId(group.id); setCurrentSessionId(null); }}
+                            className="w-full text-left px-3 py-2 rounded-xl flex items-center gap-2 text-[var(--text-muted)] hover:text-[var(--text-base)] hover:bg-[var(--bg-surface)] transition-colors"
+                          >
+                            <div className="w-6 h-6 rounded-full bg-[var(--bg-input)] flex items-center justify-center shrink-0">
+                              <MessageSquare className="w-3.5 h-3.5" />
+                            </div>
+                            <span className="text-xs truncate">{group.name}</span>
+                          </button>
+                          <button
+                            onClick={() => { setGroupToLeaveId(group.id); setLeaveGroupName(group.name); setGroupLeaveInput(''); setIsGroupLeaveModalOpen(true); }}
+                            className="hidden group-hover/grp:flex absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded-full hover:bg-red-500/20 text-red-500 transition-colors"
+                            title="Sair do grupo"
+                          >
+                            <LogOut className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      ))}
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+            )}
+
+            <div className="flex items-center gap-1.5 px-3 mb-2">
+              <button
+                onClick={handleNewChat}
+                className="flex-1 flex items-center justify-center gap-1.5 px-2 py-2 bg-[var(--bg-surface)] hover:bg-[var(--border-strong)] border border-[var(--border-strong)] rounded-xl text-xs font-medium transition-colors"
+              >
+                <Plus className="w-3.5 h-3.5" /> <span className="truncate">Nova Conversa</span>
+              </button>
+              {auth.currentUser && (
+                <button
+                  onClick={() => setIsGroupModalOpen(true)}
+                  className="flex items-center justify-center gap-1.5 px-2 py-2 bg-[var(--bg-surface)] hover:bg-[var(--border-strong)] border border-[var(--border-strong)] rounded-xl text-xs font-medium transition-colors"
+                  title="Criar Grupo"
+                >
+                  <UserPlus className="w-3.5 h-3.5" />
+                </button>
+              )}
+              {auth.currentUser && (
+                <button
+                  onClick={() => setIsGalleryOpen(true)}
+                  className="flex items-center justify-center gap-1.5 px-2 py-2 bg-[var(--bg-surface)] hover:bg-[var(--border-strong)] border border-[var(--border-strong)] rounded-xl text-xs font-medium transition-colors"
+                  title="Galeria"
+                >
+                  <FolderOpen className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
+            <div className="hidden md:block border-t border-[var(--border-subtle)] mx-3 mb-2" />
+          </div>
+
+          {/* === MOBILE: circle buttons === */}
+          <div className="flex md:hidden items-center justify-around px-6 py-3">
+            <button onClick={() => { handleNewChat(); setIsSidebarOpen(false); }} className="flex flex-col items-center gap-1.5">
+              <div className="w-14 h-14 rounded-full bg-[var(--bg-surface)] flex items-center justify-center border border-[var(--border-strong)] hover:bg-[var(--border-strong)] transition-colors">
+                <Plus className="w-6 h-6 text-[var(--text-base)]" />
+              </div>
+              <span className="text-[10px] text-[var(--text-muted)] font-medium">Nova conversa</span>
             </button>
             {auth.currentUser && (
-              <button
-                onClick={() => setIsGroupModalOpen(true)}
-                className="w-full flex items-center gap-2 px-4 py-3 bg-[var(--bg-surface)] hover:bg-[var(--border-strong)] border border-[var(--border-strong)] rounded-2xl text-sm font-medium transition-colors"
-              >
-                <Plus className="w-4 h-4" />
-                Criar Grupo
+              <button onClick={() => { setIsGroupModalOpen(true); setIsSidebarOpen(false); }} className="flex flex-col items-center gap-1.5">
+                <div className="w-14 h-14 rounded-full bg-[var(--bg-surface)] flex items-center justify-center border border-[var(--border-strong)] hover:bg-[var(--border-strong)] transition-colors">
+                  <UserPlus className="w-6 h-6 text-[var(--text-base)]" />
+                </div>
+                <span className="text-[10px] text-[var(--text-muted)] font-medium">Novo grupo</span>
+              </button>
+            )}
+            {auth.currentUser && (
+              <button onClick={() => { setIsGalleryOpen(true); setIsSidebarOpen(false); }} className="flex flex-col items-center gap-1.5">
+                <div className="w-14 h-14 rounded-full bg-[var(--bg-surface)] flex items-center justify-center border border-[var(--border-strong)] hover:bg-[var(--border-strong)] transition-colors">
+                  <FolderOpen className="w-6 h-6 text-[var(--text-base)]" />
+                </div>
+                <span className="text-[10px] text-[var(--text-muted)] font-medium">Galeria</span>
               </button>
             )}
           </div>
 
-          <div className="flex-1 overflow-y-auto px-3 space-y-1 custom-scrollbar">
+          {/* === MOBILE: groups section === */}
+          <div className="md:hidden">
             {auth.currentUser && groups.length > 0 && (
-              <div className="mb-2">
-                <div className="flex items-center justify-between px-4 mb-2">
-                  <div className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider">Meus Grupos</div>
-                  <button
-                    onClick={() => setIsGroupModalOpen(true)}
-                    className="p-1 hover:bg-[var(--bg-surface)] rounded-full text-[var(--text-muted)] hover:text-[var(--text-base)] transition-colors"
-                  >
-                    <Plus className="w-4 h-4" />
-                  </button>
-                </div>
-                <div className="space-y-1">
-                  {groups.map(group => (
-                    <button
-                      key={group.id}
-                      onClick={() => {
-                        setSelectedGroupId(group.id);
-                        setCurrentSessionId(null);
-                        if (window.innerWidth < 768) setIsSidebarOpen(false);
-                      }}
-                      className={`w-full text-left px-4 py-3 rounded-2xl flex items-center gap-3 transition-all duration-200 group ${selectedGroupId === group.id
-                        ? 'bg-[var(--bg-surface)] text-[var(--text-base)] shadow-sm border border-[var(--border-strong)]'
-                        : 'text-[var(--text-muted)] hover:bg-[var(--bg-surface)] hover:text-[var(--text-base)] border border-transparent'
-                        }`}
-                    >
-                      <div className="relative flex-shrink-0">
-                        <div className={`w-8 h-8 rounded-full flex items-center justify-center ${selectedGroupId === group.id ? 'bg-[var(--color-sec)] text-white' : 'bg-[var(--bg-input)] text-[var(--text-muted)] group-hover:bg-[var(--color-sec)] group-hover:text-white'} transition-colors`}>
+              <>
+                <div className="border-t border-[var(--border-subtle)] mx-4 my-2" />
+                <div className="px-4 mb-2">
+                  <div className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider mb-2">Grupos</div>
+                  <div className="space-y-1">
+                    {groups.map(group => (
+                      <button
+                        key={group.id}
+                        onClick={() => { setSelectedGroupId(group.id); setCurrentSessionId(null); setIsSidebarOpen(false); }}
+                        className={`w-full text-left px-3 py-2.5 rounded-xl flex items-center gap-2 transition-colors ${selectedGroupId === group.id
+                          ? 'bg-[var(--bg-surface)] text-[var(--text-base)] border border-[var(--border-strong)]'
+                          : 'text-[var(--text-muted)] hover:bg-[var(--bg-surface)] border border-transparent'
+                          }`}
+                      >
+                        <div className="w-8 h-8 rounded-full bg-[var(--bg-input)] flex items-center justify-center shrink-0">
                           <MessageSquare className="w-4 h-4" />
                         </div>
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="truncate font-medium text-sm">{group.name}</div>
-                        {drafts[group.id] && selectedGroupId !== group.id ? (
-                          <div className="text-[10px] font-bold text-yellow-500">
-                            Rascunho salvo
-                          </div>
-                        ) : (
-                          <div className="text-xs opacity-70 flex items-center gap-1">
-                            <Flame className="w-3 h-3 text-orange-500" />
-                            {group.streakDays} dias
-                          </div>
-                        )}
-                      </div>
-                    </button>
-                  ))}
+                        <span className="text-sm truncate">{group.name}</span>
+                        <div className="ml-auto">
+                          <button
+                            onClick={() => { setGroupToLeaveId(group.id); setLeaveGroupName(group.name); setGroupLeaveInput(''); setIsGroupLeaveModalOpen(true); }}
+                            className="p-1.5 rounded-full hover:bg-red-500/20 text-red-500 transition-colors"
+                            title="Sair do grupo"
+                          >
+                            <LogOut className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
                 </div>
-              </div>
+              </>
             )}
+          </div>
+
+          {/* === SHARED: scrollable history === */}
+          <div className="flex-1 overflow-y-auto px-3 space-y-1 custom-scrollbar">
 
             {pinnedSessions.length > 0 && (
               <div className="mb-4 mt-2">
@@ -5081,7 +5373,7 @@ export default function ChatPage() {
             </div>
           </div>
 
-          <div className="mt-4 border-t border-[var(--border-subtle)]">
+          <div className="px-4 py-3 border-t border-[var(--border-subtle)] space-y-2">
             {isAdmin && (
               <button
                 onClick={() => setIsAdminPanelOpen(true)}
@@ -5091,77 +5383,43 @@ export default function ChatPage() {
                 Painel Admin
               </button>
             )}
-            <div className="relative" ref={profilePopoverRef}>
+            {/* Profile / Settings */}
+            {auth.currentUser ? (
+              <>
+                <button
+                  onClick={() => setIsSettingsOpen(true)}
+                  className="flex items-center gap-3 w-full p-2.5 rounded-xl hover:bg-[var(--bg-surface)] transition-colors"
+                >
+                  <div className="w-8 h-8 rounded-full overflow-hidden flex-shrink-0 border border-[var(--border-subtle)]">
+                    {(photoURL || auth.currentUser.photoURL) ? (
+                      <img src={photoURL || auth.currentUser.photoURL!} alt="Avatar" className="w-full h-full object-cover" />
+                    ) : (
+                      <div className="w-full h-full bg-[var(--bg-surface)] flex items-center justify-center">
+                        <User className="w-4 h-4 text-[var(--text-muted)]" />
+                      </div>
+                    )}
+                  </div>
+                  <span className="text-sm text-[var(--text-base)] font-medium truncate">
+                    {displayName || auth.currentUser.displayName?.split(' ')[0] || 'Usuário'}
+                  </span>
+                </button>
+                <button
+                  onClick={() => setIsLogoutModalOpen(true)}
+                  className="flex items-center gap-3 w-full p-2.5 rounded-xl hover:bg-red-500/10 text-red-500 transition-colors"
+                >
+                  <LogOut className="w-4 h-4" />
+                  Sair da conta
+                </button>
+              </>
+            ) : (
               <button
-                onClick={() => setIsProfilePopoverOpen(o => !o)}
+                onClick={() => setIsAuthModalOpen(true)}
                 className="flex items-center gap-3 w-full p-2.5 rounded-xl hover:bg-[var(--bg-surface)] transition-colors"
               >
-                {auth.currentUser ? (
-                  <>
-                    <div className="w-8 h-8 rounded-full overflow-hidden flex-shrink-0 border border-[var(--border-subtle)]">
-                      {(photoURL || auth.currentUser.photoURL) ? (
-                        <img src={photoURL || auth.currentUser.photoURL!} alt="Avatar" className="w-full h-full object-cover" />
-                      ) : (
-                        <div className="w-full h-full bg-[var(--bg-surface)] flex items-center justify-center">
-                          <User className="w-4 h-4 text-[var(--text-muted)]" />
-                        </div>
-                      )}
-                    </div>
-                    <span className="text-sm text-[var(--text-base)] font-medium truncate">
-                      {displayName || auth.currentUser.displayName?.split(' ')[0] || 'Usuário'}
-                    </span>
-                  </>
-                ) : (
-                  <>
-                    <div className="w-8 h-8 rounded-full bg-[var(--bg-surface)] flex items-center justify-center flex-shrink-0 border border-[var(--border-subtle)]">
-                      <User className="w-4 h-4 text-[var(--text-muted)]" />
-                    </div>
-                    <span className="text-sm text-[var(--text-muted)] font-medium">Fazer Login</span>
-                  </>
-                )}
+                <LogIn className="w-4 h-4 text-[var(--text-muted)]" />
+                Entrar ou criar conta
               </button>
-
-              <AnimatePresence>
-                {isProfilePopoverOpen && (
-                  <motion.div
-                    initial={{ opacity: 0, y: 8 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: 8 }}
-                    className="absolute top-full left-0 mt-2 w-full min-w-[200px] bg-[var(--bg-panel)] border border-[var(--border-strong)] rounded-xl shadow-2xl overflow-hidden z-50"
-                  >
-                    <div className="py-1">
-                      {auth.currentUser ? (
-                        <>
-                          <button
-                            onClick={() => { setIsProfilePopoverOpen(false); setIsSettingsOpen(true); }}
-                            className="flex items-center gap-3 w-full text-left px-3 py-2.5 text-sm text-[var(--text-base)] hover:bg-[var(--bg-surface)] transition-colors"
-                          >
-                            <Settings className="w-4 h-4 text-[var(--text-muted)]" />
-                            Configurações
-                          </button>
-                          <div className="my-1 border-t border-[var(--border-subtle)]" />
-                          <button
-                            onClick={() => { setIsProfilePopoverOpen(false); setIsLogoutModalOpen(true); }}
-                            className="flex items-center gap-3 w-full text-left px-3 py-2.5 text-sm text-red-500 hover:bg-red-500/10 transition-colors"
-                          >
-                            <LogOut className="w-4 h-4" />
-                            Sair da conta
-                          </button>
-                        </>
-                      ) : (
-                        <button
-                          onClick={() => { setIsProfilePopoverOpen(false); setIsAuthModalOpen(true); }}
-                          className="flex items-center gap-3 w-full text-left px-3 py-2.5 text-sm text-[var(--text-base)] hover:bg-[var(--bg-surface)] transition-colors"
-                        >
-                          <LogIn className="w-4 h-4 text-[var(--text-muted)]" />
-                          Entrar ou criar conta
-                        </button>
-                      )}
-                    </div>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </div>
+            )}
           </div>
         </div>
 
@@ -5212,12 +5470,12 @@ export default function ChatPage() {
               ) : (
                 <>
                   <div className="flex items-center w-full max-w-full min-w-0">
-                    <div className="relative w-full max-w-[95%] md:max-w-none">
+                    <div ref={modelDropdownRef} className="relative w-full max-w-[95%] md:max-w-none">
                       <button
                         onClick={() => setIsModelDropdownOpen(!isModelDropdownOpen)}
                         className="flex items-center gap-2 text-[var(--text-base)] font-bold text-base md:text-lg hover:bg-[var(--bg-surface)] px-3 py-2 rounded-xl transition-colors truncate w-full"
                       >
-                        BROXA {aiModels?.find(m => m.key === selectedModel)?.name || (selectedModel === 'thinking' ? '1.1 Thinking' : selectedModel === 'fast' ? '1.1 Fast' : selectedModel === 'search' ? '0.8 Search' : selectedModel === 'toto' ? 'Totó (Dev)' : '0.5 A.S')}
+                        {aiModels?.find(m => m.key === selectedModel)?.name || (selectedModel === 'thinking' ? '1.1 Thinking' : selectedModel === 'fast' ? '1.1 Fast' : selectedModel === 'search' ? '0.8 Search' : selectedModel === 'toto' ? 'Totó (Dev)' : '0.5 A.S')}
                         <ChevronDown className="w-5 h-5 text-[var(--text-muted)] shrink-0" />
                       </button>
 
@@ -5247,7 +5505,7 @@ export default function ChatPage() {
                                     setIsModelDropdownOpen(false);
                                     if (model.key === 'as') setShowASWarning(true);
                                   }}
-                                  className={`w-full text-left px-3 py-3 rounded-xl flex items-center justify-between hover:bg-[var(--bg-surface)] transition-colors ${selectedModel === model.key ? 'bg-[var(--bg-surface)]' : ''}`}
+                                  className={`w-full text-left px-3 py-3 rounded-xl flex items-center justify-between transition-colors ${selectedModel === model.key ? 'bg-[var(--bg-surface)]' : 'hover:bg-[var(--bg-surface)]'}`}
                                 >
                                   <div>
                                     <div className="font-bold text-[var(--text-base)] flex items-center gap-2">
@@ -6717,6 +6975,170 @@ export default function ChatPage() {
                       Cancelar
                     </button>
                   </div>
+                </div>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Gallery Full Screen Overlay */}
+        <AnimatePresence>
+          {isGalleryOpen && (
+            <motion.div
+              initial={{opacity:0}}
+              animate={{opacity:1}}
+              exit={{opacity:0}}
+              onClick={closeGallery}
+              className="fixed inset-0 z-[150] bg-black/80 backdrop-blur-md"
+            >
+              <motion.div
+                initial={{x:300,opacity:0}}
+                animate={{x:0,opacity:1}}
+                exit={{x:300,opacity:0}}
+                onClick={e=>e.stopPropagation()}
+                className="fixed inset-0 z-[160] bg-[var(--bg-surface)] flex flex-col"
+              >
+                {/* Close button */}
+                <button
+                  onClick={closeGallery}
+                  className="absolute top-4 right-4 z-[170] p-2 hover:bg-[var(--bg-base)] rounded-full transition-colors"
+                >
+                  <X className="w-5 h-5 text-[var(--text-base)]" />
+                </button>
+
+                {/* Header */}
+                <div className="p-6 pb-0 pt-6">
+                  <h2 className="text-xl font-bold mb-4 pr-12">Galeria</h2>
+
+                  {/* Filter buttons */}
+                  <div className="flex items-center gap-2 mb-3 flex-wrap">
+                    {[
+                      { label: 'Tudo', value: 'all' as const },
+                      { label: 'Fotos', value: 'photos' as const },
+                      { label: 'Mapas Mentais', value: 'mindmaps' as const },
+                    ].map(f => (
+                      <button
+                        key={f.value}
+                        onClick={() => { setGalleryFilter(f.value); setSelectedGalleryItems([]); }}
+                        className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${galleryFilter === f.value ? 'bg-[var(--color-sec)] text-white' : 'bg-[var(--bg-base)] text-[var(--text-muted)] hover:text-[var(--text-base)]'}`}
+                      >
+                        {f.label}
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* Search bar and view toggle */}
+                  <div className="flex items-center gap-2 mb-4">
+                    <div className="flex-1 relative">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--text-muted)]" />
+                      <input
+                        type="text"
+                        value={gallerySearch}
+                        onChange={(e) => { setGallerySearch(e.target.value); setSelectedGalleryItems([]); }}
+                        placeholder="Buscar na galeria..."
+                        className="w-full bg-[var(--bg-base)] border border-[var(--border-strong)] rounded-xl pl-10 pr-4 py-2.5 text-sm text-[var(--text-base)] focus:outline-none focus:border-[var(--color-sec)] transition-colors placeholder-[var(--text-muted)]"
+                      />
+                    </div>
+                    <button
+                      onClick={() => setGalleryView(galleryView === 'grid' ? 'list' : 'grid')}
+                      className="p-2.5 bg-[var(--bg-base)] border border-[var(--border-strong)] rounded-xl hover:bg-[var(--bg-input)] transition-colors"
+                      title={galleryView === 'grid' ? 'Lista' : 'Grade'}
+                    >
+                      {galleryView === 'grid' ? <List className="w-4 h-4 text-[var(--text-muted)]" /> : <Grid3X3 className="w-4 h-4 text-[var(--text-muted)]" />}
+                    </button>
+                  </div>
+
+                  {/* Download bar for selected items */}
+                  {selectedGalleryItems.length > 0 && (
+                    <div className="flex items-center gap-3 p-3 bg-[var(--color-sec)]/10 border border-[var(--color-sec)]/30 rounded-xl mb-3">
+                      <span className="text-sm font-bold text-[var(--text-base)]">{selectedGalleryItems.length} selecionado(s)</span>
+                      <button
+                        onClick={downloadSelected}
+                        className="ml-auto flex items-center gap-2 px-4 py-2 bg-[var(--color-sec)] text-white rounded-xl text-sm font-bold hover:opacity-90 transition-opacity"
+                      >
+                        <Download className="w-4 h-4" />
+                        Baixar selecionados
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+                {/* Gallery content */}
+                <div className="flex-1 overflow-y-auto custom-scrollbar">
+                  {galleryItems.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center h-64 text-center">
+                      <GalleryIcon className="w-12 h-12 text-[var(--text-muted)] mb-4" />
+                      <p className="text-[var(--text-muted)] font-medium">Nenhum item encontrado</p>
+                      <p className="text-xs text-[var(--text-muted)] mt-1">Envie fotos ou gere mapas mentais para visualizá-los aqui.</p>
+                    </div>
+                  ) : galleryView === 'grid' ? (
+                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 p-6 pt-3">
+                      {galleryItems.map(item => {
+                        const isSelected = selectedGalleryItems.includes(item.id);
+                        return (
+                          <div
+                            key={item.id}
+                            onClick={() => toggleGalleryItem(item.id)}
+                            className={`relative group aspect-square rounded-xl border-2 cursor-pointer overflow-hidden transition-all ${isSelected ? 'border-[var(--color-sec)] ring-2 ring-[var(--color-sec)]/30' : 'border-[var(--border-strong)] hover:border-[var(--border-subtle)]'}`}
+                          >
+                            {item.type === 'photo' ? (
+                              <img src={item.url} alt={item.title} className="w-full h-full object-cover" />
+                            ) : (
+                              <div className="w-full h-full bg-[var(--bg-base)] flex items-center justify-center p-4">
+                                <MindMap data={JSON.parse(item.url)} onFeedbackRequest={() => {}} />
+                              </div>
+                            )}
+                            {/* Checkmark overlay */}
+                            <div className={`absolute top-2 left-2 w-6 h-6 rounded-full flex items-center justify-center transition-all ${isSelected ? 'bg-[var(--color-sec)]' : 'bg-black/50 opacity-0 group-hover:opacity-100'}`}>
+                              {isSelected && <Check className="w-4 h-4 text-white" />}
+                            </div>
+                            {/* Item info */}
+                            <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-2">
+                              <p className="text-xs text-white font-medium truncate">{item.title}</p>
+                              <p className="text-[10px] text-white/60">{item.modified.toLocaleDateString()} • {item.size}</p>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <div className="p-6 pt-3">
+                      {galleryItems.map(item => {
+                        const isSelected = selectedGalleryItems.includes(item.id);
+                        return (
+                          <div
+                            key={item.id}
+                            onClick={() => toggleGalleryItem(item.id)}
+                            className={`flex items-center gap-4 px-4 py-3 rounded-xl cursor-pointer transition-colors mb-2 ${isSelected ? 'bg-[var(--color-sec)]/10 border border-[var(--color-sec)]/30' : 'border border-transparent hover:bg-[var(--bg-base)]'}`}
+                          >
+                            {item.type === 'photo' ? (
+                              <div className="w-12 h-12 rounded-lg overflow-hidden bg-[var(--bg-base)] flex-shrink-0">
+                                <img src={item.url} alt={item.title} className="w-full h-full object-cover" />
+                              </div>
+                            ) : (
+                              <div className="w-12 h-12 rounded-lg bg-purple-500/10 flex items-center justify-center flex-shrink-0">
+                                <Edit2 className="w-5 h-5 text-purple-400" />
+                              </div>
+                            )}
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-medium text-[var(--text-base)] truncate">{item.title}</p>
+                              <p className="text-xs text-[var(--text-muted)]">{item.modified.toLocaleDateString()}</p>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs text-[var(--text-muted)]">{item.size}</span>
+                              {isSelected && <Check className="w-4 h-4 text-[var(--color-sec)]" />}
+                              <button
+                                onClick={(e) => { e.stopPropagation(); downloadItem(item); }}
+                                className="p-2 hover:bg-[var(--bg-base)] rounded-lg transition-colors"
+                              >
+                                <Download className="w-4 h-4 text-[var(--text-muted)] hover:text-[var(--text-base)]" />
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
               </motion.div>
             </motion.div>
