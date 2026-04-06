@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
-import { Menu, Plus, MessageSquare, Trash2, Send, Image as ImageIcon, X, Settings, Pin, Highlighter, AlertTriangle, Undo2, Redo2, Eraser, Copy, Check, ChevronDown, ShieldAlert, LogIn, LogOut, Search, GitCompare, Edit, Edit2, ThumbsUp, ThumbsDown, AlertCircle, ChevronUp, RefreshCw, Cpu, Flame, Snowflake, Bot, User, Lock, ChevronRight, ShieldCheck, LayoutDashboard, Globe, Dog, Monitor } from 'lucide-react';
+import { Menu, Plus, MessageSquare, Trash2, Send, Image as ImageIcon, X, Settings, Pin, Highlighter, AlertTriangle, Undo2, Redo2, Eraser, Copy, Check, ChevronDown, ShieldAlert, LogIn, LogOut, Search, GitCompare, Edit, Edit2, ThumbsUp, ThumbsDown, AlertCircle, ChevronUp, RefreshCw, Cpu, Flame, Snowflake, Bot, User, Lock, ChevronRight, ShieldCheck, LayoutDashboard, Globe, Dog, Monitor, Shield } from 'lucide-react';
 import { useChatStore, useSettingsStore, useAdminStore, useUserStore, useGroupStore, ReleaseNote, ReleaseNoteImage, ReleaseNoteBadge } from '../store';
 import { Group, GroupMessage } from '../types';
 import { db } from '../firebase';
@@ -1510,6 +1510,10 @@ export default function ChatPage() {
   });
 
   const [enableNewUi, setEnableNewUi] = useState(false);
+  const [selectedUiVersion, setSelectedUiVersion] = useState<'before' | 'after'>('before');
+  const [isNovaUiConfirmOpen, setIsNovaUiConfirmOpen] = useState(false);
+  const [pendingUiVersion, setPendingUiVersion] = useState<'before' | 'after' | null>(null);
+  const [activeSettingsTabMain, setActiveSettingsTabMain] = useState<'general' | 'devices'>('general');
 
   useEffect(() => {
     const unsub = onSnapshot(doc(db, 'settings', 'global'), (docSnap) => {
@@ -1522,6 +1526,27 @@ export default function ChatPage() {
     });
     return () => unsub();
   }, []);
+
+  useEffect(() => {
+    const saved = localStorage.getItem(`broxa_ui_version_${auth.currentUser?.uid || 'anon'}`);
+    if (saved === 'before' || saved === 'after') setSelectedUiVersion(saved);
+  }, [auth.currentUser]);
+
+  const handleUiVersionChange = (version: 'before' | 'after') => {
+    if (version === selectedUiVersion) return;
+    setPendingUiVersion(version);
+    setIsNovaUiConfirmOpen(true);
+  };
+
+  const confirmUiVersionChange = () => {
+    if (pendingUiVersion) {
+      setSelectedUiVersion(pendingUiVersion);
+      const uid = auth.currentUser?.uid || 'anon';
+      localStorage.setItem(`broxa_ui_version_${uid}`, pendingUiVersion);
+      setIsNovaUiConfirmOpen(false);
+      setPendingUiVersion(null);
+    }
+  };
 
   useEffect(() => {
     const unsubscribe = auth.onAuthStateChanged((user) => {
@@ -4127,6 +4152,96 @@ export default function ChatPage() {
                 </div>
 
                 <div className="p-6 space-y-6 overflow-y-auto custom-scrollbar">
+                  {/* Tabs: Geral / Dispositivos */}
+                  <div className="flex gap-1 p-1 bg-[var(--bg-surface)] rounded-2xl border border-[var(--border-subtle)]">
+                    <button
+                      onClick={() => setActiveSettingsTabMain('general')}
+                      className={`flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-xl transition-all font-medium text-sm ${activeSettingsTabMain === 'general' ? 'bg-[var(--bg-panel)] text-[var(--text-base)] shadow-sm' : 'text-[var(--text-muted)] hover:text-[var(--text-base)]'}`}
+                    >
+                      <Settings className="w-4 h-4" /> Geral
+                    </button>
+                    <button
+                      onClick={() => setActiveSettingsTabMain('devices')}
+                      className={`flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-xl transition-all font-medium text-sm ${activeSettingsTabMain === 'devices' ? 'bg-[var(--bg-panel)] text-[var(--text-base)] shadow-sm' : 'text-[var(--text-muted)] hover:text-[var(--text-base)]'}`}
+                    >
+                      <Monitor className="w-4 h-4" /> Dispositivos
+                    </button>
+                  </div>
+
+                  {activeSettingsTabMain === 'devices' ? (
+                    <div className="space-y-4">
+                      {/* Current Device */}
+                      <div className="bg-[var(--bg-surface)] border border-[var(--border-subtle)] rounded-2xl p-4">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-full bg-[var(--color-sec)]/20 flex items-center justify-center shrink-0">
+                            <Monitor className="w-5 h-5 text-[var(--color-sec)]" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="font-medium text-[var(--text-base)] flex items-center gap-2">
+                              Dispositivo Atual
+                              <span className="text-[10px] px-2 py-0.5 rounded-full font-bold bg-green-500/20 text-green-400">ATIVO</span>
+                            </div>
+                            <div className="text-xs text-[var(--text-muted)] truncate">{navigator?.userAgent?.includes('Mobile') ? 'Dispositivo Móvel' : 'Navegador Web'} • {new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</div>
+                          </div>
+                        </div>
+                      </div>
+                      {/* Other Devices */}
+                      <div className="text-center py-8">
+                        <Shield className="w-12 h-12 text-[var(--text-muted)] mx-auto mb-3 opacity-30" />
+                        <p className="text-sm font-medium text-[var(--text-muted)]">Nenhum outro dispositivo conectado</p>
+                        <p className="text-xs text-[var(--text-muted)] mt-1">Quando fizer login em outro dispositivo, ele aparecerá aqui</p>
+                      </div>
+                    </div>
+                  ) : (
+                    <>
+                  {/* Nova UI Section */}
+                  {newUiBeforeImg && newUiAfterImg && (
+                    <div className="space-y-3">
+                      <div className="flex justify-between items-center">
+                        <span className="text-[var(--text-base)] font-bold">Visual do Site</span>
+                        <span className="text-xs px-2 py-0.5 rounded-full font-bold bg-[var(--color-sec)]/20 text-[var(--color-sec)]">NOVA UI</span>
+                      </div>
+                      <div className="grid grid-cols-2 gap-3">
+                        {/* Before Card */}
+                        <button
+                          onClick={() => handleUiVersionChange('before')}
+                          className={`relative rounded-2xl overflow-hidden border-2 transition-all group cursor-pointer ${selectedUiVersion === 'before' ? 'border-[var(--color-sec)] shadow-[0_0_12px_rgba(234,179,8,0.3)]' : 'border-[var(--border-subtle)] hover:border-[var(--text-muted)]'}`}
+                        >
+                          <div className="aspect-video relative">
+                            <img src={newUiBeforeImg} alt="Atual" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+                            <div className="absolute inset-0 bg-black/20 group-hover:bg-black/10 transition-colors" />
+                          </div>
+                          {selectedUiVersion === 'before' && (
+                            <div className="absolute top-2 right-2 w-6 h-6 bg-[var(--color-sec)] rounded-full flex items-center justify-center shadow-md">
+                              <Check className="w-3.5 h-3.5 text-black" />
+                            </div>
+                          )}
+                          <div className="absolute bottom-0 left-0 right-0 bg-black/60 backdrop-blur-sm px-3 py-1.5">
+                            <span className="text-xs font-bold text-white">Atual</span>
+                          </div>
+                        </button>
+                        {/* After Card */}
+                        <button
+                          onClick={() => handleUiVersionChange('after')}
+                          className={`relative rounded-2xl overflow-hidden border-2 transition-all group cursor-pointer ${selectedUiVersion === 'after' ? 'border-[var(--color-sec)] shadow-[0_0_12px_rgba(234,179,8,0.3)]' : 'border-[var(--border-subtle)] hover:border-[var(--text-muted)]'}`}
+                        >
+                          <div className="aspect-video relative">
+                            <img src={newUiAfterImg} alt="Nova" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+                            <div className="absolute inset-0 bg-black/20 group-hover:bg-black/10 transition-colors" />
+                          </div>
+                          {selectedUiVersion === 'after' && (
+                            <div className="absolute top-2 right-2 w-6 h-6 bg-[var(--color-sec)] rounded-full flex items-center justify-center shadow-md">
+                              <Check className="w-3.5 h-3.5 text-black" />
+                            </div>
+                          )}
+                          <div className="absolute bottom-0 left-0 right-0 bg-black/60 backdrop-blur-sm px-3 py-1.5">
+                            <span className="text-xs font-bold text-white">Nova UI</span>
+                          </div>
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
                   <div className={`flex flex-col gap-2 ${streakDays < 10 ? 'opacity-50 pointer-events-none' : ''}`}>
                     <div className="flex justify-between items-center">
                       <span className="text-[var(--text-base)] font-medium">Fonte do Título (BROXA AI)</span>
@@ -4382,34 +4497,6 @@ export default function ChatPage() {
                     </button>
                   </div>
 
-                  {isAdmin && (
-                    <div className="flex flex-col gap-2 pt-4 border-t border-[var(--border-subtle)]">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <span className="text-[var(--text-base)] font-medium text-sm">Experimentar Nova UI</span>
-                          <span className="bg-yellow-500 text-black px-1.5 py-0.5 rounded font-bold text-[10px]">BETA</span>
-                        </div>
-                        <button
-                          onClick={async () => {
-                            const newVal = !enableNewUi;
-                            setEnableNewUi(newVal);
-                            try {
-                              await updateDoc(doc(db, 'settings', 'global'), { enableNewUi: newVal }, { merge: true });
-                            } catch (e) {
-                              console.error("Erro ao salvar Nova UI:", e);
-                            }
-                          }}
-                          className={`w-12 h-6 rounded-full transition-colors duration-200 relative ${enableNewUi ? 'bg-[var(--color-sec)]' : 'bg-zinc-600'}`}
-                        >
-                          <div className={`w-5 h-5 bg-white rounded-full absolute top-0.5 transition-transform duration-200 shadow ${enableNewUi ? 'translate-x-6' : 'translate-x-0.5'}`} />
-                        </button>
-                      </div>
-                      {enableNewUi && newUiBeforeImg && newUiAfterImg && (
-                        <p className="text-xs text-[var(--text-muted)]">A Nova UI será aplicada na próxima atualização.</p>
-                      )}
-                    </div>
-                  )}
-
                   {auth.currentUser && (
                     <div className="pt-6 border-t border-[var(--border-subtle)]">
                       <button
@@ -4424,6 +4511,50 @@ export default function ChatPage() {
                       </button>
                     </div>
                   )}
+                  </>
+                  )}
+                </div>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        <AnimatePresence>
+          {isNovaUiConfirmOpen && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md"
+            >
+              <motion.div
+                initial={{ scale: 0.95, opacity: 0, y: 20 }}
+                animate={{ scale: 1, opacity: 1, y: 0 }}
+                exit={{ scale: 0.95, opacity: 0, y: 20 }}
+                className="bg-[var(--bg-panel)] border border-[var(--border-strong)] rounded-3xl p-6 max-w-sm w-full shadow-2xl"
+              >
+                <div className="flex flex-col items-center text-center mb-6">
+                  <div className="w-12 h-12 rounded-full bg-[var(--color-sec)]/10 flex items-center justify-center mb-4">
+                    <Check className="w-6 h-6 text-[var(--color-sec)]" />
+                  </div>
+                  <h3 className="text-xl font-semibold mb-2">Alterar visual do site?</h3>
+                  <p className="text-sm text-[var(--text-muted)]">
+                    Sua escolha será salva para este navegador. Deseja usar o visual {pendingUiVersion === 'before' ? 'atual' : 'Nova UI'}?
+                  </p>
+                </div>
+                <div className="flex w-full gap-3">
+                  <button
+                    onClick={() => { setIsNovaUiConfirmOpen(false); setPendingUiVersion(null); }}
+                    className="flex-1 py-3 bg-[var(--bg-surface)] hover:bg-[var(--border-strong)] text-[var(--text-base)] rounded-xl font-medium transition-colors text-sm"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    onClick={confirmUiVersionChange}
+                    className="flex-1 py-3 bg-[var(--color-sec)] hover:opacity-90 text-white rounded-xl font-medium transition-colors text-sm"
+                  >
+                    Confirmar
+                  </button>
                 </div>
               </motion.div>
             </motion.div>
