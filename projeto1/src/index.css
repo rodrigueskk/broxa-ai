@@ -99,11 +99,11 @@
   --bg-panel: #e4e4e7;
   --bg-surface: #ffffff;
   --bg-input: #ffffff;
-  --text-base: #18181b;
+  --text-base: #000000;
   --text-muted: #71717a;
   --border-subtle: rgba(0, 0, 0, 0.05);
   --border-strong: rgba(0, 0, 0, 0.1);
-  color: #18181b;
+  color: #000000;
 }
 
 .theme-grey {
@@ -111,11 +111,11 @@
   --bg-panel: #111111;
   --bg-surface: #1a1a1a;
   --bg-input: #222222;
-  --text-base: #f4f4f5;
+  --text-base: #ffffff;
   --text-muted: #a1a1aa;
   --border-subtle: rgba(255, 255, 255, 0.06);
   --border-strong: rgba(255, 255, 255, 0.12);
-  color: #f4f4f5;
+  color: #ffffff;
 }
 
 @layer utilities {

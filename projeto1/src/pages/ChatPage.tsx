@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
-import { Menu, Plus, MessageSquare, Trash2, Send, Image as ImageIcon, X, Settings, Pin, Highlighter, AlertTriangle, Undo2, Redo2, Eraser, Copy, Check, ChevronDown, ShieldAlert, LogIn, LogOut, Search, GitCompare, Edit, Edit2, ThumbsUp, ThumbsDown, AlertCircle, ChevronUp, RefreshCw, Cpu, Flame, Snowflake, Bot, User, Lock, ChevronRight, ShieldCheck, LayoutDashboard, Globe, Dog, Monitor, Shield, Palette, FolderOpen, List, Grid3X3, Download, UserPlus, ChevronLeft } from 'lucide-react';
+import { Menu, Plus, MessageSquare, Trash2, Image as ImageIcon, X, Settings, Pin, Highlighter, AlertTriangle, Undo2, Redo2, Eraser, Copy, Check, ChevronDown, ShieldAlert, LogIn, LogOut, Search, GitCompare, Edit, Edit2, ThumbsUp, ThumbsDown, AlertCircle, ChevronUp, RefreshCw, Cpu, Flame, Snowflake, Bot, User, Lock, ChevronRight, ShieldCheck, LayoutDashboard, Globe, Dog, Monitor, Shield, Palette, FolderOpen, List, Grid3X3, Download, UserPlus, ChevronLeft, ArrowUp } from 'lucide-react';
 import { useChatStore, useSettingsStore, useAdminStore, useUserStore, useGroupStore, ReleaseNote, ReleaseNoteImage, ReleaseNoteBadge } from '../store';
 import { Group, GroupMessage } from '../types';
 import { db } from '../firebase';
@@ -1102,6 +1102,10 @@ export default function ChatPage() {
   const [groupSettingsData, setGroupSettingsData] = useState<{ name: string, photoURL: string, systemInstruction: string }>({ name: '', photoURL: '', systemInstruction: '' });
   const [isGroupHeaderPopoverOpen, setIsGroupHeaderPopoverOpen] = useState(false);
   const groupHeaderPopoverRef = useRef<HTMLDivElement>(null);
+  const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
+  const [mobileSearchQuery, setMobileSearchQuery] = useState('');
+  const [isMobileProfilePopoverOpen, setIsMobileProfilePopoverOpen] = useState(false);
+  const mobileProfilePopoverRef = useRef<HTMLDivElement>(null);
   const [inviteModalData, setInviteModalData] = useState<{ groupId: string, groupName: string, inviterName: string } | null>(null);
   const [confirmModalData, setConfirmModalData] = useState<{ title: string, message: string, onConfirm: () => void } | null>(null);
 
@@ -1162,8 +1166,8 @@ export default function ChatPage() {
   const [isSearching, setIsSearching] = useState(false);
   const [searchStatus, setSearchStatus] = useState<string | null>(null);
   const [shakeInput, setShakeInput] = useState(false);
+  const [inputMaxReached, setInputMaxReached] = useState(false);
   const [textareaHeight, setTextareaHeight] = useState(60);
-  const [showASWarning, setShowASWarning] = useState(false);
   const [newChatTimestamps, setNewChatTimestamps] = useState<number[]>([]);
   const [rateLimitWarning, setRateLimitWarning] = useState<string | null>(null);
   const [sessionToDelete, setSessionToDelete] = useState<string | null>(null);
@@ -1265,10 +1269,13 @@ export default function ChatPage() {
       if (isGroupHeaderPopoverOpen && groupHeaderPopoverRef.current && !groupHeaderPopoverRef.current.contains(e.target as Node)) {
         setIsGroupHeaderPopoverOpen(false);
       }
+      if (isMobileProfilePopoverOpen && mobileProfilePopoverRef.current && !mobileProfilePopoverRef.current.contains(e.target as Node)) {
+        setIsMobileProfilePopoverOpen(false);
+      }
     };
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [isGroupHeaderPopoverOpen]);
+  }, [isGroupHeaderPopoverOpen, isMobileProfilePopoverOpen]);
 
   // Load draft when switching session/group
   useEffect(() => {
@@ -1773,7 +1780,12 @@ export default function ChatPage() {
     if (!isResizingRef.current) return;
     const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
     const deltaY = startYRef.current - clientY;
-    const newHeight = Math.max(60, Math.min(window.innerHeight * 0.6, startHeightRef.current + deltaY));
+    const maxHeight = window.innerHeight * 0.35;
+    const newHeight = Math.max(60, Math.min(maxHeight, startHeightRef.current + deltaY));
+    if (startHeightRef.current + deltaY >= maxHeight - 5) {
+      setInputMaxReached(true);
+      setTimeout(() => setInputMaxReached(false), 600);
+    }
     setTextareaHeight(newHeight);
   }, []);
 
@@ -1818,8 +1830,8 @@ export default function ChatPage() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  const pinnedSessions = sessions.filter(s => s.isPinned);
-  const unpinnedSessions = sessions.filter(s => !s.isPinned);
+  const pinnedSessions = sessions.filter(s => s.isPinned && (!mobileSearchQuery || s.title.toLowerCase().includes(mobileSearchQuery.toLowerCase())));
+  const unpinnedSessions = sessions.filter(s => !s.isPinned && (!mobileSearchQuery || s.title.toLowerCase().includes(mobileSearchQuery.toLowerCase())));
   const pinnedMessages = currentSession?.messages.filter(m => m.isPinned) || [];
   const pinnedTexts = currentSession?.pinnedTexts || [];
   const hasPinnedItems = pinnedMessages.length > 0 || pinnedTexts.length > 0;
@@ -1983,22 +1995,17 @@ export default function ChatPage() {
     latestState.current = { sessions, currentSessionId, setStrokes, addStroke };
   });
 
-  useEffect(() => {
-    if (!textareaRef.current) return;
-    let lastHeight = 0;
-    const observer = new ResizeObserver((entries) => {
-      for (const entry of entries) {
-        const maxHeight = window.innerHeight * 0.6;
-        const currentHeight = entry.contentRect.height;
-        if (currentHeight >= maxHeight - 5 && lastHeight < maxHeight - 5) {
-          setShakeInput(true);
-          setTimeout(() => setShakeInput(false), 500);
-        }
-        lastHeight = currentHeight;
-      }
-    });
-    observer.observe(textareaRef.current);
-    return () => observer.disconnect();
+  const handleResizeMove = useCallback((e: MouseEvent | TouchEvent) => {
+    if (!isResizingRef.current) return;
+    const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
+    const deltaY = startYRef.current - clientY;
+    const maxHeight = window.innerHeight * 0.35;
+    const newHeight = Math.max(60, Math.min(maxHeight, startHeightRef.current + deltaY));
+    if (startHeightRef.current + deltaY >= maxHeight - 5) {
+      setInputMaxReached(true);
+      setTimeout(() => setInputMaxReached(false), 600);
+    }
+    setTextareaHeight(newHeight);
   }, []);
 
   const handleCloseSettings = () => {
@@ -3178,40 +3185,6 @@ export default function ChatPage() {
                     Salvar
                   </button>
                 </div>
-              </motion.div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-
-        <AnimatePresence>
-          {showASWarning && (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="fixed inset-0 z-[200] flex items-center justify-center bg-black/80 backdrop-blur-md p-4"
-            >
-              <motion.div
-                initial={{ scale: 0.95, opacity: 0, y: 20 }}
-                animate={{ scale: 1, opacity: 1, y: 0 }}
-                exit={{ scale: 0.95, opacity: 0, y: 20 }}
-                className="bg-[var(--bg-panel)] rounded-3xl border border-[var(--border-strong)] w-full max-w-sm shadow-2xl flex flex-col overflow-hidden p-6"
-              >
-                <div className="flex flex-col items-center text-center mb-6">
-                  <div className="w-12 h-12 rounded-full bg-red-500/10 flex items-center justify-center mb-4">
-                    <AlertTriangle className="w-6 h-6 text-red-500" />
-                  </div>
-                  <h3 className="text-xl font-semibold mb-2">Aviso Importante</h3>
-                  <p className="text-sm text-[var(--text-muted)]">
-                    A versão <strong className="text-[var(--text-base)]">{aiModels?.find(m => m.key === 'as')?.name || 'A.S 0.5'}</strong> está em desenvolvimento. Você pode encontrar instabilidades ou respostas inesperadas.
-                  </p>
-                </div>
-                <button
-                  onClick={() => setShowASWarning(false)}
-                  className="w-full py-3 bg-[var(--text-base)] hover:opacity-90 text-[var(--bg-base)] rounded-xl font-medium transition-colors text-sm"
-                >
-                  Entendi
-                </button>
               </motion.div>
             </motion.div>
           )}
@@ -4867,7 +4840,7 @@ export default function ChatPage() {
                                 setSettingsError(null);
                               }}
                               disabled={selectedModel === 'as'}
-                              placeholder={selectedModel === 'as' ? "Não disponível para o modelo A.S" : "Ex: Responda como um pirata..."}
+                              placeholder={selectedModel === 'as' ? "Não disponível para o modelo A.S" : "Melhorar textos..."}
                               className={`w-full bg-[var(--bg-input)] text-[var(--text-base)] border ${settingsError ? 'border-red-500' : 'border-[var(--border-subtle)]'} rounded-xl p-4 min-h-[120px] resize-y focus:outline-none focus:border-[var(--color-sec)] disabled:opacity-50 disabled:cursor-not-allowed`}
                             />
                             {selectedModel === 'as' && (
@@ -5182,10 +5155,10 @@ export default function ChatPage() {
             </button>
           </div>
 
-          {/* === DESKTOP: collapsible groups + function buttons === */}
-          <div className="hidden md:block">
+          {/* === DESKTOP groups & action buttons === */}
+          <div className="hidden md:block px-3 mb-2 space-y-2">
             {auth.currentUser && groups.length > 0 && (
-              <div className="px-3 mb-1">
+              <div>
                 <button
                   onClick={() => setMobileGroupsOpen(!mobileGroupsOpen)}
                   className="w-full flex items-center justify-between px-3 py-1.5 text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider hover:text-[var(--text-base)] transition-colors"
@@ -5222,61 +5195,104 @@ export default function ChatPage() {
               </div>
             )}
 
-            <div className="flex items-center gap-1.5 px-3 mb-2">
-              <button
-                onClick={handleNewChat}
-                className="flex-1 flex items-center justify-center gap-1.5 px-2 py-2 bg-[var(--bg-surface)] hover:bg-[var(--border-strong)] border border-[var(--border-strong)] rounded-xl text-xs font-medium transition-colors"
-              >
-                <Plus className="w-3.5 h-3.5" /> <span className="truncate">Nova Conversa</span>
-              </button>
+            <div className="flex gap-2">
               {auth.currentUser && (
                 <button
                   onClick={() => setIsGroupModalOpen(true)}
-                  className="flex items-center gap-1.5 px-2 py-2 bg-[var(--bg-surface)] hover:bg-[var(--border-strong)] border border-[var(--border-strong)] rounded-xl text-xs font-medium transition-colors"
-                  title="Grupos"
+                  className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2.5 bg-[var(--bg-surface)] hover:bg-[var(--border-strong)] border border-[var(--border-strong)] rounded-xl text-xs font-medium transition-colors"
                 >
-                  <UserPlus className="w-3.5 h-3.5" /> Grupos
+                  <UserPlus className="w-4 h-4" /> Grupos
                 </button>
               )}
               {auth.currentUser && (
                 <button
                   onClick={() => setIsGalleryOpen(true)}
-                  className="flex items-center gap-1.5 px-2 py-2 bg-[var(--bg-surface)] hover:bg-[var(--border-strong)] border border-[var(--border-strong)] rounded-xl text-xs font-medium transition-colors"
-                  title="Galeria"
+                  className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2.5 bg-[var(--bg-surface)] hover:bg-[var(--border-strong)] border border-[var(--border-strong)] rounded-xl text-xs font-medium transition-colors"
                 >
-                  <FolderOpen className="w-3.5 h-3.5" /> Galeria
+                  <FolderOpen className="w-4 h-4" /> Galeria
                 </button>
               )}
             </div>
-            <div className="hidden md:block border-t border-[var(--border-subtle)] mx-3 mb-2" />
+            <div className="border-t border-[var(--border-subtle)]" />
           </div>
 
-          {/* === MOBILE: circle buttons === */}
-          <div className="flex md:hidden items-center justify-start gap-1.5 px-2 py-2">
-            {auth.currentUser && (
-              <button onClick={() => { setIsGroupModalOpen(true); setIsSidebarOpen(false); }} className="flex flex-col items-center gap-1.5">
-                <div className="w-12 h-12 rounded-full bg-[var(--bg-surface)] flex items-center justify-center border border-[var(--border-strong)] hover:bg-[var(--border-strong)] transition-colors">
-                  <UserPlus className="w-5 h-5 text-[var(--text-base)]" />
-                </div>
-                <span className="text-[10px] text-[var(--text-muted)] font-medium">Grupos</span>
-              </button>
-            )}
-            {auth.currentUser && (
-              <button onClick={() => { setIsGalleryOpen(true); setIsSidebarOpen(false); }} className="flex flex-col items-center gap-1.5">
-                <div className="w-12 h-12 rounded-full bg-[var(--bg-surface)] flex items-center justify-center border border-[var(--border-strong)] hover:bg-[var(--border-strong)] transition-colors">
-                  <FolderOpen className="w-5 h-5 text-[var(--text-base)]" />
-                </div>
-                <span className="text-[10px] text-[var(--text-muted)] font-medium">Galeria</span>
-              </button>
-            )}
-            <button onClick={() => { handleNewChat(); setIsSidebarOpen(false); }} className="flex flex-col items-center gap-1.5">
-              <div className="w-12 h-12 rounded-full bg-[var(--bg-surface)] flex items-center justify-center border border-[var(--border-strong)] hover:bg-[var(--border-strong)] transition-colors">
-                <Plus className="w-5 h-5 text-[var(--text-base)]" />
+          {/* === MOBILE: profile photo + search === */}
+          <div className="flex md:hidden items-center justify-start gap-2 px-2 py-2">
+            {auth.currentUser ? (
+              <div className="relative" ref={mobileProfilePopoverRef}>
+                <button
+                  onClick={() => setIsMobileProfilePopoverOpen(!isMobileProfilePopoverOpen)}
+                  className="w-14 h-14 rounded-full overflow-hidden border-2 border-[var(--border-strong)] hover:border-[var(--color-sec)] transition-colors shrink-0"
+                >
+                  {(photoURL || auth.currentUser.photoURL) ? (
+                    <img src={photoURL || auth.currentUser.photoURL!} alt="Avatar" className="w-full h-full object-cover" />
+                  ) : (
+                    <div className="w-full h-full bg-[var(--bg-surface)] flex items-center justify-center">
+                      <User className="w-6 h-6 text-[var(--text-muted)]" />
+                    </div>
+                  )}
+                </button>
+                <AnimatePresence>
+                  {isMobileProfilePopoverOpen && (
+                    <motion.div
+                      initial={{ opacity: 0, y: 4 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: 4 }}
+                      className="absolute bottom-full left-0 mb-2 w-48 bg-[var(--bg-panel)] border border-[var(--border-strong)] rounded-xl shadow-xl z-50 overflow-hidden"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <button
+                        onClick={() => { setIsMobileProfilePopoverOpen(false); setIsSettingsOpen(true); }}
+                        className="flex items-center gap-3 w-full p-3 hover:bg-[var(--bg-surface)] transition-colors"
+                      >
+                        <Settings className="w-4 h-4 text-white" />
+                        <span className="text-sm font-medium text-white">Configurações</span>
+                      </button>
+                      <button
+                        onClick={() => { setIsMobileProfilePopoverOpen(false); setIsLogoutModalOpen(true); }}
+                        className="flex items-center gap-3 w-full p-3 hover:bg-[var(--bg-surface)] transition-colors border-t border-[var(--border-subtle)]"
+                      >
+                        <LogOut className="w-4 h-4 text-white" />
+                        <span className="text-sm font-medium text-white">Sair</span>
+                      </button>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
               </div>
-              <span className="text-[10px] text-[var(--text-muted)] font-medium">Nova conversa</span>
-            </button>
+            ) : null}
+            {auth.currentUser && (
+              <button onClick={() => { setMobileSearchOpen(!mobileSearchOpen); }} className="flex flex-col items-center gap-1.5">
+                <div className="w-14 h-14 rounded-full bg-[var(--bg-surface)] flex items-center justify-center border border-[var(--border-strong)] hover:bg-[var(--border-strong)] transition-colors">
+                  <Search className="w-6 h-6 text-[var(--text-base)]" />
+                </div>
+                <span className="text-[10px] text-[var(--text-muted)] font-medium">Pesquisar</span>
+              </button>
+            )}
           </div>
           <div className="md:hidden border-t border-[var(--border-subtle)] mx-4 my-1" />
+
+          {/* === MOBILE: search bar === */}
+          <AnimatePresence>
+            {mobileSearchOpen && auth.currentUser && (
+              <motion.div
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: 'auto', opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                className="md:hidden overflow-hidden px-3 pb-2"
+              >
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--text-muted)]" />
+                  <input
+                    type="text"
+                    value={mobileSearchQuery}
+                    onChange={(e) => setMobileSearchQuery(e.target.value)}
+                    placeholder="Pesquisar conversas..."
+                    className="w-full bg-[var(--bg-surface)] border border-[var(--border-strong)] rounded-xl pl-10 pr-4 py-2.5 text-sm text-[var(--text-base)] focus:outline-none focus:border-[var(--color-sec)] placeholder:text-[var(--text-muted)]"
+                  />
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
 
           {/* === MOBILE: groups section === */}
           <div className="md:hidden">
@@ -5330,7 +5346,7 @@ export default function ChatPage() {
               </div>
             )}
 
-            <div className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider px-4 mb-2">Histórico</div>
+            <div className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider px-4 mb-2">Conversas</div>
             <div className="space-y-1">
               {historyLoadStatus === 'loading' && (
                 <div className="flex flex-col items-center justify-center p-6 text-center">
@@ -5368,6 +5384,15 @@ export default function ChatPage() {
                   {unpinnedSessions.map(renderSession)}
                 </AnimatePresence>
               )}
+              {/* Desktop: Nova Conversa button below conversation list */}
+              <div className="hidden md:block mt-3 px-3">
+                <button
+                  onClick={handleNewChat}
+                  className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-[var(--color-sec)] text-white hover:opacity-90 rounded-xl text-sm font-medium transition-colors"
+                >
+                  <Plus className="w-4 h-4" /> Nova Conversa
+                </button>
+              </div>
             </div>
           </div>
 
@@ -5572,7 +5597,6 @@ export default function ChatPage() {
                                   onClick={() => {
                                     setSelectedModel(model.key as any);
                                     setIsModelDropdownOpen(false);
-                                    if (model.key === 'as') setShowASWarning(true);
                                   }}
                                   className={`w-full text-left px-3 py-3 rounded-xl flex items-center justify-between transition-colors ${selectedModel === model.key ? 'bg-[var(--bg-surface)]' : 'hover:bg-[var(--bg-surface)]'}`}
                                 >
@@ -5877,7 +5901,7 @@ export default function ChatPage() {
             </div>
           </div>
 
-          <div className={`${!currentSession?.messages.length && selectedGroupId === null ? 'relative px-4 md:px-8 pb-6 bg-transparent' : 'absolute bottom-0 left-0 right-0 bg-gradient-to-t from-[var(--bg-base)] via-[var(--bg-base)] to-transparent pt-12 pb-6 px-4 md:px-8'} z-20 pointer-events-none`}>
+          <div className={`${!currentSession?.messages.length && selectedGroupId === null ? 'relative px-4 md:px-8 pb-6 bg-transparent' : 'fixed bottom-0 left-0 right-0 bg-gradient-to-t from-[var(--bg-base)] via-[var(--bg-base)] to-transparent pt-8 pb-4 px-4 md:px-8'} z-20 pointer-events-none`}>
             <div className="max-w-3xl mx-auto relative pointer-events-auto">
               <AnimatePresence>
                 {selectedImages.length > 0 && (
@@ -5921,7 +5945,7 @@ export default function ChatPage() {
                   </motion.div>
                 )}
               </AnimatePresence>
-              <div className={`bg-[var(--bg-input)] border rounded-[32px] flex flex-col shadow-2xl overflow-hidden focus-within:ring-1 transition-all ${shakeInput ? 'animate-shake border-red-500 ring-1 ring-red-500' : 'border-[var(--border-strong)] focus-within:border-[var(--border-strong)] focus-within:ring-[var(--border-strong)]'}`}>
+              <div className={`bg-[var(--bg-input)] border rounded-[32px] flex flex-col shadow-2xl overflow-hidden focus-within:ring-1 transition-all ${(shakeInput || inputMaxReached) ? 'animate-shake border-red-500 ring-1 ring-red-500 bg-red-500/10' : 'border-[var(--border-strong)] focus-within:border-[var(--border-strong)] focus-within:ring-[var(--border-strong)]'}`}>
                 <div
                   className="w-full h-3 cursor-ns-resize flex items-center justify-center hover:bg-[var(--border-subtle)] transition-colors opacity-50 hover:opacity-100"
                   onMouseDown={handleResizeStart}
@@ -6034,7 +6058,7 @@ export default function ChatPage() {
                           setIsEraserMode(!isEraserMode);
                           if (!isHighlightMode) setIsHighlightMode(true);
                         }}
-                        className={`p-2.5 rounded-2xl transition-colors ${isEraserMode ? 'bg-[var(--text-base)] text-[var(--bg-base)]' : 'text-[var(--text-muted)] hover:text-[var(--text-base)] hover:bg-[var(--border-subtle)]'}`}
+                        className={`p-2.5 rounded-2xl transition-colors ${isEraserMode ? 'bg-[var(--color-sec)] text-white' : 'text-[var(--text-muted)] hover:text-[var(--text-base)] hover:bg-[var(--border-subtle)]'}`}
                         title="Borracha"
                       >
                         <Eraser className="w-5 h-5" />
@@ -6098,12 +6122,12 @@ export default function ChatPage() {
                       }
                     }}
                     disabled={(!input.trim() && selectedImages.length === 0 && !isLoading)}
-                    className={`p-3 ${isLoading ? 'bg-transparent border-2 border-[var(--text-base)]' : 'bg-[var(--text-base)]'} hover:opacity-80 disabled:opacity-50 text-[var(--bg-base)] rounded-2xl transition-all flex items-center justify-center shadow-lg disabled:shadow-none shrink-0`}
+                    className={`p-3 ${isLoading ? 'bg-transparent border-2 border-[var(--color-sec)]' : 'bg-[var(--color-sec)]'} hover:opacity-80 disabled:opacity-50 text-white rounded-2xl transition-all flex items-center justify-center shadow-lg disabled:shadow-none shrink-0`}
                   >
                     {isLoading ? (
-                      <div className="w-4 h-4 bg-[var(--text-base)] rounded-sm" />
+                      <div className="w-4 h-4 bg-[var(--color-sec)] rounded-sm" />
                     ) : (
-                      <Send className="w-5 h-5" />
+                      <ArrowUp className="w-5 h-5" />
                     )}
                   </button>
                 </div>
