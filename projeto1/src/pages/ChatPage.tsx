@@ -1995,19 +1995,6 @@ export default function ChatPage() {
     latestState.current = { sessions, currentSessionId, setStrokes, addStroke };
   });
 
-  const handleResizeMove = useCallback((e: MouseEvent | TouchEvent) => {
-    if (!isResizingRef.current) return;
-    const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
-    const deltaY = startYRef.current - clientY;
-    const maxHeight = window.innerHeight * 0.35;
-    const newHeight = Math.max(60, Math.min(maxHeight, startHeightRef.current + deltaY));
-    if (startHeightRef.current + deltaY >= maxHeight - 5) {
-      setInputMaxReached(true);
-      setTimeout(() => setInputMaxReached(false), 600);
-    }
-    setTextareaHeight(newHeight);
-  }, []);
-
   const handleCloseSettings = () => {
     if (JSON.stringify(tempSettings) !== JSON.stringify(settings)) {
       setShowSettingsConfirm(true);
