@@ -991,6 +991,60 @@ export function useUserStore() {
     }
   };
 
+  const updateProfile = async (name: string, photo: string) => {
+    if (!auth.currentUser) return;
+
+    setDisplayName(name);
+    setPhotoURL(photo);
+    setHasSetProfile(true);
+
+    try {
+      const userRef = doc(db, 'users', auth.currentUser.uid);
+      await updateDoc(userRef, {
+        displayName: name,
+        photoURL: photo,
+        hasSetProfile: true
+      });
+    } catch (error) {
+      console.error("Error updating profile:", error);
+    }
+  };
+
+  const incrementViolations = async () => {
+    if (!auth.currentUser) return;
+
+    setViolationsCount(prev => {
+      const next = prev + 1;
+      return next;
+    });
+
+    try {
+      const userRef = doc(db, 'users', auth.currentUser.uid);
+      await updateDoc(userRef, {
+        violationsCount: violationsCount + 1
+      });
+    } catch (error) {
+      console.error("Error incrementing violations:", error);
+    }
+  };
+
+  const submitAppeal = async (text: string) => {
+    if (!auth.currentUser) return;
+
+    setAppealStatus('pending');
+    setAppealText(text);
+
+    try {
+      const userRef = doc(db, 'users', auth.currentUser.uid);
+      await updateDoc(userRef, {
+        appealStatus: 'pending',
+        appealText: text
+      });
+    } catch (error) {
+      console.error("Error submitting appeal:", error);
+    }
+  };
+
   return {
     userRole, setUserRole,
     streakDays, setStreakDays,
@@ -1008,6 +1062,9 @@ export function useUserStore() {
     violationsCount, setViolationsCount,
     isBanned, setIsBanned,
     appealStatus, setAppealStatus,
-    appealText, setAppealText
+    appealText, setAppealText,
+    updateProfile,
+    incrementViolations,
+    submitAppeal
   };
 }
