@@ -62,7 +62,7 @@ const ColorPickerDropdown: React.FC<ColorPickerDropdownProps> = ({ valueColor, c
             initial={{ opacity: 0, y: -4 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -4 }}
-            className="absolute bottom-full left-0 mb-1 w-full bg-[var(--bg-panel)] border border-[var(--border-strong)] rounded-xl shadow-xl overflow-hidden z-50"
+            className="absolute top-full left-0 mt-1 w-full bg-[var(--bg-panel)] border border-[var(--border-strong)] rounded-xl shadow-xl overflow-hidden z-50"
           >
             <div className="py-1">
               {colorMap.map((color) => (
@@ -307,8 +307,8 @@ const MessageItem = React.memo(({ msg, sessionId, settings, isHighlightMode, isE
         ref={containerRef}
         className={`relative max-w-[90%] md:max-w-[75%] rounded-3xl px-4 py-3 md:px-6 md:py-4 shadow-sm group ${msg.role === 'user' ? 'rounded-tr-sm border border-[var(--border-subtle)] select-none' : 'bg-transparent text-[var(--text-base)] select-text'}`}
         style={msg.role === 'user' ? {
-          backgroundColor: settings.userMessageColor || '#ffffff',
-          color: ['#000000', '#4b5563', '#4c1d95', '#1d4ed8'].includes(settings.userMessageColor) ? '#ffffff' : '#000000'
+          backgroundColor: settings.userMessageColor || 'var(--bg-surface)',
+          color: 'var(--text-base)'
         } : {}}
         onTouchStart={handleTouchStartCopy}
         onTouchEnd={handleTouchEndCopy}
@@ -684,8 +684,8 @@ const GroupMessageItem = React.memo(({ msg, settings, isCurrentUser, onFeedbackR
               : 'bg-[var(--bg-input)] border border-[var(--border-strong)] rounded-tl-sm text-[var(--text-base)]'
             }`}
           style={isCurrentUser ? {
-            backgroundColor: settings.userMessageColor || '#ffffff',
-            color: ['#000000', '#4b5563', '#4c1d95', '#1d4ed8'].includes(settings.userMessageColor) ? '#ffffff' : '#000000'
+            backgroundColor: settings.userMessageColor || 'var(--bg-surface)',
+            color: 'var(--text-base)'
           } : {}}
         >
           {msg.imageUrls && msg.imageUrls.length > 0 && (
@@ -2226,31 +2226,32 @@ export default function ChatPage() {
     processFiles(files);
   };
 
-  const [touchStartY, setTouchStartY] = useState<number | null>(null);
-  const [touchEndY, setTouchEndY] = useState<number | null>(null);
   const [pullProgress, setPullProgress] = useState(0);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
-  const isHeaderTouchRef = useRef(false);
+  const versionBarRef = useRef<HTMLDivElement>(null);
+  const isVersionBarTouchRef = useRef(false);
+  const pullTouchStartY = useRef<number | null>(null);
   const [mobileSessionOptions, setMobileSessionOptions] = useState<any | null>(null);
   const longPressTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const onTouchStart = (e: React.TouchEvent) => {
-    setTouchEnd(null);
-    setTouchEndY(null);
-    setTouchStart(e.targetTouches[0].clientX);
-    setTouchStartY(e.targetTouches[0].clientY);
-    setPullProgress(0);
     const target = e.target as HTMLElement;
-    isHeaderTouchRef.current = !!target.closest('header');
+    // Only enable pull-to-refresh when touch starts from the version bar
+    isVersionBarTouchRef.current = versionBarRef.current ? versionBarRef.current.contains(target) : false;
+    if (isVersionBarTouchRef.current) {
+      pullTouchStartY.current = e.targetTouches[0].clientY;
+      setPullProgress(0);
+    }
+    // Track X for sidebar swipe
+    setTouchEnd(null);
+    setTouchStart(e.targetTouches[0].clientX);
   };
 
   const onTouchMove = (e: React.TouchEvent) => {
     setTouchEnd(e.targetTouches[0].clientX);
-    setTouchEndY(e.targetTouches[0].clientY);
-
-    if (isHeaderTouchRef.current && scrollContainerRef.current && scrollContainerRef.current.scrollTop === 0 && touchStartY !== null) {
-      const distanceY = e.targetTouches[0].clientY - touchStartY;
+    if (isVersionBarTouchRef.current && pullTouchStartY.current !== null) {
+      const distanceY = e.targetTouches[0].clientY - pullTouchStartY.current;
       if (distanceY > 0) {
         setPullProgress(Math.min(distanceY / 150, 1));
       }
@@ -2258,7 +2259,7 @@ export default function ChatPage() {
   };
 
   const onTouchEndHandler = () => {
-    if (pullProgress > 0.8 && !isRefreshing) {
+    if (pullProgress > 0.8 && !isRefreshing && isVersionBarTouchRef.current) {
       setIsRefreshing(true);
       setTimeout(() => {
         window.location.reload();
@@ -2266,19 +2267,18 @@ export default function ChatPage() {
     } else {
       setPullProgress(0);
     }
+    isVersionBarTouchRef.current = false;
+    pullTouchStartY.current = null;
 
-    if (!touchStart || !touchEnd || !touchStartY || !touchEndY) return;
+    // Swipe for sidebar
+    if (!touchStart || !touchEnd) return;
     const distanceX = touchStart - touchEnd;
-    const distanceY = touchStartY - touchEndY;
     const isRightSwipe = distanceX < -50;
 
-    // Only trigger if horizontal swipe is greater than vertical swipe
-    if (Math.abs(distanceX) > Math.abs(distanceY)) {
-      // Swipe right anywhere to open sidebar
+    if (Math.abs(distanceX) > 50) {
       if (isRightSwipe) {
         setIsSidebarOpen(true);
       } else if (distanceX > 50 && isSidebarOpen) {
-        // Swipe left to close sidebar
         setIsSidebarOpen(false);
       }
     }
@@ -4258,27 +4258,36 @@ export default function ChatPage() {
                 exit={{ x: -300, opacity: 0 }}
                 transition={{ type: 'spring', damping: 25, stiffness: 200 }}
                 onClick={(e) => e.stopPropagation()}
-                className="fixed inset-y-0 left-0 z-[160] w-full max-w-[800px] bg-[var(--bg-surface)] border-r border-[var(--border-subtle)] flex"
+                className="fixed inset-0 z-[160] bg-[var(--bg-surface)] md:inset-y-0 md:left-0 md:w-full md:max-w-[800px] md:border-r md:border-[var(--border-subtle)] md:flex"
               >
-                {/* Left sidebar nav */}
-                <div className="w-64 flex-shrink-0 flex flex-col border-r border-[var(--border-subtle)]">
-                  <div className="flex items-center justify-between p-4 border-b border-[var(--border-subtle)]">
+                {/* Close X button - top right, above everything */}
+                <button onClick={handleCloseSettings} className="absolute top-4 right-4 z-[170] p-2 hover:bg-[var(--bg-base)] rounded-full transition-colors"><X className="w-5 h-5 text-[var(--text-base)]" /></button>
+                {/* Left/sidebar nav */}
+                <div className="w-full md:w-64 md:flex-shrink-0 flex md:flex-col border-b md:border-b-0 md:border-r border-[var(--border-subtle)]">
+                  <div className="hidden md:flex items-center justify-between p-4 border-b border-[var(--border-subtle)]">
                     <h3 className="text-lg font-semibold text-[var(--text-base)]">Configurações</h3>
-                    <button onClick={handleCloseSettings} className="p-1.5 hover:bg-[var(--bg-base)] rounded-full transition-colors"><X className="w-5 h-5 text-[var(--text-muted)]" /></button>
                   </div>
-                  <div className="flex-1 overflow-y-auto p-2 space-y-1">
-                    {['Geral', 'Aparência', 'Perfil', 'Segurança', 'Inteligência Artificial', 'Dispositivos'].map((tab) => (
+                  <div className="flex md:flex-col items-center gap-1 p-2 md:p-2 overflow-x-auto md:overflow-y-auto w-full md:w-auto">
+                    {[
+                      { label: 'Geral', icon: Palette },
+                      { label: 'Aparência', icon: Palette },
+                      { label: 'Perfil', icon: User },
+                      { label: 'Segurança', icon: ShieldCheck },
+                      { label: 'Inteligência Artificial', icon: Bot, short: 'IA' },
+                      { label: 'Dispositivos', icon: Monitor },
+                    ].map(({ label, icon: Icon, short }) => (
                       <button
-                        key={tab}
-                        onClick={() => setSettingsTab(tab.toLowerCase() as any)}
-                        className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-colors ${settingsTab === tab.toLowerCase() ? 'bg-[var(--color-sec)]/20 text-[var(--color-sec)] font-medium' : 'text-[var(--text-muted)] hover:text-[var(--text-base)] hover:bg-[var(--bg-base)]'}`}
+                        key={label}
+                        onClick={() => setSettingsTab(label.toLowerCase() as any)}
+                        className={`flex flex-col items-center gap-1 p-3 md:px-3 md:py-2 rounded-lg md:rounded-lg text-xs md:text-sm shrink-0 md:w-full transition-colors ${settingsTab === label.toLowerCase() ? 'bg-[var(--color-sec)]/20 text-[var(--color-sec)] font-medium' : 'text-[var(--text-muted)] hover:text-[var(--text-base)] hover:bg-[var(--bg-base)]'}`}
                       >
-                        {tab}
+                        <Icon className="w-5 h-5" />
+                        <span className="hidden md:block">{short || label}</span>
                       </button>
                     ))}
                   </div>
                   {auth.currentUser && (
-                    <div className="p-4 border-t border-[var(--border-subtle)]">
+                    <div className="hidden md:block p-4 border-t border-[var(--border-subtle)]">
                       <button
                         onClick={() => {
                           setIsSettingsOpen(false);
@@ -4297,19 +4306,35 @@ export default function ChatPage() {
                 <div className="flex-1 overflow-y-auto">
                   {/* === GERAL === */}
                   {settingsTab === 'geral' && (
-                    <div className="p-6">
-                      <h2 className="text-lg font-semibold text-[var(--text-base)] mb-4">Padrão de Cores</h2>
-                      <div className="flex gap-4">
-                        {['dark', 'grey', 'light'].map((t) => (
-                          <button
-                            key={t}
-                            onClick={() => setTempSettings({...tempSettings, theme: t})}
-                            className={`flex-1 rounded-xl border-2 transition-all p-4 text-center ${tempSettings.theme === t ? 'border-[var(--color-sec)]' : 'border-[var(--border-subtle)] hover:border-[var(--text-muted)]'}`}
-                          >
-                            <div className={`w-full h-24 rounded-lg mb-2 ${t === 'dark' ? 'bg-[#000000]' : t === 'grey' ? 'bg-[#2f2f2f]' : 'bg-[#f4f4f5]'}`} />
-                            <span className="text-sm font-medium capitalize text-[var(--text-base)]">{t}</span>
-                          </button>
-                        ))}
+                    <div className="p-6 space-y-6">
+                      <div>
+                        <h2 className="text-lg font-semibold text-[var(--text-base)] mb-3">Modelo de UI</h2>
+                        <div className="flex gap-4">
+                          {[
+                            { value: 'before', label: 'Padrão', img: newUiBeforeImg },
+                            { value: 'after', label: 'Remasterizada', img: newUiAfterImg },
+                          ].map(({ value, label, img }) => (
+                            <button
+                              key={value}
+                              onClick={() => {
+                                if (!img) return;
+                                setPendingUiVersion(value as 'before' | 'after');
+                                setIsNovaUiConfirmOpen(true);
+                              }}
+                              disabled={!img}
+                              className={`flex-1 rounded-xl border-2 transition-all p-4 text-center ${selectedUiVersion === value ? 'border-[var(--color-sec)]' : !img ? 'border-[var(--border-subtle)] opacity-50 cursor-not-allowed' : 'border-[var(--border-strong)] hover:border-[var(--text-muted)]'}`}
+                            >
+                              <div className="w-full h-24 rounded-lg mb-2 bg-[var(--bg-input)] flex items-center justify-center overflow-hidden">
+                                {img ? (
+                                  <img src={img} alt={label} className="w-full h-full object-cover rounded-lg transition-transform duration-200 hover:scale-110 cursor-pointer" />
+                                ) : (
+                                  <span className="text-2xl text-[var(--text-muted)]">?</span>
+                                )}
+                              </div>
+                              <span className="text-sm font-medium text-[var(--text-base)]">{label}</span>
+                            </button>
+                          ))}
+                        </div>
                       </div>
                     </div>
                   )}
@@ -4317,6 +4342,25 @@ export default function ChatPage() {
                   {/* === APARÊNCIA === */}
                   {settingsTab === 'aparência' && (
                     <div className="p-6 space-y-6">
+                      <div>
+                        <h2 className="text-lg font-semibold text-[var(--text-base)] mb-3">Padrão de Cores</h2>
+                        <div className="flex gap-4">
+                          {[
+                            { value: 'dark', label: 'Escuro', bg: 'bg-[#000000]' },
+                            { value: 'grey', label: 'Cinza', bg: 'bg-[#2f2f2f]' },
+                            { value: 'light', label: 'Claro', bg: 'bg-[#f4f4f5]' },
+                          ].map(({ value, label, bg }) => (
+                            <button
+                              key={value}
+                              onClick={() => setTempSettings({...tempSettings, theme: value})}
+                              className={`flex-1 rounded-xl border-2 transition-all p-4 text-center ${tempSettings.theme === value ? 'border-[var(--color-sec)]' : 'border-[var(--border-subtle)] hover:border-[var(--text-muted)]'}`}
+                            >
+                              <div className={`w-full h-24 rounded-lg mb-2 ${bg}`} />
+                              <span className="text-sm font-medium text-[var(--text-base)]">{label}</span>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
                       <div>
                         <h2 className="text-lg font-semibold text-[var(--text-base)] mb-3">Cor Secundária</h2>
                         <ColorPickerDropdown
@@ -4909,14 +4953,14 @@ export default function ChatPage() {
         <div className={`fixed inset-y-0 left-0 z-50 w-full md:w-72 bg-[var(--bg-panel)] border-r border-[var(--border-subtle)] transform transition-transform duration-300 ease-in-out flex flex-col ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} md:relative md:translate-x-0 md:rounded-none`}>
           <div className="p-4 flex items-center justify-between">
             <div className={`flex items-center text-lg font-bold ${settings.enableEffects ? 'broxa-title' : 'text-[var(--text-base)]'}`}>
-              {settings.customTitleFont === 'BROXA AI' ? 'BroxaAI' : settings.customTitleFont}
+              {settings.customTitleFont === 'BROXA AI' ? 'BROXA AI' : settings.customTitleFont}
             </div>
             <button onClick={() => setIsSidebarOpen(false)} className="md:hidden p-3 -mr-2 text-[var(--text-muted)] hover:text-[var(--text-base)]">
               <X className="w-6 h-6" />
             </button>
           </div>
 
-          <div className="px-3 pb-4">
+          <div className="px-3 pb-4 space-y-2">
             <button
               onClick={handleNewChat}
               className="w-full flex items-center gap-2 px-4 py-3 bg-[var(--bg-surface)] hover:bg-[var(--border-strong)] border border-[var(--border-strong)] rounded-2xl text-sm font-medium transition-colors"
@@ -4924,11 +4968,69 @@ export default function ChatPage() {
               <Plus className="w-4 h-4" />
               Nova Conversa
             </button>
+            {auth.currentUser && (
+              <button
+                onClick={() => setIsGroupModalOpen(true)}
+                className="w-full flex items-center gap-2 px-4 py-3 bg-[var(--bg-surface)] hover:bg-[var(--border-strong)] border border-[var(--border-strong)] rounded-2xl text-sm font-medium transition-colors"
+              >
+                <Plus className="w-4 h-4" />
+                Criar Grupo
+              </button>
+            )}
           </div>
 
           <div className="flex-1 overflow-y-auto px-3 space-y-1 custom-scrollbar">
+            {auth.currentUser && groups.length > 0 && (
+              <div className="mb-2">
+                <div className="flex items-center justify-between px-4 mb-2">
+                  <div className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider">Meus Grupos</div>
+                  <button
+                    onClick={() => setIsGroupModalOpen(true)}
+                    className="p-1 hover:bg-[var(--bg-surface)] rounded-full text-[var(--text-muted)] hover:text-[var(--text-base)] transition-colors"
+                  >
+                    <Plus className="w-4 h-4" />
+                  </button>
+                </div>
+                <div className="space-y-1">
+                  {groups.map(group => (
+                    <button
+                      key={group.id}
+                      onClick={() => {
+                        setSelectedGroupId(group.id);
+                        setCurrentSessionId(null);
+                        if (window.innerWidth < 768) setIsSidebarOpen(false);
+                      }}
+                      className={`w-full text-left px-4 py-3 rounded-2xl flex items-center gap-3 transition-all duration-200 group ${selectedGroupId === group.id
+                        ? 'bg-[var(--bg-surface)] text-[var(--text-base)] shadow-sm border border-[var(--border-strong)]'
+                        : 'text-[var(--text-muted)] hover:bg-[var(--bg-surface)] hover:text-[var(--text-base)] border border-transparent'
+                        }`}
+                    >
+                      <div className="relative flex-shrink-0">
+                        <div className={`w-8 h-8 rounded-full flex items-center justify-center ${selectedGroupId === group.id ? 'bg-[var(--color-sec)] text-white' : 'bg-[var(--bg-input)] text-[var(--text-muted)] group-hover:bg-[var(--color-sec)] group-hover:text-white'} transition-colors`}>
+                          <MessageSquare className="w-4 h-4" />
+                        </div>
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="truncate font-medium text-sm">{group.name}</div>
+                        {drafts[group.id] && selectedGroupId !== group.id ? (
+                          <div className="text-[10px] font-bold text-yellow-500">
+                            Rascunho salvo
+                          </div>
+                        ) : (
+                          <div className="text-xs opacity-70 flex items-center gap-1">
+                            <Flame className="w-3 h-3 text-orange-500" />
+                            {group.streakDays} dias
+                          </div>
+                        )}
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {pinnedSessions.length > 0 && (
-              <div className="mb-4">
+              <div className="mb-4 mt-2">
                 <div className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider px-4 mb-2">Conversas Favoritadas</div>
                 <div className="space-y-1">
                   <AnimatePresence>
@@ -4977,55 +5079,6 @@ export default function ChatPage() {
                 </AnimatePresence>
               )}
             </div>
-
-            {auth.currentUser && groups.length > 0 && (
-              <div className="mb-4 mt-2">
-                <div className="flex items-center justify-between px-4 mb-2">
-                  <div className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider">Grupos</div>
-                  <button
-                    onClick={() => setIsGroupModalOpen(true)}
-                    className="p-1 hover:bg-[var(--bg-surface)] rounded-full text-[var(--text-muted)] hover:text-[var(--text-base)] transition-colors"
-                  >
-                    <Plus className="w-4 h-4" />
-                  </button>
-                </div>
-                <div className="space-y-1">
-                  {groups.map(group => (
-                    <button
-                      key={group.id}
-                      onClick={() => {
-                        setSelectedGroupId(group.id);
-                        setCurrentSessionId(null);
-                        if (window.innerWidth < 768) setIsSidebarOpen(false);
-                      }}
-                      className={`w-full text-left px-4 py-3 rounded-2xl flex items-center gap-3 transition-all duration-200 group ${selectedGroupId === group.id
-                        ? 'bg-[var(--bg-surface)] text-[var(--text-base)] shadow-sm border border-[var(--border-strong)]'
-                        : 'text-[var(--text-muted)] hover:bg-[var(--bg-surface)] hover:text-[var(--text-base)] border border-transparent'
-                        }`}
-                    >
-                      <div className="relative flex-shrink-0">
-                        <div className={`w-8 h-8 rounded-full flex items-center justify-center ${selectedGroupId === group.id ? 'bg-[var(--color-sec)] text-white' : 'bg-[var(--bg-input)] text-[var(--text-muted)] group-hover:bg-[var(--color-sec)] group-hover:text-white'} transition-colors`}>
-                          <MessageSquare className="w-4 h-4" />
-                        </div>
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="truncate font-medium text-sm">{group.name}</div>
-                        {drafts[group.id] && selectedGroupId !== group.id ? (
-                          <div className="text-[10px] font-bold text-yellow-500">
-                            Rascunho salvo
-                          </div>
-                        ) : (
-                          <div className="text-xs opacity-70 flex items-center gap-1">
-                            <Flame className="w-3 h-3 text-orange-500" />
-                            {group.streakDays} dias
-                          </div>
-                        )}
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
           </div>
 
           <div className="mt-4 border-t border-[var(--border-subtle)]">
@@ -5074,7 +5127,7 @@ export default function ChatPage() {
                     initial={{ opacity: 0, y: 8 }}
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: 8 }}
-                    className="absolute bottom-full left-0 mb-2 w-full min-w-[200px] bg-[var(--bg-panel)] border border-[var(--border-strong)] rounded-xl shadow-2xl overflow-hidden z-50"
+                    className="absolute top-full left-0 mt-2 w-full min-w-[200px] bg-[var(--bg-panel)] border border-[var(--border-strong)] rounded-xl shadow-2xl overflow-hidden z-50"
                   >
                     <div className="py-1">
                       {auth.currentUser ? (
@@ -5085,31 +5138,6 @@ export default function ChatPage() {
                           >
                             <Settings className="w-4 h-4 text-[var(--text-muted)]" />
                             Configurações
-                          </button>
-                          <button
-                            onClick={() => {
-                              setIsProfilePopoverOpen(false);
-                              setTempDisplayName(displayName || auth.currentUser?.displayName || '');
-                              setTempPhotoURL(photoURL || auth.currentUser?.photoURL || '');
-                              setIsUserSettingsOpen(true);
-                            }}
-                            className="flex items-center gap-3 w-full text-left px-3 py-2.5 text-sm text-[var(--text-base)] hover:bg-[var(--bg-surface)] transition-colors"
-                          >
-                            <User className="w-4 h-4 text-[var(--text-muted)]" />
-                            Perfil
-                          </button>
-                          <button
-                            onClick={() => {
-                              setIsProfilePopoverOpen(false);
-                              setTempDisplayName(displayName || auth.currentUser?.displayName || '');
-                              setTempPhotoURL(photoURL || auth.currentUser?.photoURL || '');
-                              setActiveSettingsTab('profile');
-                              setIsUserSettingsOpen(true);
-                            }}
-                            className="flex items-center gap-3 w-full text-left px-3 py-2.5 text-sm text-[var(--text-base)] hover:bg-[var(--bg-surface)] transition-colors"
-                          >
-                            <Lock className="w-4 h-4 text-[var(--text-muted)]" />
-                            Segurança
                           </button>
                           <div className="my-1 border-t border-[var(--border-subtle)]" />
                           <button
@@ -5428,25 +5456,29 @@ export default function ChatPage() {
                   </AnimatePresence>
                 )
               ) : !currentSession?.messages.length ? (
-                <motion.div
-                  initial={{ opacity: 0, y: 15 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.6, ease: "easeOut" }}
-                  className="h-full flex flex-col items-center justify-center text-center px-4 mt-16 md:mt-32"
-                >
-                  <h1 className="text-4xl md:text-5xl claude-font text-[var(--text-base)] mb-3 tracking-tight" style={{ fontWeight: 400 }}>
-                    {(() => {
-                      const hour = new Date().getHours();
-                      const greeting = hour >= 0 && hour < 5 ? 'Boa madrugada' : hour < 12 ? 'Bom dia' : hour < 18 ? 'Boa tarde' : 'Boa noite';
-                      const name = displayName?.split(' ')[0] || auth.currentUser?.displayName?.split(' ')[0] || 'visitante';
-                      return `${greeting}, ${name}`;
-                    })()}
-                  </h1>
-                  <h2 className="text-4xl md:text-5xl claude-font text-[var(--text-muted)] tracking-tight opacity-75" style={{ fontWeight: 400 }}>
-                    Como posso ajudar?
-                  </h2>
-                </motion.div>
+                /* ====== NO MESSAGES: greeting centered with input below ====== */
+                <div className="min-h-full flex flex-col items-center justify-center text-center px-4">
+                  <motion.div
+                    initial={{ opacity: 0, y: 15 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.6, ease: "easeOut" }}
+                    className="mb-8"
+                  >
+                    <h1 className="text-4xl md:text-5xl claude-font text-[var(--text-base)] mb-3 tracking-tight" style={{ fontWeight: 400 }}>
+                      {(() => {
+                        const hour = new Date().getHours();
+                        const greeting = hour >= 0 && hour < 5 ? 'Boa madrugada' : hour < 12 ? 'Bom dia' : hour < 18 ? 'Boa tarde' : 'Boa noite';
+                        const name = displayName?.split(' ')[0] || auth.currentUser?.displayName?.split(' ')[0] || 'visitante';
+                        return `${greeting}, ${name}`;
+                      })()}
+                    </h1>
+                    <h2 className="text-4xl md:text-5xl claude-font text-[var(--text-muted)] tracking-tight opacity-75" style={{ fontWeight: 400 }}>
+                      Como posso ajudar?
+                    </h2>
+                  </motion.div>
+                </div>
               ) : (
+                /* ====== MESSAGES EXIST: show messages list ====== */
                 <AnimatePresence initial={false}>
                   {currentSession.messages.map((msg, index) => (
                     <MessageItem
@@ -5518,7 +5550,7 @@ export default function ChatPage() {
             </div>
           </div>
 
-          <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-[var(--bg-base)] via-[var(--bg-base)] to-transparent pt-12 pb-6 px-4 md:px-8 z-20 pointer-events-none">
+          <div className={`${!currentSession?.messages.length && selectedGroupId === null ? 'relative px-4 md:px-8 pb-6 bg-transparent' : 'absolute bottom-0 left-0 right-0 bg-gradient-to-t from-[var(--bg-base)] via-[var(--bg-base)] to-transparent pt-12 pb-6 px-4 md:px-8'} z-20 pointer-events-none`}>
             <div className="max-w-3xl mx-auto relative pointer-events-auto">
               <AnimatePresence>
                 {selectedImages.length > 0 && (
@@ -5749,7 +5781,7 @@ export default function ChatPage() {
                   </button>
                 </div>
               </div>
-              <div className="text-center mt-3 text-[11px] text-[var(--text-muted)] opacity-70 font-medium">
+              <div ref={versionBarRef} className={`text-center mt-3 text-[11px] text-[var(--text-muted)] opacity-70 font-medium ${(currentSession?.messages.length === undefined || currentSession?.messages.length === 0) && selectedGroupId === null ? 'hidden' : ''}`}>
                 BroxaAI pode cometer erros. Confira informações importantes.
               </div>
             </div>
