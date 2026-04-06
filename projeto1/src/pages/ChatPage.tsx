@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
-import { Menu, Plus, MessageSquare, Trash2, Image as ImageIcon, X, Settings, Pin, Highlighter, AlertTriangle, Undo2, Redo2, Eraser, Copy, Check, ChevronDown, ShieldAlert, LogIn, LogOut, Search, GitCompare, Edit, Edit2, ThumbsUp, ThumbsDown, AlertCircle, ChevronUp, RefreshCw, Cpu, Flame, Snowflake, Bot, User, Lock, ChevronRight, ShieldCheck, LayoutDashboard, Globe, Dog, Monitor, Shield, Palette, FolderOpen, List, Grid3X3, Download, UserPlus, ChevronLeft, ArrowUp } from 'lucide-react';
+import { Menu, Plus, MessageSquare, Trash2, Image as ImageIcon, X, Settings, Pin, Highlighter, AlertTriangle, Undo2, Redo2, Eraser, Copy, Check, ChevronDown, ShieldAlert, LogIn, LogOut, Search, GitCompare, Edit, Edit2, ThumbsUp, ThumbsDown, AlertCircle, ChevronUp, RefreshCw, Cpu, Flame, Snowflake, Bot, User, Lock, ChevronRight, ShieldCheck, LayoutDashboard, Globe, Dog, Monitor, Shield, Palette, FolderOpen, List, Grid3X3, Download, UserPlus, ChevronLeft, ArrowUp, PenLine, FileText } from 'lucide-react';
 import { useChatStore, useSettingsStore, useAdminStore, useUserStore, useGroupStore, ReleaseNote, ReleaseNoteImage, ReleaseNoteBadge } from '../store';
 import { Group, GroupMessage } from '../types';
 import { db } from '../firebase';
@@ -305,11 +305,14 @@ const MessageItem = React.memo(({ msg, sessionId, settings, isHighlightMode, isE
       )}
       <div
         ref={containerRef}
-        className={`relative max-w-[90%] md:max-w-[75%] rounded-3xl px-4 py-3 md:px-6 md:py-4 shadow-sm group ${msg.role === 'user' ? 'rounded-tr-sm border border-[var(--border-subtle)] select-none' : 'bg-transparent text-[var(--text-base)] select-text'}`}
+        className={`relative max-w-[90%] md:max-w-[75%] rounded-3xl px-4 py-3 md:px-6 md:py-4 shadow-sm group ${msg.role === 'user' ? 'rounded-tr-sm border border-[var(--border-subtle)] select-none' : 'rounded-tl-sm border border-[var(--border-subtle)] select-text'}`}
         style={msg.role === 'user' ? {
           backgroundColor: settings.userMessageColor || 'var(--bg-surface)',
-          color: 'var(--text-base)'
-        } : {}}
+          color: '#ffffff'
+        } : {
+          backgroundColor: 'var(--color-sec)',
+          color: '#000000'
+        }}
         onTouchStart={handleTouchStartCopy}
         onTouchEnd={handleTouchEndCopy}
         onTouchMove={handleTouchEndCopy}
@@ -438,7 +441,7 @@ const MessageItem = React.memo(({ msg, sessionId, settings, isHighlightMode, isE
                 }}
                 className="px-6 py-2.5 bg-[var(--color-sec)] text-white rounded-xl font-bold shadow-lg hover:opacity-90 transition-opacity flex items-center gap-2"
               >
-                <Send className="w-4 h-4" />
+                <ArrowUp className="w-4 h-4" />
                 Enviar Respostas
               </button>
             </div>
@@ -457,7 +460,7 @@ const MessageItem = React.memo(({ msg, sessionId, settings, isHighlightMode, isE
               onClick={() => setIsErrorInfoOpen(!isErrorInfoOpen)}
               className="flex items-center gap-1.5 text-red-500 hover:text-red-600 transition-colors text-sm font-medium"
             >
-              <AlertCircle className="w-4 h-4" />
+              <AlertTriangle className="w-4 h-4" />
               Erro Interno
             </button>
             <div className="relative">
@@ -525,7 +528,15 @@ const MessageItem = React.memo(({ msg, sessionId, settings, isHighlightMode, isE
                 >
                   <p className="font-bold mb-1">Erro Interno do Servidor</p>
                   <p className="mb-2">Ocorreu um problema ao processar sua solicitação. Por favor, volte mais tarde ou tente novamente.</p>
-                  <p className="opacity-80 font-mono text-[10px] break-all">{msg.errorMessage}</p>
+                  <p className="opacity-80 font-mono text-[10px] break-all mb-2">{msg.errorMessage}</p>
+                  <button
+                    onClick={() => {
+                      navigator.clipboard.writeText(msg.errorMessage || 'Erro desconhecido');
+                    }}
+                    className="flex items-center gap-1.5 px-2.5 py-1 bg-red-500/20 hover:bg-red-500/30 rounded-lg transition-colors text-[10px] font-medium"
+                  >
+                    <Copy className="w-3 h-3" /> Copiar erro
+                  </button>
                 </motion.div>
               )}
             </AnimatePresence>
@@ -1012,6 +1023,14 @@ export default function ChatPage() {
   const [remoteVersion, setRemoteVersion] = useState<number | null>(null);
   const [showUpdateBanner, setShowUpdateBanner] = useState(false);
   const currentLocalVersion = 1.0;
+
+  // Persist admin UI photos via localStorage
+  const [persistedBefore, setPersistedBefore] = useState<string | null>(() => {
+    try { return localStorage.getItem('broxa_ui_before') || null; } catch (_e) { return null; }
+  });
+  const [persistedAfter, setPersistedAfter] = useState<string | null>(() => {
+    try { return localStorage.getItem('broxa_ui_after') || null; } catch (_e) { return null; }
+  });
 
   useEffect(() => {
     if (isElectronApp) {
@@ -1775,6 +1794,7 @@ export default function ChatPage() {
   const isResizingRef = useRef(false);
   const startYRef = useRef(0);
   const startHeightRef = useRef(0);
+  const prevHeightRef = useRef(60);
 
   const handleResizeMove = useCallback((e: MouseEvent | TouchEvent) => {
     if (!isResizingRef.current) return;
@@ -1782,10 +1802,12 @@ export default function ChatPage() {
     const deltaY = startYRef.current - clientY;
     const maxHeight = window.innerHeight * 0.35;
     const newHeight = Math.max(60, Math.min(maxHeight, startHeightRef.current + deltaY));
-    if (startHeightRef.current + deltaY >= maxHeight - 5) {
+    // Only shake when growing and hitting max, never when shrinking
+    if (newHeight >= maxHeight - 5 && newHeight >= prevHeightRef.current) {
       setInputMaxReached(true);
       setTimeout(() => setInputMaxReached(false), 600);
     }
+    prevHeightRef.current = newHeight;
     setTextareaHeight(newHeight);
   }, []);
 
@@ -1801,6 +1823,8 @@ export default function ChatPage() {
     isResizingRef.current = true;
     startYRef.current = 'touches' in e ? e.touches[0].clientY : e.clientY;
     startHeightRef.current = textareaHeight;
+    prevHeightRef.current = textareaHeight;
+    // If already at max, still allow
     document.addEventListener('mousemove', handleResizeMove);
     document.addEventListener('mouseup', handleResizeEnd);
     document.addEventListener('touchmove', handleResizeMove, { passive: false });
@@ -4009,6 +4033,8 @@ export default function ChatPage() {
                                     reader.onloadend = () => {
                                       const dataUrl = reader.result as string;
                                       setNewUiBeforeImg(dataUrl);
+                                      try { localStorage.setItem('broxa_ui_before', dataUrl); } catch (_e) {}
+                                      setPersistedBefore(dataUrl);
                                       updateDoc(doc(db, 'settings', 'global'), { newUiBeforeImg: dataUrl }, { merge: true }).catch(console.error);
                                     };
                                     reader.readAsDataURL(file);
@@ -4051,6 +4077,8 @@ export default function ChatPage() {
                                     reader.onloadend = () => {
                                       const dataUrl = reader.result as string;
                                       setNewUiAfterImg(dataUrl);
+                                      try { localStorage.setItem('broxa_ui_after', dataUrl); } catch (_e) {}
+                                      setPersistedAfter(dataUrl);
                                       updateDoc(doc(db, 'settings', 'global'), { newUiAfterImg: dataUrl }, { merge: true }).catch(console.error);
                                     };
                                     reader.readAsDataURL(file);
@@ -5137,13 +5165,42 @@ export default function ChatPage() {
             <div className="flex items-center text-lg font-bold text-[var(--text-base)]">
               {settings.customTitleFont === 'BROXA AI' ? 'BROXA AI' : settings.customTitleFont}
             </div>
-            <button onClick={() => setIsSidebarOpen(false)} className="md:hidden p-3 -mr-2 text-[var(--text-muted)] hover:text-[var(--text-base)]">
-              <X className="w-6 h-6" />
-            </button>
+            <div className="flex items-center gap-1">
+              <button onClick={() => setIsSidebarOpen(false)} className="p-3 text-[var(--text-muted)] hover:text-[var(--text-base)]">
+                <X className="w-6 h-6" />
+              </button>
+            </div>
           </div>
 
-          {/* === DESKTOP groups & action buttons === */}
-          <div className="hidden md:block px-3 mb-2 space-y-2">
+          {/* === MOBILE: action balls === */}
+          <div className="md:hidden flex items-center gap-2 px-4 pb-3">
+            {auth.currentUser && (
+              <button
+                onClick={() => { setIsGroupModalOpen(true); }}
+                className="w-14 h-14 rounded-full bg-[var(--bg-surface)] flex items-center justify-center border border-[var(--border-strong)] hover:bg-[var(--border-strong)] transition-colors"
+              >
+                <UserPlus className="w-6 h-6 text-[var(--text-base)]" />
+              </button>
+            )}
+            {auth.currentUser && (
+              <button
+                onClick={() => setIsGalleryOpen(true)}
+                className="w-14 h-14 rounded-full bg-[var(--bg-surface)] flex items-center justify-center border border-[var(--border-strong)] hover:bg-[var(--border-strong)] transition-colors"
+              >
+                <FolderOpen className="w-6 h-6 text-[var(--text-base)]" />
+              </button>
+            )}
+            <button
+              onClick={() => { handleNewChat(); setIsSidebarOpen(false); }}
+              className="w-14 h-14 rounded-full bg-[var(--color-sec)] flex items-center justify-center border border-[var(--border-strong)] hover:opacity-90 transition-colors"
+            >
+              <PenLine className="w-6 h-6 text-black" />
+            </button>
+          </div>
+          <div className="md:hidden border-t border-[var(--border-subtle)]" />
+
+          {/* === DESKTOP sidebar buttons: Grupos, Galeria, Nova Conversa === */}
+          <div className="hidden md:flex flex-col px-3 mb-2 space-y-2">
             {auth.currentUser && groups.length > 0 && (
               <div>
                 <button
@@ -5182,77 +5239,72 @@ export default function ChatPage() {
               </div>
             )}
 
-            <div className="flex gap-2">
-              {auth.currentUser && (
-                <button
-                  onClick={() => setIsGroupModalOpen(true)}
-                  className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2.5 bg-[var(--bg-surface)] hover:bg-[var(--border-strong)] border border-[var(--border-strong)] rounded-xl text-xs font-medium transition-colors"
-                >
-                  <UserPlus className="w-4 h-4" /> Grupos
-                </button>
-              )}
-              {auth.currentUser && (
-                <button
-                  onClick={() => setIsGalleryOpen(true)}
-                  className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2.5 bg-[var(--bg-surface)] hover:bg-[var(--border-strong)] border border-[var(--border-strong)] rounded-xl text-xs font-medium transition-colors"
-                >
-                  <FolderOpen className="w-4 h-4" /> Galeria
-                </button>
-              )}
-            </div>
+            {auth.currentUser && (
+              <button
+                onClick={() => setIsGroupModalOpen(true)}
+                className="flex items-center justify-center gap-2 px-3 py-2.5 bg-[var(--bg-surface)] hover:bg-[var(--border-strong)] border border-[var(--border-strong)] rounded-xl text-xs font-medium transition-colors"
+              >
+                <UserPlus className="w-4 h-4" /> Grupos
+              </button>
+            )}
+            {auth.currentUser && (
+              <button
+                onClick={() => setIsGalleryOpen(true)}
+                className="flex items-center justify-center gap-2 px-3 py-2.5 bg-[var(--bg-surface)] hover:bg-[var(--border-strong)] border border-[var(--border-strong)] rounded-xl text-xs font-medium transition-colors"
+              >
+                <FolderOpen className="w-4 h-4" /> Galeria
+              </button>
+            )}
+            <button
+              onClick={handleNewChat}
+              className="flex items-center justify-center gap-2 px-3 py-2.5 bg-[var(--bg-surface)] hover:bg-[var(--border-strong)] border border-[var(--border-strong)] rounded-xl text-xs font-medium transition-colors"
+            >
+              <FileText className="w-4 h-4" /> Nova Conversa
+            </button>
             <div className="border-t border-[var(--border-subtle)]" />
           </div>
 
-          {/* === MOBILE: profile photo + search === */}
-          <div className="flex md:hidden items-center justify-start gap-2 px-2 py-2">
-            {auth.currentUser ? (
-              <div className="relative" ref={mobileProfilePopoverRef}>
-                <button
-                  onClick={() => setIsMobileProfilePopoverOpen(!isMobileProfilePopoverOpen)}
-                  className="w-14 h-14 rounded-full overflow-hidden border-2 border-[var(--border-strong)] hover:border-[var(--color-sec)] transition-colors shrink-0"
-                >
-                  {(photoURL || auth.currentUser.photoURL) ? (
-                    <img src={photoURL || auth.currentUser.photoURL!} alt="Avatar" className="w-full h-full object-cover" />
-                  ) : (
-                    <div className="w-full h-full bg-[var(--bg-surface)] flex items-center justify-center">
-                      <User className="w-6 h-6 text-[var(--text-muted)]" />
-                    </div>
-                  )}
-                </button>
-                <AnimatePresence>
-                  {isMobileProfilePopoverOpen && (
-                    <motion.div
-                      initial={{ opacity: 0, y: 4 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, y: 4 }}
-                      className="absolute bottom-full left-0 mb-2 w-48 bg-[var(--bg-panel)] border border-[var(--border-strong)] rounded-xl shadow-xl z-50 overflow-hidden"
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      <button
-                        onClick={() => { setIsMobileProfilePopoverOpen(false); setIsSettingsOpen(true); }}
-                        className="flex items-center gap-3 w-full p-3 hover:bg-[var(--bg-surface)] transition-colors"
-                      >
-                        <Settings className="w-4 h-4 text-white" />
-                        <span className="text-sm font-medium text-white">Configurações</span>
-                      </button>
-                      <button
-                        onClick={() => { setIsMobileProfilePopoverOpen(false); setIsLogoutModalOpen(true); }}
-                        className="flex items-center gap-3 w-full p-3 hover:bg-[var(--bg-surface)] transition-colors border-t border-[var(--border-subtle)]"
-                      >
-                        <LogOut className="w-4 h-4 text-white" />
-                        <span className="text-sm font-medium text-white">Sair</span>
-                      </button>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </div>
-            ) : null}
+          {/* === MOBILE: action balls === */}
+          <div className="flex md:hidden items-center gap-2 px-4 py-2">
             {auth.currentUser && (
               <button onClick={() => { setMobileSearchOpen(!mobileSearchOpen); }} className="flex flex-col items-center gap-1.5">
                 <div className="w-14 h-14 rounded-full bg-[var(--bg-surface)] flex items-center justify-center border border-[var(--border-strong)] hover:bg-[var(--border-strong)] transition-colors">
                   <Search className="w-6 h-6 text-[var(--text-base)]" />
                 </div>
-                <span className="text-[10px] text-[var(--text-muted)] font-medium">Pesquisar</span>
+                <span className="text-[10px] text-[var(--text-muted)] font-medium">Busca</span>
+              </button>
+            )}
+            {auth.currentUser && groups.length === 0 && (
+              <button
+                onClick={() => { setIsGroupModalOpen(true); }}
+                className="flex flex-col items-center gap-1.5"
+              >
+                <div className="w-14 h-14 rounded-full bg-[var(--bg-surface)] flex items-center justify-center border border-[var(--border-strong)] hover:bg-[var(--border-strong)] transition-colors">
+                  <UserPlus className="w-6 h-6 text-[var(--text-base)]" />
+                </div>
+                <span className="text-[10px] text-[var(--text-muted)] font-medium">Grupos</span>
+              </button>
+            )}
+            {auth.currentUser && (
+              <button
+                onClick={() => setIsGalleryOpen(true)}
+                className="flex flex-col items-center gap-1.5"
+              >
+                <div className="w-14 h-14 rounded-full bg-[var(--bg-surface)] flex items-center justify-center border border-[var(--border-strong)] hover:bg-[var(--border-strong)] transition-colors">
+                  <FolderOpen className="w-6 h-6 text-[var(--text-base)]" />
+                </div>
+                <span className="text-[10px] text-[var(--text-muted)] font-medium">Galeria</span>
+              </button>
+            )}
+            {auth.currentUser && (
+              <button
+                onClick={() => { handleNewChat(); setIsSidebarOpen(false); }}
+                className="flex flex-col items-center gap-1.5"
+              >
+                <div className="w-14 h-14 rounded-full bg-[var(--color-sec)] flex items-center justify-center border border-[var(--color-sec)] hover:opacity-90 transition-colors">
+                  <PenLine className="w-6 h-6 text-black" />
+                </div>
+                <span className="text-[10px] text-[var(--text-muted)] font-medium">Nova Conv.</span>
               </button>
             )}
           </div>
@@ -5371,15 +5423,6 @@ export default function ChatPage() {
                   {unpinnedSessions.map(renderSession)}
                 </AnimatePresence>
               )}
-              {/* Desktop: Nova Conversa button below conversation list */}
-              <div className="hidden md:block mt-3 px-3">
-                <button
-                  onClick={handleNewChat}
-                  className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-[var(--color-sec)] text-white hover:opacity-90 rounded-xl text-sm font-medium transition-colors"
-                >
-                  <Plus className="w-4 h-4" /> Nova Conversa
-                </button>
-              </div>
             </div>
           </div>
 
@@ -5684,22 +5727,6 @@ export default function ChatPage() {
                 </>
               ) : (
                 <>
-                  {/* Streak Indicator */}
-                  <div
-                    className="flex items-center gap-1 px-3 py-1.5 rounded-full bg-[var(--bg-surface)] border border-[var(--border-subtle)] mr-2 cursor-pointer hover:bg-[var(--bg-base)] transition-colors"
-                    title={streakDays > 0 ? (lastMessageDate === new Date().toISOString().slice(0, 10) ? `Sequência de ${streakDays} dias` : `Sequência congelada em ${streakDays} dias. Mande uma mensagem para descongelar!`) : 'Comece uma sequência mandando mensagens diariamente!'}
-                    onClick={() => setIsStreakModalOpen(true)}
-                  >
-                    <Flame
-                      className={`w-5 h-5 transition-colors ${streakDays > 0 && lastMessageDate === new Date().toISOString().slice(0, 10)
-                        ? 'text-orange-500 fill-orange-500 animate-pulse'
-                        : 'text-gray-400'
-                        }`}
-                    />
-                    <span className={`font-bold ${streakDays > 0 && lastMessageDate === new Date().toISOString().slice(0, 10) ? 'text-orange-500' : 'text-gray-400'}`}>
-                      {streakDays}
-                    </span>
-                  </div>
                   <div className="relative">
                     <button onClick={() => setIsPinnedMessagesOpen(!isPinnedMessagesOpen)} className="p-2 text-[var(--text-muted)] hover:text-[var(--text-base)] relative">
                       <Pin className="w-5 h-5" />
