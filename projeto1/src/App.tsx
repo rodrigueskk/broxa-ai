@@ -111,25 +111,22 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
 }
 
 export default function App() {
-  const [isTablet, setIsTablet] = useState(false);
+  const [isUnsupported, setIsUnsupported] = useState(false);
   const { isMaintenanceMode } = useAdminStore();
   const { userRole } = useUserStore();
 
   useEffect(() => {
-    const checkTablet = () => {
-      const userAgent = navigator.userAgent.toLowerCase();
-      const isIpad = /macintosh/i.test(userAgent) && navigator.maxTouchPoints && navigator.maxTouchPoints > 1;
-      const isTabletUA = /(ipad|tablet|(android(?!.*mobile))|(windows(?!.*phone)(.*touch))|kindle|playbook|silk|(puffin(?!.*(IP|AP|WP))))/.test(userAgent);
-      
-      if (isIpad || isTabletUA || (window.innerWidth >= 768 && window.innerWidth <= 1024 && navigator.maxTouchPoints > 0)) {
-        setIsTablet(true);
-      } else {
-        setIsTablet(false);
-      }
+    const checkPlatform = () => {
+      const ua = navigator.userAgent.toLowerCase();
+      const isWindows = /windows/i.test(ua);
+      const isMac = /macintosh/i.test(ua);
+      const isLinux = /linux/i.test(ua);
+      const isIOS = /iphone|ipad|ipod/i.test(ua);
+      const isAndroid = /android/i.test(ua);
+      const isValid = isWindows || isMac || isLinux || isIOS || isAndroid;
+      setIsUnsupported(!isValid);
     };
-    checkTablet();
-    window.addEventListener('resize', checkTablet);
-    return () => window.removeEventListener('resize', checkTablet);
+    checkPlatform();
   }, []);
 
   const [isVerified, setIsVerified] = useState(() => {
@@ -189,11 +186,12 @@ export default function App() {
     };
   }, []);
 
-  if (isTablet) {
+  if (isUnsupported) {
     return (
       <div className="min-h-screen bg-black text-[#e0e0e0] flex flex-col items-center justify-center p-6 text-center font-sans tracking-tight">
-        <h1 className="text-7xl md:text-8xl mb-6 font-blackclaude-font" style={{ fontWeight: 400 }}>:(</h1>
-        <p className="text-xl md:text-2xl opacity-80 max-w-md mx-auto" style={{ fontWeight: 400 }}>Ops, o site ainda não tem suporte para tablets</p>
+        <h1 className="text-7xl md:text-8xl mb-6 font-black claude-font" style={{ fontWeight: 400 }}>:(</h1>
+        <p className="text-xl md:text-2xl opacity-80 max-w-md mx-auto" style={{ fontWeight: 400 }}>Dispositivo não suportado</p>
+        <p className="text-sm md:text-base opacity-50 max-w-sm mx-auto mt-4" style={{ fontWeight: 400 }}>Não reconhecemos seu dispositivo. Use Windows, macOS, Linux, iOS ou Android para acessar.</p>
       </div>
     );
   }

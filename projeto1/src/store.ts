@@ -623,7 +623,7 @@ export function useGroupStore() {
       const groupRef = doc(collection(db, 'groups'));
       await setDoc(groupRef, {
         name,
-        photoURL,
+        photoURL: photoURL || '',
         systemInstruction,
         ownerId: auth.currentUser.uid,
         members: [auth.currentUser.uid],

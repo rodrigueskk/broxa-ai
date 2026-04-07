@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
-import { Menu, Plus, MessageSquare, Trash2, Image as ImageIcon, X, Settings, Pin, Highlighter, AlertTriangle, Undo2, Redo2, Eraser, Copy, Check, ChevronDown, ShieldAlert, LogIn, LogOut, Search, GitCompare, Edit, Edit2, ThumbsUp, ThumbsDown, AlertCircle, ChevronUp, RefreshCw, Cpu, Flame, Snowflake, Bot, User, Lock, ChevronRight, ShieldCheck, LayoutDashboard, Globe, Dog, Monitor, Shield, Palette, FolderOpen, List, Grid3X3, Download, UserPlus, ChevronLeft, ArrowUp, PenLine, FileText } from 'lucide-react';
+import { Menu, Plus, MessageSquare, Trash2, Image as ImageIcon, X, Settings, Pin, Highlighter, AlertTriangle, Undo2, Redo2, Eraser, Copy, Check, ChevronDown, ShieldAlert, LogIn, LogOut, Search, GitCompare, Edit, Edit2, ThumbsUp, ThumbsDown, AlertCircle, ChevronUp, RefreshCw, Cpu, Flame, Snowflake, Bot, User, Lock, ChevronRight, ShieldCheck, LayoutDashboard, Globe, Dog, Monitor, Shield, Palette, FolderOpen, List, Grid3X3, Download, Users, UserPlus, ChevronLeft, ArrowUp, PenLine, FileText } from 'lucide-react';
 import { useChatStore, useSettingsStore, useAdminStore, useUserStore, useGroupStore, ReleaseNote, ReleaseNoteImage, ReleaseNoteBadge } from '../store';
 import { Group, GroupMessage } from '../types';
 import { db } from '../firebase';
@@ -132,6 +132,7 @@ const MessageItem = React.memo(({ msg, sessionId, settings, isHighlightMode, isE
   const [isCopied, setIsCopied] = useState(false);
   const [isErrorHubOpen, setIsErrorHubOpen] = useState(false);
   const [isErrorInfoOpen, setIsErrorInfoOpen] = useState(false);
+  const [isErrorCopied, setIsErrorCopied] = useState(false);
   const [answersSubmitted, setAnswersSubmitted] = useState(false);
 
   const [isFeedbackModalOpen, setIsFeedbackModalOpen] = useState(false);
@@ -532,10 +533,12 @@ const MessageItem = React.memo(({ msg, sessionId, settings, isHighlightMode, isE
                   <button
                     onClick={() => {
                       navigator.clipboard.writeText(msg.errorMessage || 'Erro desconhecido');
+                      setIsErrorCopied(true);
+                      setTimeout(() => setIsErrorCopied(false), 2000);
                     }}
                     className="flex items-center gap-1.5 px-2.5 py-1 bg-red-500/20 hover:bg-red-500/30 rounded-lg transition-colors text-[10px] font-medium"
                   >
-                    <Copy className="w-3 h-3" /> Copiar erro
+                    {isErrorCopied ? <Check className="w-3 h-3 text-green-400" /> : <Copy className="w-3 h-3" />} {isErrorCopied ? 'Copiado!' : 'Copiar erro'}
                   </button>
                 </motion.div>
               )}
@@ -1198,16 +1201,21 @@ export default function ChatPage() {
   const [isOutdated, setIsOutdated] = useState(false);
   const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false);
   const [logoutInput, setLogoutInput] = useState('');
+  const [logoutPhrase, setLogoutPhrase] = useState('');
+  const [groupLeavePhrase, setGroupLeavePhrase] = useState('');
   const [noteToDelete, setNoteToDelete] = useState<string | null>(null);
   const [isStreakModalOpen, setIsStreakModalOpen] = useState(false);
 
   // Gallery state
   const [isGalleryOpen, setIsGalleryOpen] = useState(false);
   const closeGallery = () => setIsGalleryOpen(false);
+  const [isGroupsScreenOpen, setIsGroupsScreenOpen] = useState(false);
+  const [groupsScreenSearch, setGroupsScreenSearch] = useState('');
   const [galleryFilter, setGalleryFilter] = useState<'all'|'photos'|'mindmaps'>('all');
   const [gallerySearch, setGallerySearch] = useState('');
   const [galleryView, setGalleryView] = useState<'grid'|'list'>('grid');
   const [selectedGalleryItems, setSelectedGalleryItems] = useState<string[]>([]);
+  const [galleryItemToDelete, setGalleryItemToDelete] = useState<string | null>(null);
   const [unlockedFeature, setUnlockedFeature] = useState<{ name: string, days: number } | null>(null);
   const shownFeatureRef = useRef<Set<string>>(new Set());
   const [isProfileSetupOpen, setIsProfileSetupOpen] = useState(false);
@@ -1845,9 +1853,15 @@ export default function ChatPage() {
     }
 
     setNewChatTimestamps([...recentTimestamps, now]);
-    createSession();
+    setCurrentSessionId(null);
     setSelectedGroupId(null);
     if (window.innerWidth < 768) setIsSidebarOpen(false);
+  };
+
+  const confirmationWords = ['azul', 'pedra', 'vento', 'nuvem', 'sol', 'mar', 'lua', 'flor', 'rio', 'paz', 'fogo', 'neve', 'luz', 'ar', 'ceu', 'ponte', 'gato', 'livro', 'chave', 'noite'];
+  const generatePhrase = () => {
+    const shuffled = [...confirmationWords].sort(() => Math.random() - 0.5);
+    return shuffled.slice(0, 3).join(' ');
   };
 
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -1859,6 +1873,7 @@ export default function ChatPage() {
   const pinnedMessages = currentSession?.messages.filter(m => m.isPinned) || [];
   const pinnedTexts = currentSession?.pinnedTexts || [];
   const hasPinnedItems = pinnedMessages.length > 0 || pinnedTexts.length > 0;
+  const filteredGroups = groups.filter(g => !groupsScreenSearch || g.name.toLowerCase().includes(groupsScreenSearch.toLowerCase()));
   const hasHighlights = currentSession?.messages.some(m => m.strokes && m.strokes.length > 0);
 
   // Gallery: collect all photos and mindmaps from sessions and groups
@@ -4287,13 +4302,13 @@ export default function ChatPage() {
               >
                 <h2 className="text-xl font-bold mb-2">Sair da conta</h2>
                 <p className="text-[var(--text-muted)] mb-4 text-sm">
-                  Digite <strong className="text-[var(--text-base)]">sair</strong> para confirmar.
+                  Digite <strong className="text-[var(--text-base)]">{logoutPhrase}</strong> para confirmar.
                 </p>
                 <input
                   type="text"
                   value={logoutInput}
                   onChange={(e) => setLogoutInput(e.target.value)}
-                  placeholder="sair"
+                  placeholder={logoutPhrase}
                   className="w-full bg-[var(--bg-input)] border border-[var(--border-subtle)] rounded-xl px-4 py-3 text-[var(--text-base)] focus:outline-none focus:border-[var(--color-sec)] mb-4"
                 />
                 <div className="flex gap-3">
@@ -4304,7 +4319,7 @@ export default function ChatPage() {
                     Cancelar
                   </button>
                   <button
-                    disabled={logoutInput.toLowerCase() !== 'sair'}
+                    disabled={logoutInput.toLowerCase() !== logoutPhrase.toLowerCase()}
                     onClick={() => {
                       clearSessions();
                       setSelectedGroupId(null);
@@ -4339,13 +4354,13 @@ export default function ChatPage() {
               >
                 <h2 className="text-xl font-bold mb-2">Sair do Grupo</h2>
                 <p className="text-[var(--text-muted)] mb-4 text-sm">
-                  Digite o nome <strong className="text-[var(--text-base)]">{leaveGroupName}</strong> para confirmar.
+                  Digite <strong className="text-[var(--text-base)]">{groupLeavePhrase}</strong> para confirmar.
                 </p>
                 <input
                   type="text"
                   value={groupLeaveInput}
                   onChange={(e) => setGroupLeaveInput(e.target.value)}
-                  placeholder="Nome do grupo"
+                  placeholder={groupLeavePhrase}
                   className="w-full bg-[var(--bg-input)] border border-[var(--border-subtle)] rounded-xl px-4 py-3 text-[var(--text-base)] focus:outline-none focus:border-[var(--color-sec)] mb-4"
                 />
                 <div className="flex gap-3">
@@ -4356,7 +4371,7 @@ export default function ChatPage() {
                     Cancelar
                   </button>
                   <button
-                    disabled={groupLeaveInput !== leaveGroupName}
+                    disabled={groupLeaveInput.toLowerCase() !== groupLeavePhrase.toLowerCase()}
                     onClick={async () => {
                       try {
                         const groupDoc = doc(db, 'groups', groupToLeaveId!);
@@ -4472,12 +4487,12 @@ export default function ChatPage() {
               className="fixed inset-0 z-[150] bg-black/80 backdrop-blur-md"
             >
               <motion.div
-                initial={{ x: -300, opacity: 0 }}
-                animate={{ x: 0, opacity: 1 }}
-                exit={{ x: -300, opacity: 0 }}
+                initial={{ scale: 0.95, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                exit={{ scale: 0.95, opacity: 0 }}
                 transition={{ type: 'spring', damping: 25, stiffness: 200 }}
                 onClick={(e) => e.stopPropagation()}
-                className="fixed inset-0 z-[160] bg-[var(--bg-surface)] md:inset-y-0 md:left-0 md:w-full md:max-w-[800px] md:border-r md:border-[var(--border-subtle)] md:flex"
+                className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-[160] bg-[var(--bg-surface)] w-[calc(100%-2rem)] md:w-[90%] h-[calc(100%-4rem)] md:h-auto md:max-h-[85vh] md:max-w-[900px] rounded-2xl border border-[var(--border-subtle)] flex overflow-hidden shadow-2xl"
               >
                 {/* Close X button - top right, above everything */}
                 <button onClick={handleCloseSettings} className="absolute top-4 right-4 z-[170] p-2 hover:bg-[var(--bg-base)] rounded-full transition-colors"><X className="w-5 h-5 text-[var(--text-base)]" /></button>
@@ -4509,6 +4524,7 @@ export default function ChatPage() {
                     <div className="hidden md:block p-4 border-t border-[var(--border-subtle)]">
                       <button
                         onClick={() => {
+                          setLogoutPhrase(generatePhrase());
                           setIsSettingsOpen(false);
                           setIsLogoutModalOpen(true);
                         }}
@@ -5176,10 +5192,10 @@ export default function ChatPage() {
           <div className="md:hidden flex items-center gap-2 px-4 pb-3">
             {auth.currentUser && (
               <button
-                onClick={() => { setIsGroupModalOpen(true); }}
+                onClick={() => setIsGroupsScreenOpen(true)}
                 className="w-14 h-14 rounded-full bg-[var(--bg-surface)] flex items-center justify-center border border-[var(--border-strong)] hover:bg-[var(--border-strong)] transition-colors"
               >
-                <UserPlus className="w-6 h-6 text-[var(--text-base)]" />
+                <Users className="w-6 h-6 text-[var(--text-base)]" />
               </button>
             )}
             {auth.currentUser && (
@@ -5225,7 +5241,7 @@ export default function ChatPage() {
                             <span className="text-xs truncate">{group.name}</span>
                           </button>
                           <button
-                            onClick={() => { setGroupToLeaveId(group.id); setLeaveGroupName(group.name); setGroupLeaveInput(''); setIsGroupLeaveModalOpen(true); }}
+                            onClick={() => { setGroupToLeaveId(group.id); setLeaveGroupName(group.name); setGroupLeavePhrase(generatePhrase()); setGroupLeaveInput(''); setIsGroupLeaveModalOpen(true); }}
                             className="hidden group-hover/grp:flex absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded-full hover:bg-red-500/20 text-red-500 transition-colors"
                             title="Sair do grupo"
                           >
@@ -5241,10 +5257,10 @@ export default function ChatPage() {
 
             {auth.currentUser && (
               <button
-                onClick={() => setIsGroupModalOpen(true)}
+                onClick={() => setIsGroupsScreenOpen(true)}
                 className="flex items-center justify-center gap-2 px-3 py-2.5 bg-[var(--bg-surface)] hover:bg-[var(--border-strong)] border border-[var(--border-strong)] rounded-xl text-xs font-medium transition-colors"
               >
-                <UserPlus className="w-4 h-4" /> Grupos
+                <Users className="w-4 h-4" /> Grupos
               </button>
             )}
             {auth.currentUser && (
@@ -5264,51 +5280,6 @@ export default function ChatPage() {
             <div className="border-t border-[var(--border-subtle)]" />
           </div>
 
-          {/* === MOBILE: action balls === */}
-          <div className="flex md:hidden items-center gap-2 px-4 py-2">
-            {auth.currentUser && (
-              <button onClick={() => { setMobileSearchOpen(!mobileSearchOpen); }} className="flex flex-col items-center gap-1.5">
-                <div className="w-14 h-14 rounded-full bg-[var(--bg-surface)] flex items-center justify-center border border-[var(--border-strong)] hover:bg-[var(--border-strong)] transition-colors">
-                  <Search className="w-6 h-6 text-[var(--text-base)]" />
-                </div>
-                <span className="text-[10px] text-[var(--text-muted)] font-medium">Busca</span>
-              </button>
-            )}
-            {auth.currentUser && groups.length === 0 && (
-              <button
-                onClick={() => { setIsGroupModalOpen(true); }}
-                className="flex flex-col items-center gap-1.5"
-              >
-                <div className="w-14 h-14 rounded-full bg-[var(--bg-surface)] flex items-center justify-center border border-[var(--border-strong)] hover:bg-[var(--border-strong)] transition-colors">
-                  <UserPlus className="w-6 h-6 text-[var(--text-base)]" />
-                </div>
-                <span className="text-[10px] text-[var(--text-muted)] font-medium">Grupos</span>
-              </button>
-            )}
-            {auth.currentUser && (
-              <button
-                onClick={() => setIsGalleryOpen(true)}
-                className="flex flex-col items-center gap-1.5"
-              >
-                <div className="w-14 h-14 rounded-full bg-[var(--bg-surface)] flex items-center justify-center border border-[var(--border-strong)] hover:bg-[var(--border-strong)] transition-colors">
-                  <FolderOpen className="w-6 h-6 text-[var(--text-base)]" />
-                </div>
-                <span className="text-[10px] text-[var(--text-muted)] font-medium">Galeria</span>
-              </button>
-            )}
-            {auth.currentUser && (
-              <button
-                onClick={() => { handleNewChat(); setIsSidebarOpen(false); }}
-                className="flex flex-col items-center gap-1.5"
-              >
-                <div className="w-14 h-14 rounded-full bg-[var(--color-sec)] flex items-center justify-center border border-[var(--color-sec)] hover:opacity-90 transition-colors">
-                  <PenLine className="w-6 h-6 text-black" />
-                </div>
-                <span className="text-[10px] text-[var(--text-muted)] font-medium">Nova Conv.</span>
-              </button>
-            )}
-          </div>
-          <div className="md:hidden border-t border-[var(--border-subtle)] mx-4 my-1" />
 
           {/* === MOBILE: search bar === */}
           <AnimatePresence>
@@ -5356,7 +5327,7 @@ export default function ChatPage() {
                         <span className="text-sm truncate">{group.name}</span>
                         <div className="ml-auto">
                           <button
-                            onClick={() => { setGroupToLeaveId(group.id); setLeaveGroupName(group.name); setGroupLeaveInput(''); setIsGroupLeaveModalOpen(true); }}
+                            onClick={() => { setGroupToLeaveId(group.id); setLeaveGroupName(group.name); setGroupLeavePhrase(generatePhrase()); setGroupLeaveInput(''); setIsGroupLeaveModalOpen(true); }}
                             className="p-1.5 rounded-full hover:bg-red-500/20 text-red-500 transition-colors"
                             title="Sair do grupo"
                           >
@@ -5473,7 +5444,7 @@ export default function ChatPage() {
                           <span className="text-sm font-medium text-white">Configurações</span>
                         </button>
                         <button
-                          onClick={() => { setIsProfilePopoverOpen(false); setIsLogoutModalOpen(true); }}
+                          onClick={() => { setLogoutPhrase(generatePhrase()); setIsProfilePopoverOpen(false); setIsLogoutModalOpen(true); }}
                           className="flex items-center gap-3 w-full p-2.5 rounded-xl hover:bg-[var(--bg-surface)] transition-colors border-t border-[var(--border-subtle)]"
                         >
                           <LogOut className="w-4 h-4 text-white" />
@@ -5578,6 +5549,7 @@ export default function ChatPage() {
                               setIsGroupHeaderPopoverOpen(false);
                               setGroupToLeaveId(selectedGroupId);
                               setLeaveGroupName(groups.find(g => g.id === selectedGroupId)?.name || '');
+                              setGroupLeavePhrase(generatePhrase());
                               setGroupLeaveInput('');
                               setIsGroupLeaveModalOpen(true);
                             }}
@@ -5960,6 +5932,7 @@ export default function ChatPage() {
                 )}
               </AnimatePresence>
               <div className={`bg-[var(--bg-input)] border rounded-[32px] flex flex-col shadow-2xl overflow-hidden focus-within:ring-1 transition-all ${(shakeInput || inputMaxReached) ? 'animate-shake border-red-500 ring-1 ring-red-500 bg-red-500/10' : 'border-[var(--border-strong)] focus-within:border-[var(--border-strong)] focus-within:ring-[var(--border-strong)]'}`}>
+                {currentSession?.messages.length > 0 && (
                 <div
                   className="w-full h-3 cursor-ns-resize flex items-center justify-center hover:bg-[var(--border-subtle)] transition-colors opacity-50 hover:opacity-100"
                   onMouseDown={handleResizeStart}
@@ -5967,6 +5940,7 @@ export default function ChatPage() {
                 >
                   <div className="w-10 h-1 rounded-full bg-[var(--text-muted)]"></div>
                 </div>
+                )}
                 {askTotoAgain ? (
                   <div className="w-full flex flex-col items-center justify-center p-6 gap-3">
                     <h3 className="text-lg font-bold text-[var(--text-base)] text-center">Tem mais coisas que deseja enviar para a IA responder?</h3>
@@ -7203,6 +7177,14 @@ export default function ChatPage() {
                             <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-2">
                               <p className="text-xs text-white font-medium truncate">{item.title}</p>
                               <p className="text-[10px] text-white/60">{item.modified.toLocaleDateString()} • {item.size}</p>
+                              {/* Delete button - grid */}
+                              <button
+                                onClick={(e) => { e.stopPropagation(); setGalleryItemToDelete(item.id); }}
+                                className="absolute top-2 right-2 p-1.5 bg-black/50 rounded-lg hover:bg-red-500/80 transition-colors opacity-0 group-hover:opacity-100"
+                                title="Excluir"
+                              >
+                                <Trash2 className="w-3.5 h-3.5 text-white" />
+                              </button>
                             </div>
                           </div>
                         );
@@ -7235,15 +7217,153 @@ export default function ChatPage() {
                               <span className="text-xs text-[var(--text-muted)]">{item.size}</span>
                               {isSelected && <Check className="w-4 h-4 text-[var(--color-sec)]" />}
                               <button
-                                onClick={(e) => { e.stopPropagation(); downloadItem(item); }}
+                                onClick={(e) => { e.stopPropagation(); setGalleryItemToDelete(item.id); }}
                                 className="p-2 hover:bg-[var(--bg-base)] rounded-lg transition-colors"
+                                title="Excluir"
                               >
-                                <Download className="w-4 h-4 text-[var(--text-muted)] hover:text-[var(--text-base)]" />
+                                <Trash2 className="w-4 h-4 text-red-400 hover:text-red-300" />
                               </button>
                             </div>
                           </div>
                         );
                       })}
+                    </div>
+                  )}
+                </div>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Gallery Delete Confirmation */}
+        <AnimatePresence>
+          {galleryItemToDelete && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setGalleryItemToDelete(null)}
+              className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md"
+            >
+              <motion.div
+                initial={{ scale: 0.95, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                exit={{ scale: 0.95, opacity: 0 }}
+                onClick={(e) => e.stopPropagation()}
+                className="bg-[var(--bg-base)] border border-[var(--border-strong)] rounded-2xl p-6 max-w-sm w-full shadow-2xl"
+              >
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="w-10 h-10 rounded-full bg-red-500/10 flex items-center justify-center">
+                    <Trash2 className="w-5 h-5 text-red-500" />
+                  </div>
+                  <h3 className="font-bold text-[var(--text-base)]">Excluir item?</h3>
+                </div>
+                <p className="text-sm text-[var(--text-muted)] mb-6">
+                  Tem certeza que deseja excluir este item? Essa ação não pode ser desfeita.
+                </p>
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => setGalleryItemToDelete(null)}
+                    className="flex-1 py-3 rounded-xl bg-[var(--bg-surface)] text-[var(--text-base)] font-medium transition-colors hover:bg-[var(--border-strong)]"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    onClick={() => {
+                      setSelectedGalleryItems(prev => prev.filter(id => id !== galleryItemToDelete));
+                      setGalleryItemToDelete(null);
+                    }}
+                    className="flex-1 py-3 rounded-xl bg-red-500 text-white font-medium transition-colors hover:bg-red-600"
+                  >
+                    Excluir
+                  </button>
+                </div>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* === Groups Screen === */}
+        <AnimatePresence>
+          {isGroupsScreenOpen && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setIsGroupsScreenOpen(false)}
+              className="fixed inset-0 z-[150] bg-black/80 backdrop-blur-md"
+            >
+              <motion.div
+                initial={{ x: 300, opacity: 0 }}
+                animate={{ x: 0, opacity: 1 }}
+                exit={{ x: 300, opacity: 0 }}
+                transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+                onClick={(e) => e.stopPropagation()}
+                className="fixed inset-0 z-[160] bg-[var(--bg-surface)] md:inset-y-0 md:right-0 md:w-full md:max-w-[500px] flex flex-col"
+              >
+                {/* Close button */}
+                <div className="flex items-center justify-between p-4 border-b border-[var(--border-subtle)]">
+                  <h2 className="text-2xl font-bold text-[var(--text-base)]">Grupos</h2>
+                  <button onClick={() => setIsGroupsScreenOpen(false)} className="p-2 hover:bg-[var(--bg-base)] rounded-full transition-colors">
+                    <X className="w-6 h-6 text-[var(--text-base)]" />
+                  </button>
+                </div>
+
+                {/* Search & Create */}
+                <div className="p-4 space-y-3 border-b border-[var(--border-subtle)]">
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--text-muted)]" />
+                    <input
+                      type="text"
+                      value={groupsScreenSearch}
+                      onChange={(e) => setGroupsScreenSearch(e.target.value)}
+                      placeholder="Pesquisar grupos..."
+                      className="w-full bg-[var(--bg-input)] border border-[var(--border-strong)] rounded-xl pl-10 pr-4 py-2.5 text-sm text-[var(--text-base)] focus:outline-none focus:border-[var(--color-sec)] placeholder:text-[var(--text-muted)]"
+                    />
+                  </div>
+                  <button
+                    onClick={() => { setIsGroupsScreenOpen(false); setIsGroupModalOpen(true); }}
+                    className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-[var(--color-sec)] hover:opacity-90 rounded-xl text-sm font-medium text-black transition-opacity"
+                  >
+                    <Plus className="w-4 h-4" /> Criar Grupo
+                  </button>
+                </div>
+
+                {/* Groups List */}
+                <div className="flex-1 overflow-y-auto custom-scrollbar p-4">
+                  {filteredGroups.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center h-full text-center py-20">
+                      <Users className="w-16 h-16 text-[var(--text-muted)] mb-4 opacity-50" />
+                      <p className="text-lg font-medium text-[var(--text-muted)]">
+                        Parece que você não está em nenhum grupo
+                      </p>
+                      <p className="text-sm text-[var(--text-muted)] mt-2 opacity-70">
+                        Crie um grupo ou peça para entrar em um
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      {filteredGroups.map((group: any) => (
+                        <button
+                          key={group.id}
+                          onClick={() => {
+                            setSelectedGroupId(group.id);
+                            setCurrentSessionId(null);
+                            setIsGroupsScreenOpen(false);
+                          }}
+                          className="w-full flex items-center gap-3 p-3 rounded-xl bg-[var(--bg-base)] hover:bg-[var(--border-strong)] transition-colors text-left"
+                        >
+                          <div className="w-12 h-12 rounded-full bg-[var(--bg-input)] flex items-center justify-center shrink-0 border border-[var(--border-strong)]">
+                            <MessageSquare className="w-6 h-6 text-[var(--color-sec)]" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="font-medium text-[var(--text-base)] truncate">{group.name}</p>
+                            <p className="text-xs text-[var(--text-muted)]">
+                              {(group.members?.length || 0)} membro{(group.members?.length || 0) !== 1 ? 's' : ''}
+                            </p>
+                          </div>
+                        </button>
+                      ))}
                     </div>
                   )}
                 </div>
