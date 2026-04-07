@@ -3,7 +3,7 @@ import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
 import ChatPage from './pages/ChatPage';
 import CaptchaPage from './pages/CaptchaPage';
 import NotFoundPage from './pages/NotFoundPage';
-import { AlertTriangle, X, RefreshCw } from 'lucide-react';
+import { AlertTriangle, X, RefreshCw, Copy, Check } from 'lucide-react';
 import { useAdminStore, useUserStore } from './store';
 
 interface ErrorBoundaryProps {
@@ -14,13 +14,21 @@ interface ErrorBoundaryState {
   hasError: boolean;
   error: Error | null;
   showDetails: boolean;
+  copied: boolean;
 }
 
 class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
   constructor(props: ErrorBoundaryProps) {
     super(props);
-    this.state = { hasError: false, error: null, showDetails: false };
+    this.state = { hasError: false, error: null, showDetails: false, copied: false };
   }
+
+  handleCopyError = () => {
+    const errorText = `${this.state.error?.message || 'Erro desconhecido'}\n\n${this.state.error?.stack || ''}`;
+    navigator.clipboard.writeText(errorText);
+    this.setState({ copied: true });
+    setTimeout(() => this.setState({ copied: false }), 2000);
+  };
 
   static getDerivedStateFromError(error: Error): ErrorBoundaryState {
     return { hasError: true, error, showDetails: false };
@@ -99,6 +107,12 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
                   {'\n\n'}
                   {this.state.error?.stack}
                 </pre>
+                <button
+                  onClick={this.handleCopyError}
+                  className="mt-3 flex items-center gap-1.5 px-3 py-1.5 bg-red-500/20 hover:bg-red-500/30 rounded-lg transition-colors text-xs font-medium text-red-400"
+                >
+                  {this.state.copied ? <Check className="w-3 h-3 text-green-400" /> : <Copy className="w-3 h-3" />} {this.state.copied ? 'Copiado!' : 'Copiar erro'}
+                </button>
               </div>
             )}
           </div>

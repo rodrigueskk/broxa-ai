@@ -306,14 +306,11 @@ const MessageItem = React.memo(({ msg, sessionId, settings, isHighlightMode, isE
       )}
       <div
         ref={containerRef}
-        className={`relative max-w-[90%] md:max-w-[75%] rounded-3xl px-4 py-3 md:px-6 md:py-4 shadow-sm group ${msg.role === 'user' ? 'rounded-tr-sm border border-[var(--border-subtle)] select-none' : 'rounded-tl-sm border border-[var(--border-subtle)] select-text'}`}
+        className={`relative max-w-[90%] md:max-w-[75%] group ${msg.role === 'user' ? 'rounded-3xl px-4 py-3 md:px-6 md:py-4 shadow-sm rounded-tr-sm border border-[var(--border-subtle)] select-none' : 'rounded-tl-sm border-0 shadow-none px-0 py-0 md:px-0 md:py-0 select-text'}`}
         style={msg.role === 'user' ? {
           backgroundColor: settings.userMessageColor || 'var(--bg-surface)',
           color: '#ffffff'
-        } : {
-          backgroundColor: 'var(--color-sec)',
-          color: '#000000'
-        }}
+        } : undefined}
         onTouchStart={handleTouchStartCopy}
         onTouchEnd={handleTouchEndCopy}
         onTouchMove={handleTouchEndCopy}
@@ -1058,15 +1055,7 @@ export default function ChatPage() {
   }, [isElectronApp]);
 
   useEffect(() => {
-    // Simulate loading for history to show the animation the user requested
-    const timer1 = setTimeout(() => {
-      setHistoryLoadStatus('success');
-      const timer2 = setTimeout(() => {
-        setHistoryLoadStatus('loaded');
-      }, 1500);
-      return () => clearTimeout(timer2);
-    }, 1500);
-    return () => clearTimeout(timer1);
+    setHistoryLoadStatus('loaded');
   }, []);
 
   const { sessions, currentSessionId, setCurrentSessionId, currentSession, createSession, addMessage, updateMessage, deleteMessage, deleteSession, togglePinSession, togglePinMessage, addPinnedText, removePinnedText, addStroke, setStrokes, updateSessionTitle, clearSessions } = useChatStore();
@@ -1853,6 +1842,7 @@ export default function ChatPage() {
     }
 
     setNewChatTimestamps([...recentTimestamps, now]);
+    hasManuallyClearedSession.current = true;
     setCurrentSessionId(null);
     setSelectedGroupId(null);
     if (window.innerWidth < 768) setIsSidebarOpen(false);
@@ -2224,10 +2214,12 @@ export default function ChatPage() {
     return () => clearInterval(interval);
   }, []);
 
+  const hasManuallyClearedSession = useRef(false);
+
   useEffect(() => {
-    if (sessions.length === 0) {
+    if (sessions.length === 0 && !hasManuallyClearedSession.current) {
       createSession();
-    } else if (!currentSessionId && !selectedGroupId) {
+    } else if (!currentSessionId && !selectedGroupId && !hasManuallyClearedSession.current) {
       setCurrentSessionId(sessions[0].id);
     }
   }, [sessions, currentSessionId, createSession, setCurrentSessionId, selectedGroupId]);
@@ -2848,6 +2840,7 @@ export default function ChatPage() {
       exit={{ opacity: 0, scale: 0.9, x: -20, height: 0, paddingBottom: 0, paddingTop: 0, margin: 0 }}
       transition={{ duration: 0.3, delay: index * 0.05 }}
       onClick={() => {
+        hasManuallyClearedSession.current = false;
         setCurrentSessionId(session.id);
         setSelectedGroupId(null);
         if (window.innerWidth < 768) setIsSidebarOpen(false);

@@ -30,6 +30,64 @@ export function useChatStore() {
         const userSessions = saved ? JSON.parse(saved) : [];
         setSessions(userSessions);
         setCurrentSessionId(userSessions[0]?.id || null);
+        // If user is logged in, subscribe to Firestore sessions for cross-device sync
+        if (uid) {
+          const unsubFs = onSnapshot(
+            query(collection(db, 'users', uid, 'sessions'), orderBy('updatedAt', 'desc')),
+            async (snapshot) => {
+              setSessions(prev => {
+                const fsSessions: ChatSession[] = [];
+                snapshot.forEach((doc) => {
+                  fsSessions.push({
+                    id: doc.id,
+                    title: doc.data().title || doc.id,
+                    messages: doc.data().messages || [],
+                    updatedAt: doc.data().updatedAt || 0,
+                    isPinned: doc.data().isPinned,
+                    pinnedTexts: doc.data().pinnedTexts
+                  });
+                });
+                // Merge local with Firestore - always sync
+                const localIds = new Set(prev.map(s => s.id));
+                const fromFs = fsSessions.filter(s => !localIds.has(s.id));
+                if (fromFs.length > 0) {
+                  const merged = [...prev, ...fromFs];
+                  merged.sort((a, b) => b.updatedAt - a.updatedAt);
+                  try {
+                    localStorage.setItem(getSessionStorageKey(uid), JSON.stringify(merged));
+                  } catch(e) {}
+                  return merged;
+                }
+                // Check if Firestore has newer data
+                let needsUpdate = false;
+                for (const fs of fsSessions) {
+                  const local = prev.find(s => s.id === fs.id);
+                  if (local && fs.updatedAt > local.updatedAt) {
+                    needsUpdate = true;
+                    break;
+                  }
+                }
+                if (needsUpdate) {
+                  const merged = [...prev];
+                  for (const fs of fsSessions) {
+                    const idx = merged.findIndex(s => s.id === fs.id);
+                    if (idx >= 0) {
+                      merged[idx] = fs;
+                    }
+                  }
+                  merged.sort((a, b) => b.updatedAt - a.updatedAt);
+                  try {
+                    localStorage.setItem(getSessionStorageKey(uid), JSON.stringify(merged));
+                  } catch(e) {}
+                  return merged;
+                }
+                return prev;
+              });
+            },
+            () => {}
+          );
+          return () => { unsub(); unsubFs(); };
+        }
       } catch (e) {
         setSessions([]);
         setCurrentSessionId(null);
@@ -41,9 +99,21 @@ export function useChatStore() {
   const saveSessions = (newSessions: ChatSession[]) => {
     try {
       const uid = auth.currentUser?.uid;
+      if (!uid) return;
       localStorage.setItem(getSessionStorageKey(uid), JSON.stringify(newSessions));
+      // Also save to Firestore for cross-device sync
+      setDoc(doc(db, 'users', uid), { sessionsTimestamp: Date.now() }, { merge: true });
+      for (const session of newSessions) {
+        setDoc(doc(db, 'users', uid, 'sessions', session.id), {
+          title: session.title,
+          updatedAt: session.updatedAt,
+          isPinned: session.isPinned,
+          pinnedTexts: session.pinnedTexts,
+          messages: session.messages
+        }, { merge: true });
+      }
     } catch (e) {
-      console.warn('localStorage is not available', e);
+      console.warn('Failed to save sessions:', e);
     }
   };
 

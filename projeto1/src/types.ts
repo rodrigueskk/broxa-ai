@@ -53,7 +53,23 @@ export interface Group {
   systemInstruction?: string;
   ownerId: string;
   members: string[];
+  isPublic?: boolean;
   streakDays: number;
   lastMessageDate: string | null;
   createdAt: number;
+}
+
+export interface Friend {
+  userId: string;
+  displayName: string;
+  photoURL?: string | null;
+  email: string;
+}
+
+export interface FriendRequest {
+  from: string;
+  to: string;
+  displayName: string;
+  photoURL?: string | null;
+  timestamp: number;
 }
