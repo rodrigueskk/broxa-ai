@@ -1,11 +1,12 @@
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
-import { Menu, Plus, MessageSquare, Trash2, Image as ImageIcon, X, Settings, Pin, Highlighter, AlertTriangle, Undo2, Redo2, Eraser, Copy, Check, ChevronDown, ShieldAlert, LogIn, LogOut, Search, GitCompare, Edit, Edit2, ThumbsUp, ThumbsDown, AlertCircle, ChevronUp, RefreshCw, Cpu, Flame, Snowflake, Bot, User, Lock, ChevronRight, ShieldCheck, LayoutDashboard, Globe, Dog, Monitor, Shield, Palette, FolderOpen, List, Grid3X3, Download, Users, UserPlus, ChevronLeft, ArrowUp, PenLine, FileText } from 'lucide-react';
+import { Menu, Plus, MessageSquare, Trash2, Image as ImageIcon, X, Settings, Pin, Highlighter, AlertTriangle, Undo2, Redo2, Eraser, Copy, Check, ChevronDown, ShieldAlert, LogIn, LogOut, Search, GitCompare, Edit, Edit2, ThumbsUp, ThumbsDown, AlertCircle, ChevronUp, RefreshCw, Cpu, Flame, Snowflake, Bot, User, Lock, ChevronRight, ShieldCheck, LayoutDashboard, Globe, Dog, Monitor, Shield, Palette, FolderOpen, List, Grid3X3, Download, Users, UserPlus, ChevronLeft, ArrowUp, PenLine, FileText, HelpCircle, Ban, LinkIcon, Eye, EyeOff } from 'lucide-react';
 import { useChatStore, useSettingsStore, useAdminStore, useUserStore, useGroupStore, ReleaseNote, ReleaseNoteImage, ReleaseNoteBadge } from '../store';
 import { Group, GroupMessage } from '../types';
+import { FriendRequest } from '../types';
 import { db } from '../firebase';
-import { collection, doc, onSnapshot, query, orderBy, addDoc, serverTimestamp, getDoc, where, updateDoc, deleteField } from 'firebase/firestore';
+import { collection, doc, onSnapshot, query, orderBy, addDoc, serverTimestamp, getDocs, getDoc, where, updateDoc, deleteField, setDoc, deleteDoc } from 'firebase/firestore';
 import { auth, signInWithGoogle, logOut, handleFirestoreError, OperationType } from '../firebase';
 import { AuthModal } from '../components/AuthModal';
 import { generateResponse, generateResponseStream, generateTitle } from '../services/ai';
@@ -14,11 +15,10 @@ import remarkGfm from 'remark-gfm';
 import { motion, AnimatePresence } from 'motion/react';
 import { Rnd } from 'react-rnd';
 import { v4 as uuidv4 } from 'uuid';
-import { Message, Point } from '../types';
+import { Message, Point, FriendRequest } from '../types';
 import { MindMap } from '../components/MindMap';
 import { checkContent, getViolationMessage } from '../services/moderation';
 import { BanScreen } from '../components/BanScreen';
-import { SpotifySuccess } from '../components/SpotifySuccess';
 
 interface ColorPickerDropdownProps {
   valueColor: string;
@@ -1104,7 +1104,25 @@ export default function ChatPage() {
   const [groupMessages, setGroupMessages] = useState<GroupMessage[]>([]);
   const [isGroupModalOpen, setIsGroupModalOpen] = useState(false);
   const [newGroupName, setNewGroupName] = useState('');
+  const [groupCreationStep, setGroupCreationStep] = useState<'name' | 'privacy'>('name');
+  const [groupPrivacy, setGroupPrivacy] = useState<'public' | 'private'>('private');
   const [groupInviteLink, setGroupInviteLink] = useState('');
+  const [isShowInviteLinkModal, setIsShowInviteLinkModal] = useState(false);
+  const [isPublicGroupsOpen, setIsPublicGroupsOpen] = useState(false);
+  const [isFriendRequestsOpen, setIsFriendRequestsOpen] = useState(false);
+  const [isFriendsListOpen, setIsFriendsListOpen] = useState(false);
+  const [isFriendSearchModalOpen, setIsFriendSearchModalOpen] = useState(false);
+  const [friendSearchQuery, setFriendSearchQuery] = useState('');
+  const [friendSearchResults, setFriendSearchResults] = useState<{uid: string; displayName: string; photoURL: string | null}[]>([]);
+  const [pendingSentRequests, setPendingSentRequests] = useState<Set<string>>(new Set());
+  const [friendRequests, setFriendRequests] = useState<FriendRequest[]>([]);
+  const [friends, setFriends] = useState<Friend[]>([]);
+  const [isBlockConfirmModalOpen, setIsBlockConfirmModalOpen] = useState(false);
+  const [blockTargetId, setBlockTargetId] = useState('');
+  const [blockPhrase, setBlockPhrase] = useState('');
+  const [blockInput, setBlockInput] = useState('');
+  const [isRemoveFriendConfirm, setIsRemoveFriendConfirm] = useState(false);
+  const [removeFriendId, setRemoveFriendId] = useState('');
   const [isRenameGroupModalOpen, setIsRenameGroupModalOpen] = useState(false);
   const [renameGroupId, setRenameGroupId] = useState<string | null>(null);
   const [newRenameValue, setNewRenameValue] = useState('');
@@ -1587,6 +1605,156 @@ export default function ChatPage() {
     });
     return () => unsubscribe();
   }, [selectedGroupId]);
+
+  // Friend requests subscription
+  useEffect(() => {
+    if (!auth.currentUser) return;
+    const uid = auth.currentUser.uid;
+    const q = query(
+      collection(db, 'users', uid, 'friendRequests'),
+      orderBy('timestamp', 'desc')
+    );
+    return onSnapshot(q, (snapshot) => {
+      const reqs = snapshot.docs.map(d => ({ id: d.id, ...d.data() } as FriendRequest));
+      setFriendRequests(reqs);
+    }, () => {});
+  }, []);
+
+  // Friends subscription
+  useEffect(() => {
+    if (!auth.currentUser) return;
+    const uid = auth.currentUser.uid;
+    const q = query(
+      collection(db, 'users', uid, 'friends'),
+      orderBy('timestamp', 'desc')
+    );
+    return onSnapshot(q, (snapshot) => {
+      const fr = snapshot.docs.map(d => ({ id: d.id, ...d.data() }) as {userId: string; displayName:string; photoURL:string|null});
+      setFriends(fr);
+    }, () => {});
+  }, []);
+
+  // Track sent requests in local state
+  useEffect(() => {
+    if (!auth.currentUser) return;
+    const uid = auth.currentUser.uid;
+    const q = query(collection(db, 'users', uid, 'sentRequests'));
+    return onSnapshot(q, (snapshot) => {
+      const ids = new Set(snapshot.docs.map(d => d.id));
+      setPendingSentRequests(ids);
+    }, () => {});
+  }, []);
+
+  const searchUsersByDisplayName = async (queryText: string) => {
+    if (!queryText.trim() || queryText.trim().length < 2) {
+      setFriendSearchResults([]);
+      return;
+    }
+    try {
+      const usersSnap = await getDocs(query(collection(db, 'users')));
+      const results: {uid: string; displayName: string; photoURL: string | null}[] = [];
+      const currentUid = auth.currentUser?.uid;
+      usersSnap.forEach(docSnap => {
+        if (docSnap.id === currentUid) return;
+        const data = docSnap.data();
+        if (data.displayName && data.displayName.toLowerCase().includes(queryText.toLowerCase())) {
+          const alreadyFriend = friends.some(f => f.userId === docSnap.id);
+          if (!alreadyFriend && !pendingSentRequests.has(docSnap.id) && !friendRequests.some(r => r.from === docSnap.id)) {
+            results.push({ uid: docSnap.id, displayName: data.displayName, photoURL: data.photoURL || null });
+          }
+        }
+      });
+      setFriendSearchResults(results);
+    } catch (e) {
+      console.error('Search users error:', e);
+    }
+  };
+
+  const sendFriendRequest = async (targetId: string) => {
+    try {
+      const fromUid = auth.currentUser!.uid;
+      await setDoc(doc(db, 'users', targetId, 'friendRequests', fromUid), {
+        from: fromUid,
+        to: targetId,
+        displayName: displayName || auth.currentUser?.displayName || 'Usuário',
+        photoURL: photoURL || auth.currentUser?.photoURL || null,
+        timestamp: Date.now()
+      });
+      await setDoc(doc(db, 'users', fromUid, 'sentRequests', targetId), { to: targetId, timestamp: Date.now() });
+      setFriendSearchResults(prev => prev.filter(u => u.uid !== targetId));
+      setPendingSentRequests(prev => new Set([...prev, targetId]));
+      setFriendSearchQuery('');
+    } catch (e) {
+      console.error('Send request error:', e);
+    }
+  };
+
+  const cancelFriendRequest = async (targetId: string) => {
+    try {
+      const fromUid = auth.currentUser!.uid;
+      const ref = doc(db, 'users', targetId, 'friendRequests', fromUid);
+      const snap = await getDoc(ref);
+      if (snap.exists()) {
+        await setDoc(ref, { cancelled: true, ...snap.data() }, { merge: true });
+      }
+      await deleteDoc(doc(db, 'users', fromUid, 'sentRequests', targetId));
+      setPendingSentRequests(prev => {
+        const next = new Set(prev);
+        next.delete(targetId);
+        return next;
+      });
+    } catch (e) {
+      console.error('Cancel request error:', e);
+    }
+  };
+
+  const acceptFriendRequest = async (fromUid: string) => {
+    try {
+      const myUid = auth.currentUser!.uid;
+      const req = friendRequests.find(r => r.from === fromUid);
+      if (!req) return;
+      // Add to my friends
+      await setDoc(doc(db, 'users', myUid, 'friends', fromUid), {
+        userId: fromUid,
+        displayName: req.displayName,
+        photoURL: req.photoURL,
+        timestamp: Date.now()
+      });
+      // Add to their friends (me as friend back)
+      await setDoc(doc(db, 'users', fromUid, 'friends', myUid), {
+        userId: myUid,
+        displayName: displayName || auth.currentUser?.displayName || 'Usuário',
+        photoURL: photoURL || auth.currentUser?.photoURL || null,
+        timestamp: Date.now()
+      });
+      // Remove request
+      await deleteDoc(doc(db, 'users', myUid, 'friendRequests', fromUid));
+      // Also clean sentRequests on their side
+      await deleteDoc(doc(db, 'users', fromUid, 'sentRequests', myUid));
+    } catch (e) {
+      console.error('Accept request error:', e);
+    }
+  };
+
+  const rejectFriendRequest = async (fromUid: string) => {
+    try {
+      const myUid = auth.currentUser!.uid;
+      await deleteDoc(doc(db, 'users', myUid, 'friendRequests', fromUid));
+      await deleteDoc(doc(db, 'users', fromUid, 'sentRequests', myUid));
+    } catch (e) {
+      console.error('Reject request error:', e);
+    }
+  };
+
+  const removeFriend = async (friendId: string) => {
+    try {
+      const myUid = auth.currentUser!.uid;
+      await deleteDoc(doc(db, 'users', myUid, 'friends', friendId));
+      await deleteDoc(doc(db, 'users', friendId, 'friends', myUid));
+    } catch (e) {
+      console.error('Remove friend error:', e);
+    }
+  };
 
   const hasShownProfileSetupRef = useRef(false);
 
@@ -5357,14 +5525,7 @@ export default function ChatPage() {
                 </div>
               )}
               {historyLoadStatus === 'success' && (
-                <motion.div
-                  initial={{ scale: 0 }}
-                  animate={{ scale: [0, 1.2, 1] }}
-                  transition={{ type: "spring", stiffness: 300, damping: 15 }}
-                  className="flex flex-col items-center justify-center p-6 text-center mt-2 overflow-hidden"
-                >
-                  <SpotifySuccess />
-                </motion.div>
+                <div className="flex flex-col items-center justify-center p-6 text-center mt-2 overflow-hidden" />
               )}
               {historyLoadStatus === 'error' && (
                 <div className="flex flex-col items-center justify-center p-6 text-center">

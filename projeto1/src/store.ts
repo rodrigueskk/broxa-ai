@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { ChatSession, Message, Stroke, Group, GroupMessage } from './types';
 import { v4 as uuidv4 } from 'uuid';
 import { db, auth, handleFirestoreError, OperationType } from './firebase';
-import { collection, doc, setDoc, deleteDoc, onSnapshot, query, orderBy, getDoc, updateDoc, arrayUnion, where, addDoc } from 'firebase/firestore';
+import { collection, doc, setDoc, deleteDoc, onSnapshot, query, orderBy, getDoc, updateDoc, arrayUnion, where, addDoc, writeBatch } from 'firebase/firestore';
 
 function getSessionStorageKey(uid: string | null): string {
   return uid ? `broxa_ai_sessions_${uid}` : 'broxa_ai_sessions';

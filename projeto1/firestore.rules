@@ -186,7 +186,16 @@ service cloud.firestore {
 
     match /aiModels/{modelId} {
       allow read: if true; // Anyone can read models
-      allow write: if isAdmin() && isValidAIModel(request.resource.data); // Only admins can create/update models
+      allow create, update, delete: if isAdmin() && isValidAIModel(request.resource.data); // Only admins can create/update models
+    }
+
+    match /settings/{settingId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
+    }
+
+    match /users/{userId}/sessions/{sessionId} {
+      allow read, write: if isOwner(userId);
     }
   }
 }
