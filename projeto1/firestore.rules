@@ -98,7 +98,7 @@ service cloud.firestore {
     }
 
     function isValidGroup(data) {
-      return hasOnlyAllowedFields(['name', 'members', 'streakDays', 'lastMessageDate', 'createdAt', 'ownerId', 'photoURL', 'systemInstruction']) &&
+      return hasOnlyAllowedFields(['name', 'members', 'streakDays', 'lastMessageDate', 'createdAt', 'ownerId', 'photoURL', 'systemInstruction', 'isPublic']) &&
              data.name is string && data.name.size() > 0 && data.name.size() < 100 &&
              data.members is list && data.members.size() > 0 && data.members.size() < 100 &&
              data.streakDays is number &&
@@ -106,7 +106,8 @@ service cloud.firestore {
              data.createdAt is number &&
              (!('ownerId' in data) || (data.ownerId is string && data.ownerId.size() < 100)) &&
              (!('photoURL' in data) || data.photoURL == null || (data.photoURL is string && data.photoURL.size() < 1048487)) &&
-             (!('systemInstruction' in data) || (data.systemInstruction is string && data.systemInstruction.size() < 50000));
+             (!('systemInstruction' in data) || (data.systemInstruction is string && data.systemInstruction.size() < 50000)) &&
+             (!('isPublic' in data) || data.isPublic is bool);
     }
 
     function isValidGroupMessage(data) {
@@ -192,6 +193,10 @@ service cloud.firestore {
     match /settings/{settingId} {
       allow read: if isAuthenticated();
       allow write: if isAdmin();
+    }
+
+    match /bannedIPs/{ipId} {
+      allow read, write: if isAdmin();
     }
 
     match /users/{userId}/sessions/{sessionId} {

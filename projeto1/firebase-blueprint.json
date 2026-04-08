@@ -35,7 +35,15 @@
         "lastMessageDate": { "type": ["string", "null"] },
         "freezesAvailable": { "type": "number" },
         "lastFreezeMonth": { "type": ["string", "null"] },
-        "hasSeenRoleNotification": { "type": "boolean" }
+        "hasSeenRoleNotification": { "type": "boolean" },
+        "displayName": { "type": ["string", "null"] },
+        "photoURL": { "type": ["string", "null"] },
+        "hasSetProfile": { "type": "boolean" },
+        "unlockedFeatures": { "type": "array", "items": { "type": "string" } },
+        "violationsCount": { "type": "number" },
+        "isBanned": { "type": "boolean" },
+        "appealStatus": { "type": ["string", "null"], "enum": ["pending", "approved", "denied", null] },
+        "appealText": { "type": ["string", "null"] }
       },
       "required": ["email", "role"]
     },
@@ -54,6 +62,16 @@
         "date": { "type": "number" }
       },
       "required": ["messageId", "isPositive", "userEmail", "model", "prompt", "response", "date"]
+    },
+    "BannedIP": {
+      "title": "Banned IP",
+      "description": "IP ban tracking for rate limiting.",
+      "type": "object",
+      "properties": {
+        "attempts": { "type": "number" },
+        "bannedUntil": { "type": "number" }
+      },
+      "required": ["attempts", "bannedUntil"]
     },
     "AIModel": {
       "title": "AI Model",
@@ -85,6 +103,10 @@
     "/aiModels/{modelId}": {
       "schema": { "$ref": "AIModel" },
       "description": "Collection of AI models configuration."
+    },
+    "/bannedIPs/{ipId}": {
+      "schema": { "$ref": "BannedIP" },
+      "description": "Collection of banned IP addresses for rate limiting."
     }
   }
 }

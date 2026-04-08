@@ -1224,7 +1224,6 @@ export default function ChatPage() {
   const [selectedGalleryItems, setSelectedGalleryItems] = useState<string[]>([]);
   const [galleryItemToDelete, setGalleryItemToDelete] = useState<string | null>(null);
   const [unlockedFeature, setUnlockedFeature] = useState<{ name: string, days: number } | null>(null);
-  const [showGuestWarning, setShowGuestWarning] = useState(false);
   const shownFeatureRef = useRef<Set<string>>(new Set());
   const [isProfileSetupOpen, setIsProfileSetupOpen] = useState(false);
   const [isUserSettingsOpen, setIsUserSettingsOpen] = useState(false);
@@ -1763,8 +1762,7 @@ export default function ChatPage() {
     // Only show profile setup if user has no nickname set (new users)
     const hasNickname = !!displayName || !!auth.currentUser?.displayName;
     if (!hasNickname) {
-    if (isUserLoaded     const hasNickname = !!displayName || !!auth.currentUser?.displayName;
-    if (isUserLoaded && auth.currentUser && !hasNickname && hasSetProfile === false && !isProfileSetupOpen && !hasShownProfileSetupRef.current) {    if (isUserLoaded && auth.currentUser && hasSetProfile === false && !isProfileSetupOpen && !hasShownProfileSetupRef.current) { auth.currentUser     if (isUserLoaded && auth.currentUser && hasSetProfile === false && !isProfileSetupOpen && !hasShownProfileSetupRef.current) {    if (isUserLoaded && auth.currentUser && hasSetProfile === false && !isProfileSetupOpen && !hasShownProfileSetupRef.current) { hasSetProfile === false     if (isUserLoaded && auth.currentUser && hasSetProfile === false && !isProfileSetupOpen && !hasShownProfileSetupRef.current) {    if (isUserLoaded && auth.currentUser && hasSetProfile === false && !isProfileSetupOpen && !hasShownProfileSetupRef.current) { !isProfileSetupOpen     if (isUserLoaded && auth.currentUser && hasSetProfile === false && !isProfileSetupOpen && !hasShownProfileSetupRef.current) {    if (isUserLoaded && auth.currentUser && hasSetProfile === false && !isProfileSetupOpen && !hasShownProfileSetupRef.current) { !hasShownProfileSetupRef.current) {
+    if (isUserLoaded     if (isUserLoaded && auth.currentUser && hasSetProfile === false && !isProfileSetupOpen && !hasShownProfileSetupRef.current) {    if (isUserLoaded && auth.currentUser && hasSetProfile === false && !isProfileSetupOpen && !hasShownProfileSetupRef.current) { auth.currentUser     if (isUserLoaded && auth.currentUser && hasSetProfile === false && !isProfileSetupOpen && !hasShownProfileSetupRef.current) {    if (isUserLoaded && auth.currentUser && hasSetProfile === false && !isProfileSetupOpen && !hasShownProfileSetupRef.current) { hasSetProfile === false     if (isUserLoaded && auth.currentUser && hasSetProfile === false && !isProfileSetupOpen && !hasShownProfileSetupRef.current) {    if (isUserLoaded && auth.currentUser && hasSetProfile === false && !isProfileSetupOpen && !hasShownProfileSetupRef.current) { !isProfileSetupOpen     if (isUserLoaded && auth.currentUser && hasSetProfile === false && !isProfileSetupOpen && !hasShownProfileSetupRef.current) {    if (isUserLoaded && auth.currentUser && hasSetProfile === false && !isProfileSetupOpen && !hasShownProfileSetupRef.current) { !hasShownProfileSetupRef.current) {
       hasShownProfileSetupRef.current = true;
       setIsProfileSetupOpen(true);
       setTempDisplayName(displayName || auth.currentUser.displayName || '');
