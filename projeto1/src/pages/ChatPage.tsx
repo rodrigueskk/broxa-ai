@@ -1758,13 +1758,10 @@ export default function ChatPage() {
   };
 
   const hasShownProfileSetupRef = useRef(false);
-
   useEffect(() => {
-    // Only show profile setup if user has no nickname set (new users)
+    // Only show profile setup for users without a nickname (new users)
     const hasNickname = !!displayName || !!auth.currentUser?.displayName;
-    if (!hasNickname) {
-    if (isUserLoaded     const hasNickname = !!displayName || !!auth.currentUser?.displayName;
-    if (isUserLoaded && auth.currentUser && !hasNickname && hasSetProfile === false && !isProfileSetupOpen && !hasShownProfileSetupRef.current) {    if (isUserLoaded && auth.currentUser && hasSetProfile === false && !isProfileSetupOpen && !hasShownProfileSetupRef.current) { auth.currentUser     if (isUserLoaded && auth.currentUser && hasSetProfile === false && !isProfileSetupOpen && !hasShownProfileSetupRef.current) {    if (isUserLoaded && auth.currentUser && hasSetProfile === false && !isProfileSetupOpen && !hasShownProfileSetupRef.current) { hasSetProfile === false     if (isUserLoaded && auth.currentUser && hasSetProfile === false && !isProfileSetupOpen && !hasShownProfileSetupRef.current) {    if (isUserLoaded && auth.currentUser && hasSetProfile === false && !isProfileSetupOpen && !hasShownProfileSetupRef.current) { !isProfileSetupOpen     if (isUserLoaded && auth.currentUser && hasSetProfile === false && !isProfileSetupOpen && !hasShownProfileSetupRef.current) {    if (isUserLoaded && auth.currentUser && hasSetProfile === false && !isProfileSetupOpen && !hasShownProfileSetupRef.current) { !hasShownProfileSetupRef.current) {
+    if (isUserLoaded && auth.currentUser && !hasNickname && hasSetProfile === false && !isProfileSetupOpen && !hasShownProfileSetupRef.current) {
       hasShownProfileSetupRef.current = true;
       setIsProfileSetupOpen(true);
       setTempDisplayName(displayName || auth.currentUser.displayName || '');
@@ -2102,9 +2099,10 @@ export default function ChatPage() {
       }
     }
 
-    // Collect from group messages
+    // Collect from group messages - filter by group
     for (const group of groups) {
-      for (const msg of groupMessages) {
+      const groupMsgs = groupMessages.filter(m => m.senderId === group.id || m.senderId === 'ai');
+      for (const msg of groupMsgs) {
         if (msg.senderId !== 'ai' && msg.imageUrls && msg.imageUrls.length > 0) {
           for (const url of msg.imageUrls) {
             const itemId = `g-${group.id}-${msg.timestamp}-${url}`;
@@ -2667,7 +2665,7 @@ export default function ChatPage() {
     if (!textToSend && imagesToSend.length === 0) return;
 
     if (!auth.currentUser) {
-      setIsAuthModalOpen(true);
+      setShowGuestWarning(true);
       return;
     }
 
@@ -5568,62 +5566,61 @@ export default function ChatPage() {
             )}
             {/* Profile / Settings */}
             {auth.currentUser ? (
-              <>
-                <div className="relative" ref={profilePopoverRef}>
-                  <button
-                    onClick={() => setIsProfilePopoverOpen(!isProfilePopoverOpen)}
-                    className="flex items-center gap-3 w-full p-2.5 rounded-xl hover:bg-[var(--bg-surface)] transition-colors"
-                  >
-                    <div className="w-8 h-8 rounded-full overflow-hidden flex-shrink-0 border border-[var(--border-subtle)]">
-                      {(photoURL || auth.currentUser.photoURL) ? (
-                        <img src={photoURL || auth.currentUser.photoURL!} alt="Avatar" className="w-full h-full object-cover" />
-                      ) : (
-                        <div className="w-full h-full bg-[var(--bg-surface)] flex items-center justify-center">
-                          <User className="w-4 h-4 text-[var(--text-muted)]" />
-                        </div>
-                      )}
-                    </div>
-                    <span className="text-sm text-[var(--text-base)] font-medium truncate">
-                      {displayName || auth.currentUser.displayName?.split(' ')[0] || 'Usuário'}
-                    </span>
-                  </button>
-                  <AnimatePresence>
-                    {isProfilePopoverOpen && (
-                      <motion.div
-                        initial={{ opacity: 0, y: -4 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: -4 }}
-                        className="absolute bottom-full left-0 mb-2 w-full bg-[var(--bg-panel)] border border-[var(--border-strong)] rounded-xl shadow-xl overflow-hidden z-50"
-                      >
-                        <button
-                          onClick={() => { setIsProfilePopoverOpen(false); setIsSettingsOpen(true); }}
-                          className="flex items-center gap-3 w-full p-2.5 rounded-xl hover:bg-[var(--bg-surface)] transition-colors"
-                        >
-                          <Settings className="w-4 h-4 text-white" />
-                          <span className="text-sm font-medium text-white">Configurações</span>
-                        </button>
-                        <button
-                          onClick={() => { setLogoutPhrase(generatePhrase()); setIsProfilePopoverOpen(false); setIsLogoutModalOpen(true); }}
-                          className="flex items-center gap-3 w-full p-2.5 rounded-xl hover:bg-[var(--bg-surface)] transition-colors border-t border-[var(--border-subtle)]"
-                        >
-                          <LogOut className="w-4 h-4 text-white" />
-                          <span className="text-sm font-medium text-white">Sair</span>
-                        </button>
-                      </motion.div>
+              <div className="relative" ref={profilePopoverRef}>
+                <button
+                  onClick={() => setIsProfilePopoverOpen(!isProfilePopoverOpen)}
+                  className="flex items-center gap-3 w-full p-2.5 rounded-xl hover:bg-[var(--bg-surface)] transition-colors"
+                >
+                  <div className="w-8 h-8 rounded-full overflow-hidden flex-shrink-0 border border-[var(--border-subtle)]">
+                    {(photoURL || auth.currentUser.photoURL) ? (
+                      <img src={photoURL || auth.currentUser.photoURL!} alt="Avatar" className="w-full h-full object-cover" />
+                    ) : (
+                      <div className="w-full h-full bg-[var(--bg-surface)] flex items-center justify-center">
+                        <User className="w-4 h-4 text-[var(--text-muted)]" />
+                      </div>
                     )}
-                  </AnimatePresence>
-                </div>
-              </>
+                  </div>
+                  <span className="text-sm text-[var(--text-base)] font-medium truncate">
+                    {displayName || auth.currentUser.displayName?.split(' ')[0] || 'Usuário'}
+                  </span>
+                </button>
+                <AnimatePresence>
+                  {isProfilePopoverOpen && (
+                    <motion.div
+                      initial={{ opacity: 0, y: -4 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -4 }}
+                      className="absolute bottom-full left-0 mb-2 w-full bg-[var(--bg-panel)] border border-[var(--border-strong)] rounded-xl shadow-xl overflow-hidden z-50"
+                    >
+                      <button
+                        onClick={() => { setIsProfilePopoverOpen(false); setIsSettingsOpen(true); }}
+                        className="flex items-center gap-3 w-full p-2.5 rounded-xl hover:bg-[var(--bg-surface)] transition-colors"
+                      >
+                        <Settings className="w-4 h-4 text-white" />
+                        <span className="text-sm font-medium text-white">Configurações</span>
+                      </button>
+                      <button
+                        onClick={() => { setLogoutPhrase(generatePhrase()); setIsProfilePopoverOpen(false); setIsLogoutModalOpen(true); }}
+                        className="flex items-center gap-3 w-full p-2.5 rounded-xl hover:bg-[var(--bg-surface)] transition-colors border-t border-[var(--border-subtle)]"
+                      >
+                        <LogOut className="w-4 h-4 text-white" />
+                        <span className="text-sm font-medium text-white">Sair</span>
+                      </button>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
             ) : (
               <button
-                onClick={() => setIsAuthModalOpen(true)}
+                onClick={() => { setShowGuestWarning(true); }}
                 className="flex items-center gap-3 w-full p-2.5 rounded-xl hover:bg-[var(--bg-surface)] transition-colors"
               >
-                <LogIn className="w-4 h-4 text-[var(--text-muted)]" />
-                Entrar ou criar conta
+                <div className="w-8 h-8 rounded-full bg-white border-2 border-[var(--color-sec)] flex items-center justify-center">
+                  <User className="w-4 h-4 text-[var(--text-base)]" />
+                </div>
+                <span className="text-sm text-[var(--text-base)] font-medium">Fazer login</span>
               </button>
             )}
-          </div>
         </div>
 
         <div className="flex-1 flex flex-col min-w-0 bg-[var(--bg-base)] relative z-0 rounded-none md:rounded-l-[40px] md:border-l border-[var(--border-subtle)] shadow-2xl overflow-hidden">
@@ -6047,6 +6044,35 @@ export default function ChatPage() {
           </div>
 
           <div className={`${!currentSession?.messages.length && selectedGroupId === null ? 'relative px-4 md:px-8 pb-6 bg-transparent' : 'fixed bottom-0 left-0 right-0 bg-gradient-to-t from-[var(--bg-base)] via-[var(--bg-base)] to-transparent pt-8 pb-4 px-4 md:px-8'} z-20 pointer-events-none`}>
+            {/* Guest warning popup */}
+            {showGuestWarning && (
+              <div className="absolute -top-16 left-4 right-4 z-30 animate-slide-down">
+                <div className="bg-[var(--bg-panel)] border border-[var(--border-strong)] rounded-xl p-3 shadow-xl flex items-start gap-3">
+                  <div className="w-8 h-8 rounded-full bg-yellow-500/20 flex items-center justify-center shrink-0">
+                    <AlertTriangle className="w-4 h-4 text-yellow-500" />
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-sm font-medium text-[var(--text-base)]">Faça login para enviar mensagens</p>
+                    <p className="text-xs text-[var(--text-muted)] mt-0.5">É grátis e leva apenas alguns segundos.</p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => { setShowGuestWarning(false); setIsAuthModalOpen(true); }}
+                      className="px-4 py-2 bg-[var(--color-sec)] text-white text-sm font-bold rounded-lg hover:opacity-90 transition-opacity"
+                    >
+                      Fazer login
+                    </button>
+                    <button
+                      onClick={() => setShowGuestWarning(false)}
+                      className="p-2 hover:bg-[var(--bg-surface)] rounded-lg transition-colors"
+                    >
+                      <X className="w-4 h-4 text-[var(--text-muted)]" />
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
             <div className="max-w-3xl mx-auto relative pointer-events-auto">
               <AnimatePresence>
                 {selectedImages.length > 0 && (
@@ -7534,3 +7560,4 @@ export default function ChatPage() {
     </div>
   );
 }
+

@@ -457,38 +457,34 @@ export function useAdminStore(isAdmin: boolean) {
     );
     unsubscribeDoc.push(unsubReleaseNotes);
 
-    const unsubFeedbacks = onSnapshot(
-      collection(db, 'feedbacks'),
-      (snapshot) => {
-        const feedbacksList = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Feedback));
-        setFeedbacks(feedbacksList);
-      }
-    );
-    unsubscribeDoc.push(unsubFeedbacks);
+    if (isAdmin) {
+      const unsubFeedbacks = onSnapshot(
+        collection(db, 'feedbacks'),
+        (snapshot) => {
+          const feedbacksList = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Feedback));
+          setFeedbacks(feedbacksList);
+        }
+      );
+      unsubscribeDoc.push(unsubFeedbacks);
 
-    const unsubAiModels = onSnapshot(
-      collection(db, 'aiModels'),
-      (snapshot) => {
-        const models = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as AiModel));
-        setAiModels(models);
-      }
-    );
-    unsubscribeDoc.push(unsubAiModels);
-
-    const unsubUsers = onSnapshot(
-      collection(db, 'users'),
-      (snapshot) => {
-        const usersList = snapshot.docs.map(doc => ({ uid: doc.id, ...doc.data() } as UserDoc));
-        setUsers(usersList);
-      }
-    );
-    unsubscribeDoc.push(unsubUsers);
+      const unsubUsers = onSnapshot(
+        collection(db, 'users'),
+        (snapshot) => {
+          const usersList = snapshot.docs.map(doc => ({ uid: doc.id, ...doc.data() } as UserDoc));
+          setUsers(usersList);
+        }
+      );
+      unsubscribeDoc.push(unsubUsers);
+    }
 
     const unsubGroups = onSnapshot(
-      collection(db, 'groups'),
+      query(collection(db, 'groups'), where('isPublic', '==', true)),
       (snapshot) => {
         const groupsList = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Group));
         setAllGroups(groupsList);
+      },
+      (error) => {
+        console.error("Error fetching public groups:", error);
       }
     );
     unsubscribeDoc.push(unsubGroups);

@@ -133,19 +133,19 @@ service cloud.firestore {
     // ===============================================================
 
     match /groups/{groupId} {
-      allow read: if isAuthenticated();
+      allow read: if isAuthenticated() || (resource.data.isPublic == true);
       allow create: if isAuthenticated() && isValidGroup(request.resource.data) && request.auth.uid in request.resource.data.members;
       allow update: if isAuthenticated() && isValidGroup(request.resource.data) && (
-        request.auth.uid in resource.data.members || 
+        request.auth.uid in resource.data.members ||
         (request.auth.uid in request.resource.data.members && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['members'])) ||
         isAdmin()
       );
       allow delete: if isAuthenticated() && (
-        ('ownerId' in resource.data && resource.data.ownerId == request.auth.uid) || 
+        ('ownerId' in resource.data && resource.data.ownerId == request.auth.uid) ||
         (resource.data.members.size() == 1 && resource.data.members[0] == request.auth.uid) ||
         isAdmin()
       );
-      
+
       match /messages/{messageId} {
         allow read: if isAuthenticated() && request.auth.uid in get(/databases/$(database)/documents/groups/$(groupId)).data.members;
         allow create: if isAuthenticated() && isValidGroupMessage(request.resource.data) && (
@@ -165,11 +165,8 @@ service cloud.firestore {
     match /users/{userId} {
       allow read: if isOwner(userId) || isAdmin();
       allow create: if isOwner(userId) && isValidUser(request.resource.data) && (request.resource.data.role == 'user' || isAdmin());
-      allow update: if (isOwner(userId) || isAdmin()) && isValidUser(request.resource.data) && (
-        isAdmin() || 
-        (!('role' in resource.data) && request.resource.data.role == 'user') || 
-        ('role' in resource.data && request.resource.data.role == resource.data.role)
-      );
+      allow update: if isAdmin() && isValidUser(request.resource.data);
+      allow update: if isOwner(userId) && isValidUser(request.resource.data) && !(request.resource.data.keys().hasAny(['role']));
     }
 
     match /feedbacks/{feedbackId} {

@@ -126,8 +126,8 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
 
 export default function App() {
   const [isUnsupported, setIsUnsupported] = useState(false);
-  const { isMaintenanceMode } = useAdminStore();
   const { userRole } = useUserStore();
+  const { isMaintenanceMode } = useAdminStore(userRole === 'admin');
 
   useEffect(() => {
     const checkPlatform = () => {
