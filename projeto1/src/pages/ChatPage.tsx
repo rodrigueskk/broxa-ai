@@ -86,8 +86,8 @@ const ColorPickerDropdown: React.FC<ColorPickerDropdownProps> = ({ valueColor, c
         )}
       </AnimatePresence>
     </div>
-  );
-};
+  </div>
+  );;
 
 const RespostaOptions = ({ disabled }: { disabled: boolean }) => {
   const [selected, setSelected] = useState<string | null>(null);
@@ -117,8 +117,8 @@ const RespostaOptions = ({ disabled }: { disabled: boolean }) => {
         </label>
       ))}
     </div>
-  );
-};
+  </div>
+  );;
 
 const Logo = ({ className, color }: { className?: string, color?: string }) => (
   <img src="/logo.png" className={`${className} rounded-full object-contain`} alt="Logo" />
@@ -1012,8 +1012,8 @@ const ImageUpload = ({ value, onChange, label }: { value: string, onChange: (val
         </div>
       </div>
     </div>
-  );
-};
+  </div>
+  );;
 
 export default function ChatPage() {
   const navigate = useNavigate();
@@ -7558,6 +7558,6 @@ export default function ChatPage() {
         </AnimatePresence>
       </div>
     </div>
+  </div>
   );
-}
 
