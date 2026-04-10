@@ -1012,8 +1012,8 @@ const ImageUpload = ({ value, onChange, label }: { value: string, onChange: (val
         </div>
       </div>
     </div>
-  </div>
-  );;
+  );
+};
 
 export default function ChatPage() {
   const navigate = useNavigate();
@@ -7558,6 +7558,7 @@ export default function ChatPage() {
         </AnimatePresence>
       </div>
     </div>
+  </div>
   );
 }
 
