@@ -1,0 +1,36 @@
+﻿node.exe : X [ERROR] "loader" without extension only applies when reading from stdin
+No linha:1 caractere:1
++ & "C:\Program Files\nodejs/node.exe" "C:\Program Files\nodejs/node_mo ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (X [ERROR] "load...ding from stdin:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+
+1 error
+node:child_process:964
+    throw err;
+    ^
+
+Error: Command failed: 
+C:\Users\User\AppData\Local\npm-cache\_npx\beb367dfa21eb3f5\node_modules\@esbuild\win32-x64\esbuild.exe 
+src\pages\ChatPage.tsx --loader=tsx
+    at genericNodeError (node:internal/errors:985:15)
+    at wrappedFn (node:internal/errors:539:14)
+    at checkExecSyncError (node:child_process:925:11)
+    at Object.execFileSync (node:child_process:961:15)
+    at Object.<anonymous> 
+(C:\Users\User\AppData\Local\npm-cache\_npx\beb367dfa21eb3f5\node_modules\esbuild\bin\esbuild:222:28)
+    at Module._compile (node:internal/modules/cjs/loader:1812:14)
+    at Object..js (node:internal/modules/cjs/loader:1943:10)
+    at Module.load (node:internal/modules/cjs/loader:1533:32)
+    at Module._load (node:internal/modules/cjs/loader:1335:12)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:255:19) {
+  status: 1,
+  signal: null,
+  output: [ null, null, null ],
+  pid: 3436,
+  stdout: null,
+  stderr: null
+}
+
+Node.js v24.14.0
