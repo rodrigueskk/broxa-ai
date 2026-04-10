@@ -324,10 +324,10 @@ export function useSettingsStore() {
   const [settings, setSettings] = useState(() => {
     try {
       const saved = localStorage.getItem('broxa_ai_settings');
-      return saved ? JSON.parse(saved) : { theme: 'dark', secondaryColor: '#22c55e', customInstruction: '', backgroundImage: null, selectionColor: '#3b82f6', customTitleFont: 'BROXA AI', userMessageColor: '#ffffff' };
+      return saved ? JSON.parse(saved) : { theme: 'dark', secondaryColor: '#2563eb', customInstruction: '', backgroundImage: null, selectionColor: '#2563eb', customTitleFont: 'BROXA AI', userMessageColor: '#ffffff', language: 'pt' };
     } catch (e) {
       console.warn('localStorage is not available', e);
-      return { theme: 'dark', secondaryColor: '#22c55e', customInstruction: '', backgroundImage: null, selectionColor: '#3b82f6', customTitleFont: 'BROXA AI', userMessageColor: '#ffffff' };
+      return { theme: 'dark', secondaryColor: '#2563eb', customInstruction: '', backgroundImage: null, selectionColor: '#2563eb', customTitleFont: 'BROXA AI', userMessageColor: '#ffffff', language: 'pt' };
     }
   });
 

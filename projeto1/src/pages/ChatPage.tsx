@@ -199,6 +199,108 @@ const ColorPickerDropdown: React.FC<ColorPickerDropdownProps> = ({
   );
 };
 
+const CodeBlock = ({ language, children, onEditSave }: { language: string, children: string, onEditSave?: (newVal: string) => void }) => {
+  const [isEditing, setIsEditing] = useState(false);
+  const [editedCode, setEditedCode] = useState(children);
+  const [copied, setCopied] = useState(false);
+  const [isShaking, setIsShaking] = useState(false);
+
+  useEffect(() => {
+    setEditedCode(children);
+  }, [children]);
+
+  const handleCopy = () => {
+    navigator.clipboard.writeText(isEditing ? editedCode : children);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  const handleSave = () => {
+    if (onEditSave) onEditSave(editedCode);
+    setIsEditing(false);
+  };
+
+  const handleClose = () => {
+    if (editedCode !== children) {
+      setIsShaking(true);
+      setTimeout(() => setIsShaking(false), 500);
+      return;
+    }
+    setIsEditing(false);
+  };
+
+  return (
+    <motion.div
+      animate={isShaking ? { x: [-5, 5, -5, 5, 0] } : {}}
+      transition={{ duration: 0.4 }}
+      className="group relative my-4 rounded-2xl overflow-hidden border border-[var(--border-strong)] bg-[#0d1117] shadow-xl"
+    >
+      <div className="flex items-center justify-between px-4 py-2 bg-[#161b22] border-b border-[var(--border-strong)] selection:bg-transparent">
+        <div className="flex items-center gap-2">
+          <div className="flex gap-1.5">
+            <div className="w-3 h-3 rounded-full bg-[#ff5f56]" />
+            <div className="w-3 h-3 rounded-full bg-[#ffbd2e]" />
+            <div className="w-3 h-3 rounded-full bg-[#27c93f]" />
+          </div>
+          <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest ml-2">
+            {language || "code"}
+          </span>
+        </div>
+        <div className="flex items-center gap-2">
+          {isEditing ? (
+            <>
+              <button
+                onClick={handleSave}
+                className="flex items-center gap-1.5 px-2 py-1 text-[10px] font-bold text-green-400 hover:bg-green-400/10 rounded-md transition-colors"
+              >
+                <Check className="w-3 h-3" /> SALVAR
+              </button>
+              <button
+                onClick={handleClose}
+                className="flex items-center gap-1.5 px-2 py-1 text-[10px] font-bold text-red-400 hover:bg-red-400/10 rounded-md transition-colors"
+              >
+                <X className="w-3 h-3" /> FECHAR
+              </button>
+            </>
+          ) : (
+            <>
+              <button
+                onClick={() => setIsEditing(true)}
+                className="p-1.5 text-zinc-400 hover:text-white hover:bg-white/10 rounded-md transition-all"
+                title="Editar código"
+              >
+                <Edit3 className="w-3.5 h-3.5" />
+              </button>
+              <button
+                onClick={handleCopy}
+                className="p-1.5 text-zinc-400 hover:text-white hover:bg-white/10 rounded-md transition-all flex items-center gap-1.5"
+                title="Copiar código"
+              >
+                {copied ? <Check className="w-3.5 h-3.5 text-green-400" /> : <Copy className="w-3.5 h-3.5" />}
+              </button>
+            </>
+          )}
+        </div>
+      </div>
+      <div className="p-4 overflow-x-auto custom-scrollbar">
+        {isEditing ? (
+          <textarea
+            value={editedCode}
+            onChange={(e) => setEditedCode(e.target.value)}
+            className="w-full bg-transparent text-zinc-200 font-mono text-sm border-none focus:outline-none resize-none min-h-[100px]"
+            spellCheck={false}
+            autoFocus
+          />
+        ) : (
+          <pre className="m-0 bg-transparent border-none p-0 text-zinc-200">
+            <code>{children}</code>
+          </pre>
+        )}
+      </div>
+    </motion.div>
+  );
+};
+
 const RespostaOptions = ({ disabled }: { disabled: boolean }) => {
   const [selected, setSelected] = useState<string | null>(null);
   const id = React.useId();
@@ -471,20 +573,26 @@ const MessageItem = React.memo(
         <div
           ref={containerRef}
           className={`relative max-w-[90%] md:max-w-[75%] group ${msg.role === "user" ? "rounded-3xl px-4 py-3 md:px-6 md:py-4 shadow-sm rounded-tr-sm border border-[var(--border-subtle)] select-none" : "rounded-tl-sm border-0 shadow-none px-0 py-0 md:px-0 md:py-0 select-text"}`}
-          style={
-            msg.role === "user"
-              ? {
-                  backgroundColor:
-                    settings.userMessageColor || "var(--bg-surface)",
-                  color: "#ffffff",
-                }
-              : undefined
-          }
+          style={{
+            backgroundColor:
+              msg.role === "user"
+                ? settings.userMessageColor || "var(--bg-surface)"
+                : undefined,
+            color: "#ffffff",
+          }}
           onTouchStart={handleTouchStartCopy}
           onTouchEnd={handleTouchEndCopy}
           onTouchMove={handleTouchEndCopy}
-          onContextMenu={handleContextMenuCopy}
+          onContextMenu={(e) => e.preventDefault()}
         >
+          {msg.role === "ai" && settings.language && settings.language !== "pt" && (
+            <div className="flex items-center gap-1.5 mb-2 px-3 py-1 bg-[var(--color-sec)]/10 border border-[var(--color-sec)]/20 rounded-full w-fit">
+              <Globe className="w-3 h-3 text-[var(--color-sec)]" />
+              <span className="text-[10px] font-bold text-[var(--color-sec)] uppercase tracking-wider">
+                Translação automática / Recurso BETA
+              </span>
+            </div>
+          )}
           {msg.role === "ai" && (
             <canvas
               ref={canvasRef}
@@ -549,39 +657,32 @@ const MessageItem = React.memo(
                         let isResposta = false;
                         let isMindmap = false;
                         let mindmapData = null;
+                        let language = "";
 
                         React.Children.forEach(children, (child: any) => {
                           if (
                             React.isValidElement(child) &&
                             typeof (child.props as any).className === "string"
                           ) {
-                            if (
-                              (child.props as any).className.includes(
-                                "language-resposta",
-                              )
-                            ) {
+                            const className = (child.props as any).className;
+                            if (className.includes("language-resposta")) {
                               isResposta = true;
-                            } else if (
-                              (child.props as any).className.includes(
-                                "language-mindmap",
-                              )
-                            ) {
+                            } else if (className.includes("language-mindmap")) {
                               isMindmap = true;
                               try {
                                 mindmapData = JSON.parse(
                                   (child.props as any).children,
                                 );
-                              } catch (e) {
-                                // Ignore parse errors during streaming
-                              }
+                              } catch (e) {}
+                            } else {
+                              const match = /language-(\w+)/.exec(className);
+                              if (match) language = match[1];
                             }
                           }
                         });
 
                         if (isResposta) {
-                          return (
-                            <RespostaOptions disabled={answersSubmitted} />
-                          );
+                          return <RespostaOptions disabled={answersSubmitted} />;
                         }
 
                         if (isMindmap) {
@@ -609,7 +710,19 @@ const MessageItem = React.memo(
                           }
                         }
 
-                        return <pre {...props}>{children}</pre>;
+                        // For all other code blocks, use our custom CodeBlock component
+                        const codeContent = React.Children.toArray(children)
+                          .map((child: any) =>
+                            child.props ? child.props.children : child,
+                          )
+                          .join("")
+                          .replace(/\n$/, "");
+
+                        return (
+                          <CodeBlock language={language}>
+                            {codeContent}
+                          </CodeBlock>
+                        );
                       },
                     }}
                   >
@@ -3479,6 +3592,292 @@ export default function ChatPage() {
     }
   };
 
+  const renderInputArea = () => {
+    return (
+      <div className="w-full flex flex-col items-center">
+        {/* Guest messaging popup */}
+        <AnimatePresence>
+          {(showGuestWarning || showGuestLimitPopup) && (
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 10 }}
+              className="w-full max-w-3xl mx-auto px-4 mb-2 pointer-events-auto"
+            >
+              <div className="bg-[var(--bg-panel)] border border-[var(--border-strong)] rounded-2xl p-4 shadow-2xl flex items-start gap-4">
+                <div className="w-10 h-10 rounded-full border-2 border-white/20 flex items-center justify-center shrink-0">
+                  <AlertTriangle className="w-6 h-6 text-white" />
+                </div>
+                <div className="flex-1">
+                  <p className="text-base font-bold text-white">
+                    {showGuestLimitPopup
+                      ? "Alcançou o limite diário"
+                      : "Faça o login que é de graça"}
+                  </p>
+                  <p className="text-sm text-[var(--text-muted)] mt-1">
+                    {showGuestLimitPopup
+                      ? "Faça login para continuar usando a IA sem limites."
+                      : "Você pode fazer isso depois."}
+                  </p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => {
+                      setShowGuestWarning(false);
+                      setShowGuestLimitPopup(false);
+                      setIsAuthModalOpen(true);
+                    }}
+                    className="px-4 py-2.5 bg-[var(--color-sec)] text-white text-sm font-bold rounded-xl hover:opacity-90 transition-opacity"
+                  >
+                    {showGuestLimitPopup ? "Fazer Login" : "Fazer login"}
+                  </button>
+                  <button
+                    onClick={() => {
+                      setShowGuestWarning(false);
+                      setShowGuestLimitPopup(false);
+                    }}
+                    className="p-2.5 bg-[var(--bg-surface)] hover:bg-[var(--border-strong)] rounded-xl transition-colors"
+                  >
+                    <X className="w-5 h-5 text-[var(--text-muted)]" />
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        <div className="w-full max-w-3xl mx-auto relative pointer-events-auto px-4">
+          <AnimatePresence>
+            {selectedImages.length > 0 && (
+              <motion.div
+                initial={{ opacity: 0, y: 10, scale: 0.9 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: 10, scale: 0.9 }}
+                className="absolute bottom-full mb-4 left-4 bg-[var(--bg-surface)] p-2 rounded-2xl border border-[var(--border-strong)] flex items-start gap-2 shadow-2xl overflow-x-auto max-w-[calc(100%-32px)]"
+              >
+                {selectedImages.map((img, index) => (
+                  <div
+                    key={index}
+                    className="relative flex-shrink-0 cursor-move"
+                    draggable
+                    onDragStart={(e) => {
+                      e.dataTransfer.setData(
+                        "text/plain",
+                        index.toString(),
+                      );
+                    }}
+                    onDragOver={(e) => {
+                      e.preventDefault();
+                    }}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      const fromIndex = parseInt(
+                        e.dataTransfer.getData("text/plain"),
+                        10,
+                      );
+                      const toIndex = index;
+                      if (fromIndex !== toIndex && !isNaN(fromIndex)) {
+                        setSelectedImages((prev) => {
+                          const newImages = [...prev];
+                          const [movedImage] = newImages.splice(
+                            fromIndex,
+                            1,
+                          );
+                          newImages.splice(toIndex, 0, movedImage);
+                          return newImages;
+                        });
+                      }
+                    }}
+                  >
+                    <img
+                      src={img.url}
+                      alt={`Preview ${index}`}
+                      className="h-24 w-24 object-cover rounded-xl pointer-events-none"
+                    />
+                    <button
+                      onClick={() => removeImage(index)}
+                      className="p-1.5 bg-black/80 hover:bg-zinc-800 rounded-full text-zinc-400 hover:text-white transition-colors absolute top-1 right-1 shadow-md backdrop-blur-sm z-10"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                ))}
+              </motion.div>
+            )}
+          </AnimatePresence>
+          <div
+            className={`bg-[var(--bg-input)] border rounded-[32px] flex flex-col shadow-2xl overflow-hidden focus-within:ring-1 transition-all ${shakeInput || inputMaxReached ? "animate-shake border-red-500 ring-1 ring-red-500 bg-red-500/10" : "border-[var(--border-strong)] focus-within:border-[var(--border-strong)] focus-within:ring-[var(--border-strong)]"}`}
+          >
+            {(!selectedGroupId && currentSession?.messages.length > 0) && (
+              <div
+                className="w-full h-3 cursor-ns-resize flex items-center justify-center hover:bg-[var(--border-subtle)] transition-colors opacity-50 hover:opacity-100"
+                onMouseDown={handleResizeStart}
+                onTouchStart={handleResizeStart}
+              >
+                <div className="w-10 h-1 rounded-full bg-[var(--text-muted)]"></div>
+              </div>
+            )}
+            {askTotoAgain ? (
+              <div className="w-full flex flex-col items-center justify-center p-6 gap-3">
+                <h3 className="text-lg font-bold text-[var(--text-base)] text-center">
+                  Tem mais coisas que deseja enviar para a IA responder?
+                </h3>
+                <div className="flex w-full gap-3 max-w-sm mt-2">
+                  <button
+                    onClick={() => setAskTotoAgain(false)}
+                    className="flex-1 py-3 rounded-xl border border-[var(--border-strong)] bg-[var(--bg-surface)] hover:bg-[var(--bg-panel)] transition-colors text-[var(--text-base)] font-bold text-sm"
+                  >
+                    Não
+                  </button>
+                  <button
+                    onClick={() => {
+                      setAskTotoAgain(false);
+                      startTotoWeb();
+                    }}
+                    className="flex-1 py-3 rounded-xl bg-[var(--color-sec)] text-black font-black uppercase text-sm shadow-md hover:scale-[1.02] transition-all"
+                  >
+                    Sim
+                  </button>
+                </div>
+              </div>
+            ) : isTotoAutoMode ? (
+              <div className="w-full flex flex-col items-center justify-center p-6 gap-4">
+                <h3 className="text-xl font-bold text-[var(--text-base)] text-center">
+                  Estamos no aguardo do envio
+                </h3>
+
+                <div className="flex items-center gap-3 bg-[var(--bg-panel)] border border-red-500/30 px-5 py-3 rounded-2xl">
+                  <div className="w-3 h-3 rounded-full bg-red-500 animate-pulse shadow-[0_0_10px_rgba(239,68,68,0.5)]" />
+                  <span className="text-red-400 font-mono font-bold text-lg">
+                    {Math.floor(totoRecordingTime / 60)
+                      .toString()
+                      .padStart(2, "0")}
+                    :{(totoRecordingTime % 60).toString().padStart(2, "0")}{" "}
+                    / 01:00
+                  </span>
+                </div>
+
+                <div className="flex w-full gap-3 mt-2">
+                  <button
+                    onMouseDown={startTotoHold}
+                    onMouseUp={endTotoHold}
+                    onMouseLeave={endTotoHold}
+                    onTouchStart={startTotoHold}
+                    onTouchEnd={endTotoHold}
+                    className="flex-1 relative overflow-hidden py-3 rounded-xl border border-[var(--border-strong)] bg-[var(--bg-surface)] hover:bg-[var(--bg-panel)] transition-colors select-none"
+                  >
+                    <div
+                      className="absolute inset-y-0 left-0 bg-red-500/30 transition-all duration-100 ease-linear"
+                      style={{ width: `${totoHoldProgress}%` }}
+                    />
+                    <span className="relative z-10 text-[var(--text-base)] font-bold text-sm">
+                      {totoHoldProgress > 0 ? "Segurando..." : "Cancelar"}
+                    </span>
+                  </button>
+                  <button
+                    onClick={manualCaptureAndAskToto}
+                    className="flex-1 py-3 rounded-xl bg-[var(--color-sec)] text-black font-black uppercase text-sm shadow-md hover:scale-[1.02] active:scale-[0.98] transition-all"
+                  >
+                    Enviar a gravação
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <textarea
+                ref={textareaRef}
+                value={input}
+                onChange={(e) => {
+                  setInput(e.target.value);
+                  if (isHighlightMode) setIsHighlightMode(false);
+                  if (isEraserMode) setIsEraserMode(false);
+                }}
+                onKeyDown={handleKeyDown}
+                placeholder={(() => {
+                  const lang = settings.language || "pt";
+                  if (lang === "en") return "Send a message to Broxa AI...";
+                  if (lang === "es") return "Envía un mensaje a Broxa AI...";
+                  if (lang === "fr") return "Envoyer um message à Broxa AI...";
+                  return "Mande uma mensagem para o Broxa AI...";
+                })()}
+                className="w-full bg-transparent text-[var(--text-base)] placeholder-[var(--text-muted)] px-5 py-3 resize-none focus:outline-none custom-scrollbar text-base"
+                style={{ height: `${textareaHeight}px` }}
+              />
+            )}
+            <div className="flex items-end justify-between px-3 pb-3 pt-1 gap-2">
+              <div className="flex flex-wrap items-center gap-1 highlighter-tools flex-1">
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  ref={fileInputRef}
+                  onChange={handleImageUpload}
+                />
+                <button
+                  onClick={() => fileInputRef.current?.click()}
+                  className="p-2.5 text-[var(--text-muted)] hover:text-[var(--text-base)] hover:bg-[var(--border-subtle)] rounded-2xl transition-colors"
+                  title="Anexar imagem"
+                >
+                  <ImageIcon className="w-5 h-5" />
+                </button>
+                <div className="w-px h-6 bg-[var(--border-strong)] mx-1"></div>
+                <button
+                  onClick={() => {
+                    setIsHighlightMode(!isHighlightMode);
+                    if (isEraserMode) setIsEraserMode(false);
+                  }}
+                  className={`p-2.5 rounded-2xl transition-colors ${isHighlightMode && !isEraserMode ? "bg-[var(--color-sec)] text-white" : "text-[var(--text-muted)] hover:text-[var(--text-base)] hover:bg-[var(--border-subtle)]"}`}
+                  title="Modo Marca-texto"
+                >
+                  <Highlighter className="w-5 h-5" />
+                </button>
+                {hasHighlights && (
+                  <button
+                    onClick={() => {
+                      setIsEraserMode(!isEraserMode);
+                      if (!isHighlightMode) setIsHighlightMode(true);
+                    }}
+                    className={`p-2.5 rounded-2xl transition-colors ${isEraserMode ? "bg-[var(--color-sec)] text-white" : "text-[var(--text-muted)] hover:text-[var(--text-base)] hover:bg-[var(--border-subtle)]"}`}
+                    title="Borracha"
+                  >
+                    <Eraser className="w-5 h-5" />
+                  </button>
+                )}
+                
+                <div className="flex-1" />
+
+                <button
+                  onClick={() => {
+                    if (isLoading) {
+                      abortControllerRef.current?.abort();
+                      setIsLoading(false);
+                    } else {
+                      handleSend();
+                    }
+                  }}
+                  disabled={
+                    !input.trim() && selectedImages.length === 0 && !isLoading
+                  }
+                  className={`p-3 ${isLoading ? "bg-transparent border-2 border-[var(--color-sec)]" : "bg-[var(--color-sec)]"} hover:opacity-80 disabled:opacity-50 text-white rounded-2xl transition-all flex items-center justify-center shadow-lg disabled:shadow-none shrink-0`}
+                >
+                  {isLoading ? (
+                    <div className="w-4 h-4 bg-[var(--color-sec)] rounded-sm" />
+                  ) : (
+                    <ArrowUp className="w-5 h-5" />
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+          <div
+            className="text-center mt-3 text-[11px] text-[var(--text-muted)] opacity-70 font-medium"
+          >
+            Explore o BROXA AI. Pode cometer erros. Verifique informações importantes.
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   const handlePaste = (e: React.ClipboardEvent) => {
     const items = e.clipboardData.items;
     const files: File[] = [];
@@ -3602,6 +4001,7 @@ export default function ChatPage() {
           modelToUseApi as any,
           customInstruction,
           history,
+          settings.language || "pt",
         );
 
         if (isTotoAuto && aiResponse.includes("MODO_SILENCIOSO")) {
@@ -3785,10 +4185,11 @@ export default function ChatPage() {
 
         const stream = await generateResponseStream(
           userMessageContent,
-          imagesToProcess,
+          imagesToProcess || [],
           modelToUseApi as any,
           customInstruction,
           currentSession?.messages,
+          settings.language || "pt",
         );
 
         for await (const chunk of stream) {
@@ -5101,7 +5502,12 @@ export default function ChatPage() {
                         Gerenciar Modelos de IA
                       </h4>
                       <div className="space-y-4">
-                        {[...(aiModels?.length ? aiModels : [{ id: '1', key: 'thinking', name: '1.1 Thinking', badgeType: 'NOVO', description: 'Modelo avançado com Raciocínio' }, { id: '2', key: 'fast', name: '1.1 Fast', badgeType: 'RÁPIDO', description: 'Respostas instantâneas e leves' }, { id: '3', key: 'as', name: '0.5 A.S', badgeType: 'NENHUMA', description: 'Modelo otimizado e balanceado' }, { id: '4', key: 'search', name: '0.8 Search', badgeType: 'NENHUMA', description: 'Excelente para busca de informações' }, { id: '5', key: 'toto', name: 'Totó (Dev)', badgeType: 'VIP', description: 'Acesso web irrestrito' }])]
+                        {[...(aiModels?.length ? aiModels : [
+                          { id: "1", key: "thinking", name: "Think 1.0", badgeType: "NENHUMA", description: "Modelo avançado com Raciocínio" },
+                          { id: "2", key: "fast", name: "Flash 1.1", badgeType: "NENHUMA", description: "Respostas instantâneas e leves" },
+                          { id: "3", key: "as", name: "Quest 0.5", badgeType: "NENHUMA", description: "Modelo otimizado e balanceado" },
+                          { id: "4", key: "search", name: "Search 0.8", badgeType: "NENHUMA", description: "Excelente para busca de informações" }
+                        ])]
                           .sort((a, b) => {
                             const order = ["thinking", "fast", "as", "search"];
                             const indexA = order.indexOf(a.key);
@@ -6127,6 +6533,7 @@ export default function ChatPage() {
                       { label: "Aparência", icon: Palette },
                       { label: "Perfil", icon: User },
                       { label: "Segurança", icon: ShieldCheck },
+                      { label: "Idiomas", icon: Globe },
                       {
                         label: "Inteligência Artificial",
                         icon: Bot,
@@ -6166,7 +6573,60 @@ export default function ChatPage() {
                 </div>
 
                 {/* Right content */}
-                <div className="flex-1 overflow-y-auto">
+                          {/* === IDIOMAS === */}
+                          {settingsTab === "idiomas" && (
+                            <div className="p-6 space-y-6">
+                              <h2 className="text-lg font-semibold text-[var(--text-base)]">
+                                Idiomas
+                              </h2>
+                              <p className="text-xs text-[var(--text-muted)] -mt-4 opacity-70">
+                                Selecione seu idioma preferido. O site será traduzido e as respostas da IA seguirão este idioma.
+                              </p>
+
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                {[
+                                  { code: "pt", label: "Português (Brasil)", flag: "🇧🇷" },
+                                  { code: "en", label: "English", flag: "🇺🇸" },
+                                  { code: "es", label: "Español", flag: "🇪🇸" },
+                                  { code: "fr", label: "Français", flag: "🇫🇷" },
+                                  { code: "de", label: "Deutsch", flag: "🇩🇪" },
+                                  { code: "it", label: "Italiano", flag: "🇮🇹" },
+                                  { code: "ja", label: "日本語", flag: "🇯🇵" },
+                                  { code: "zh", label: "中文", flag: "🇨🇳" },
+                                ].map((lang) => (
+                                  <button
+                                    key={lang.code}
+                                    onClick={() => updateSetting("language", lang.code)}
+                                    className={`flex items-center gap-3 p-4 rounded-xl border-2 transition-all ${settings.language === lang.code ? "border-[var(--color-sec)] bg-[var(--color-sec)]/5" : "border-[var(--border-strong)] hover:border-[var(--text-muted)] bg-[var(--bg-surface)]"}`}
+                                  >
+                                    <span className="text-2xl">{lang.flag}</span>
+                                    <span className="font-medium text-[var(--text-base)]">
+                                      {lang.label}
+                                    </span>
+                                    {settings.language === lang.code && (
+                                      <Check className="w-4 h-4 text-[var(--color-sec)] ml-auto" />
+                                    )}
+                                  </button>
+                                ))}
+                              </div>
+
+                              {settings.language !== "pt" && (
+                                <div className="p-4 bg-[var(--color-sec)]/10 border border-[var(--color-sec)]/20 rounded-xl flex items-center gap-3">
+                                  <div className="p-2 bg-[var(--color-sec)]/20 rounded-full">
+                                    <Globe className="w-5 h-5 text-[var(--color-sec)]" />
+                                  </div>
+                                  <div>
+                                    <p className="text-sm font-bold text-[var(--text-base)]">
+                                      Translação Automática Ativa
+                                    </p>
+                                    <p className="text-xs text-[var(--text-muted)]">
+                                      As respostas e a interface estão sendo traduzidas automaticamente para {settings.language.toUpperCase()}.
+                                    </p>
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          )}
                   {/* === GERAL === */}
                   {settingsTab === "geral" && (
                     <div className="p-6 space-y-6">
@@ -7340,13 +7800,13 @@ export default function ChatPage() {
             ) : (
               <button
                 onClick={() => {
-                  setIsLoginModalOpen(true);
+                  setIsAuthModalOpen(true);
                 }}
-                className="flex items-center gap-3 w-full p-2.5 rounded-xl hover:bg-[var(--bg-surface)] transition-colors"
+                className="flex items-center gap-3 w-full p-2.5 rounded-xl hover:bg-[var(--bg-surface)] transition-colors group"
                 title="Fazer login"
               >
-                <div className="w-8 h-8 rounded-full bg-white border border-[var(--border-subtle)] flex items-center justify-center overflow-hidden">
-                  <User className="w-5 h-5 text-zinc-400" />
+                <div className="w-8 h-8 rounded-full bg-white flex items-center justify-center shrink-0 border border-[var(--border-subtle)] overflow-hidden shadow-sm">
+                  <User className="w-5 h-5 text-zinc-400 group-hover:scale-110 transition-transform" />
                 </div>
                 <span className="text-sm text-[var(--text-base)] font-medium">
                   Fazer login
@@ -7493,14 +7953,12 @@ export default function ChatPage() {
                       >
                         {aiModels?.find((m) => m.key === selectedModel)?.name ||
                           (selectedModel === "thinking"
-                            ? "1.1 Thinking"
+                            ? "Think 1.0"
                             : selectedModel === "fast"
-                              ? "1.1 Fast"
+                              ? "Flash 1.1"
                               : selectedModel === "search"
-                                ? "0.8 Search"
-                                : selectedModel === "toto"
-                                  ? "Totó (Dev)"
-                                  : "0.5 A.S")}
+                                ? "Search 0.8"
+                                : "Quest 0.5")}
                         <ChevronDown className="w-5 h-5 text-[var(--text-muted)] shrink-0" />
                       </button>
 
@@ -7517,7 +7975,12 @@ export default function ChatPage() {
                                 Latest
                               </div>
 
-                              {[...(aiModels?.length ? aiModels : [{ id: '1', key: 'thinking', name: '1.1 Thinking', badgeType: 'NOVO', description: 'Modelo avançado com Raciocínio' }, { id: '2', key: 'fast', name: '1.1 Fast', badgeType: 'RÁPIDO', description: 'Respostas instantâneas e leves' }, { id: '3', key: 'as', name: '0.5 A.S', badgeType: 'NENHUMA', description: 'Modelo otimizado e balanceado' }, { id: '4', key: 'search', name: '0.8 Search', badgeType: 'NENHUMA', description: 'Excelente para busca de informações' }, { id: '5', key: 'toto', name: 'Totó (Dev)', badgeType: 'VIP', description: 'Acesso web irrestrito' }])]
+                              {[...(aiModels?.length ? aiModels : [
+                                { id: "1", key: "thinking", name: "Think 1.0", badgeType: "NENHUMA", description: "Modelo avançado com Raciocínio" },
+                                { id: "2", key: "fast", name: "Flash 1.1", badgeType: "NENHUMA", description: "Respostas instantâneas e leves" },
+                                { id: "3", key: "as", name: "Quest 0.5", badgeType: "NENHUMA", description: "Modelo otimizado e balanceado" },
+                                { id: "4", key: "search", name: "Search 0.8", badgeType: "NENHUMA", description: "Excelente para busca de informações" }
+                              ])]
                                 .filter(
                                   (m) => !(isElectronApp && m.key === "toto"),
                                 )
@@ -7538,11 +8001,9 @@ export default function ChatPage() {
                                   <button
                                     key={model.id}
                                     onClick={() => {
-                                      if (model.key === "toto") return;
                                       setSelectedModel(model.key as any);
                                       setIsModelDropdownOpen(false);
                                     }}
-                                    disabled={model.key === "toto"}
                                     className={`w-full text-left px-3 py-3 rounded-xl flex items-center justify-between transition-colors ${selectedModel === model.key ? "bg-[var(--bg-surface)]" : "hover:bg-[var(--bg-surface)]"} ${model.key === "toto" ? "opacity-30 cursor-not-allowed" : ""}`}
                                   >
                                     <div>
@@ -7811,18 +8272,31 @@ export default function ChatPage() {
                     >
                       {(() => {
                         const hour = new Date().getHours();
-                        const greeting =
-                          hour >= 0 && hour < 5
-                            ? "Boa madrugada"
-                            : hour < 12
-                              ? "Bom dia"
-                              : hour < 18
-                                ? "Boa tarde"
-                                : "Boa noite";
+                        let greeting = "";
+                        const lang = settings.language || "pt";
+
+                        if (lang === "en") {
+                          greeting = hour < 12 ? "Good morning" : hour < 18 ? "Good afternoon" : "Good evening";
+                        } else if (lang === "es") {
+                          greeting = hour < 12 ? "Buenos días" : hour < 18 ? "Buenas tardes" : "Buenas noches";
+                        } else if (lang === "fr") {
+                          greeting = hour < 12 ? "Bonjour" : "Bonsoir";
+                        } else {
+                          greeting =
+                            hour >= 0 && hour < 5
+                              ? "Boa madrugada"
+                              : hour < 12
+                                ? "Bom dia"
+                                : hour < 18
+                                  ? "Boa tarde"
+                                  : "Boa noite";
+                        }
+
                         const name =
                           displayName?.split(" ")[0] ||
                           auth.currentUser?.displayName?.split(" ")[0] ||
-                          "visitante";
+                          (lang === "en" ? "guest" : lang === "es" ? "invitado" : "visitante");
+                        
                         return `${greeting}, ${name}`;
                       })()}
                     </h1>
@@ -7830,9 +8304,14 @@ export default function ChatPage() {
                       className="text-4xl md:text-5xl claude-font text-[var(--text-muted)] tracking-tight opacity-75"
                       style={{ fontWeight: 400 }}
                     >
-                      Como posso ajudar?
+                      {settings.language === "en" ? "How can I help you?" : settings.language === "es" ? "¿Como posso ajudarte?" : "Como posso ajudar?"}
                     </h2>
                   </motion.div>
+
+                  {/* Move input here when empty */}
+                  <div className="w-full max-w-2xl mx-auto mt-4 pointer-events-auto">
+                    {renderInputArea()}
+                  </div>
                 </div>
               ) : (
                 /* ====== MESSAGES EXIST: show messages list ====== */
@@ -7926,334 +8405,13 @@ export default function ChatPage() {
             </div>
           </div>
 
-          <div
-            className={`${!currentSession?.messages.length && selectedGroupId === null ? "relative px-4 md:px-8 pb-6 bg-transparent" : "fixed bottom-0 md:left-72 left-0 right-0 bg-gradient-to-t from-[var(--bg-base)] via-[var(--bg-base)] to-transparent pt-8 pb-4 px-4 md:px-8"} z-20 pointer-events-none`}
-          >
-            {/* Guest messaging popup */}
-            <AnimatePresence>
-              {(showGuestWarning || showGuestLimitPopup) && (
-                <motion.div
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: 10 }}
-                  className="max-w-3xl mx-auto px-4 mb-2 pointer-events-auto"
-                >
-                  <div className="bg-[var(--bg-panel)] border border-[var(--border-strong)] rounded-2xl p-4 shadow-2xl flex items-start gap-4">
-                    <div className="w-10 h-10 rounded-full border-2 border-white/20 flex items-center justify-center shrink-0">
-                      <AlertTriangle className="w-6 h-6 text-white" />
-                    </div>
-                    <div className="flex-1">
-                      <p className="text-base font-bold text-white">
-                        {showGuestLimitPopup
-                          ? "Alcançou o limite diário"
-                          : "Faça o login que é de graça"}
-                      </p>
-                      <p className="text-sm text-[var(--text-muted)] mt-1">
-                        {showGuestLimitPopup
-                          ? "Faça login para continuar usando a IA sem limites."
-                          : "Você pode fazer isso depois."}
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <button
-                        onClick={() => {
-                          setShowGuestWarning(false);
-                          setShowGuestLimitPopup(false);
-                          setIsLoginModalOpen(true);
-                        }}
-                        className="px-4 py-2.5 bg-[var(--color-sec)] text-white text-sm font-bold rounded-xl hover:opacity-90 transition-opacity"
-                      >
-                        {showGuestLimitPopup ? "Fazer Login" : "Fazer login"}
-                      </button>
-                      <button
-                        onClick={() => {
-                          setShowGuestWarning(false);
-                          setShowGuestLimitPopup(false);
-                        }}
-                        className="p-2.5 bg-[var(--bg-surface)] hover:bg-[var(--border-strong)] rounded-xl transition-colors"
-                      >
-                        <X className="w-5 h-5 text-[var(--text-muted)]" />
-                      </button>
-                    </div>
-                  </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
-
-            <div className="max-w-3xl mx-auto relative pointer-events-auto">
-              <AnimatePresence>
-                {selectedImages.length > 0 && (
-                  <motion.div
-                    initial={{ opacity: 0, y: 10, scale: 0.9 }}
-                    animate={{ opacity: 1, y: 0, scale: 1 }}
-                    exit={{ opacity: 0, y: 10, scale: 0.9 }}
-                    className="absolute bottom-full mb-4 left-0 bg-[var(--bg-surface)] p-2 rounded-2xl border border-[var(--border-strong)] flex items-start gap-2 shadow-2xl overflow-x-auto max-w-full"
-                  >
-                    {selectedImages.map((img, index) => (
-                      <div
-                        key={index}
-                        className="relative flex-shrink-0 cursor-move"
-                        draggable
-                        onDragStart={(e) => {
-                          e.dataTransfer.setData(
-                            "text/plain",
-                            index.toString(),
-                          );
-                        }}
-                        onDragOver={(e) => {
-                          e.preventDefault();
-                        }}
-                        onDrop={(e) => {
-                          e.preventDefault();
-                          const fromIndex = parseInt(
-                            e.dataTransfer.getData("text/plain"),
-                            10,
-                          );
-                          const toIndex = index;
-                          if (fromIndex !== toIndex && !isNaN(fromIndex)) {
-                            setSelectedImages((prev) => {
-                              const newImages = [...prev];
-                              const [movedImage] = newImages.splice(
-                                fromIndex,
-                                1,
-                              );
-                              newImages.splice(toIndex, 0, movedImage);
-                              return newImages;
-                            });
-                          }
-                        }}
-                      >
-                        <img
-                          src={img.url}
-                          alt={`Preview ${index}`}
-                          className="h-24 w-24 object-cover rounded-xl pointer-events-none"
-                        />
-                        <button
-                          onClick={() => removeImage(index)}
-                          className="p-1.5 bg-black/80 hover:bg-zinc-800 rounded-full text-zinc-400 hover:text-white transition-colors absolute top-1 right-1 shadow-md backdrop-blur-sm z-10"
-                        >
-                          <X className="w-4 h-4" />
-                        </button>
-                      </div>
-                    ))}
-                  </motion.div>
-                )}
-              </AnimatePresence>
-              <div
-                className={`bg-[var(--bg-input)] border rounded-[32px] flex flex-col shadow-2xl overflow-hidden focus-within:ring-1 transition-all ${shakeInput || inputMaxReached ? "animate-shake border-red-500 ring-1 ring-red-500 bg-red-500/10" : "border-[var(--border-strong)] focus-within:border-[var(--border-strong)] focus-within:ring-[var(--border-strong)]"}`}
-              >
-                {currentSession?.messages.length > 0 && (
-                  <div
-                    className="w-full h-3 cursor-ns-resize flex items-center justify-center hover:bg-[var(--border-subtle)] transition-colors opacity-50 hover:opacity-100"
-                    onMouseDown={handleResizeStart}
-                    onTouchStart={handleResizeStart}
-                  >
-                    <div className="w-10 h-1 rounded-full bg-[var(--text-muted)]"></div>
-                  </div>
-                )}
-                {askTotoAgain ? (
-                  <div className="w-full flex flex-col items-center justify-center p-6 gap-3">
-                    <h3 className="text-lg font-bold text-[var(--text-base)] text-center">
-                      Tem mais coisas que deseja enviar para a IA responder?
-                    </h3>
-                    <div className="flex w-full gap-3 max-w-sm mt-2">
-                      <button
-                        onClick={() => setAskTotoAgain(false)}
-                        className="flex-1 py-3 rounded-xl border border-[var(--border-strong)] bg-[var(--bg-surface)] hover:bg-[var(--bg-panel)] transition-colors text-[var(--text-base)] font-bold text-sm"
-                      >
-                        Não
-                      </button>
-                      <button
-                        onClick={() => {
-                          setAskTotoAgain(false);
-                          startTotoWeb();
-                        }}
-                        className="flex-1 py-3 rounded-xl bg-[var(--color-sec)] text-black font-black uppercase text-sm shadow-md hover:scale-[1.02] transition-all"
-                      >
-                        Sim
-                      </button>
-                    </div>
-                  </div>
-                ) : isTotoAutoMode ? (
-                  <div className="w-full flex flex-col items-center justify-center p-6 gap-4">
-                    <h3 className="text-xl font-bold text-[var(--text-base)] text-center">
-                      Estamos no aguardo do envio
-                    </h3>
-
-                    <div className="flex items-center gap-3 bg-[var(--bg-panel)] border border-red-500/30 px-5 py-3 rounded-2xl">
-                      <div className="w-3 h-3 rounded-full bg-red-500 animate-pulse shadow-[0_0_10px_rgba(239,68,68,0.5)]" />
-                      <span className="text-red-400 font-mono font-bold text-lg">
-                        {Math.floor(totoRecordingTime / 60)
-                          .toString()
-                          .padStart(2, "0")}
-                        :{(totoRecordingTime % 60).toString().padStart(2, "0")}{" "}
-                        / 01:00
-                      </span>
-                    </div>
-
-                    <div className="flex w-full gap-3 mt-2">
-                      <button
-                        onMouseDown={startTotoHold}
-                        onMouseUp={endTotoHold}
-                        onMouseLeave={endTotoHold}
-                        onTouchStart={startTotoHold}
-                        onTouchEnd={endTotoHold}
-                        className="flex-1 relative overflow-hidden py-3 rounded-xl border border-[var(--border-strong)] bg-[var(--bg-surface)] hover:bg-[var(--bg-panel)] transition-colors select-none"
-                      >
-                        <div
-                          className="absolute inset-y-0 left-0 bg-red-500/30 transition-all duration-100 ease-linear"
-                          style={{ width: `${totoHoldProgress}%` }}
-                        />
-                        <span className="relative z-10 text-[var(--text-base)] font-bold text-sm">
-                          {totoHoldProgress > 0 ? "Segurando..." : "Cancelar"}
-                        </span>
-                      </button>
-                      <button
-                        onClick={manualCaptureAndAskToto}
-                        className="flex-1 py-3 rounded-xl bg-[var(--color-sec)] text-black font-black uppercase text-sm shadow-md hover:scale-[1.02] active:scale-[0.98] transition-all"
-                      >
-                        Enviar a gravação
-                      </button>
-                    </div>
-                  </div>
-                ) : (
-                  <textarea
-                    ref={textareaRef}
-                    value={input}
-                    onChange={(e) => {
-                      setInput(e.target.value);
-                      if (isHighlightMode) setIsHighlightMode(false);
-                      if (isEraserMode) setIsEraserMode(false);
-                    }}
-                    onKeyDown={handleKeyDown}
-                    placeholder="Envie uma mensagem, cole ou arraste uma foto..."
-                    className="w-full bg-transparent text-[var(--text-base)] placeholder-[var(--text-muted)] px-5 py-2 resize-none focus:outline-none custom-scrollbar text-base"
-                    style={{ height: `${textareaHeight}px` }}
-                  />
-                )}
-                <div className="flex items-end justify-between px-3 pb-3 pt-1 gap-2">
-                  <div className="flex flex-wrap items-center gap-1 highlighter-tools flex-1">
-                    <input
-                      type="file"
-                      accept="image/*"
-                      className="hidden"
-                      ref={fileInputRef}
-                      onChange={handleImageUpload}
-                    />
-                    <button
-                      onClick={() => fileInputRef.current?.click()}
-                      className="p-2.5 text-[var(--text-muted)] hover:text-[var(--text-base)] hover:bg-[var(--border-subtle)] rounded-2xl transition-colors"
-                      title="Anexar imagem"
-                    >
-                      <ImageIcon className="w-5 h-5" />
-                    </button>
-                    <div className="w-px h-6 bg-[var(--border-strong)] mx-1"></div>
-                    <button
-                      onClick={() => {
-                        setIsHighlightMode(!isHighlightMode);
-                        if (isEraserMode) setIsEraserMode(false);
-                      }}
-                      className={`p-2.5 rounded-2xl transition-colors ${isHighlightMode && !isEraserMode ? "bg-[var(--color-sec)] text-white" : "text-[var(--text-muted)] hover:text-[var(--text-base)] hover:bg-[var(--border-subtle)]"}`}
-                      title="Modo Marca-texto"
-                    >
-                      <Highlighter className="w-5 h-5" />
-                    </button>
-                    {hasHighlights && (
-                      <button
-                        onClick={() => {
-                          setIsEraserMode(!isEraserMode);
-                          if (!isHighlightMode) setIsHighlightMode(true);
-                        }}
-                        className={`p-2.5 rounded-2xl transition-colors ${isEraserMode ? "bg-[var(--color-sec)] text-white" : "text-[var(--text-muted)] hover:text-[var(--text-base)] hover:bg-[var(--border-subtle)]"}`}
-                        title="Borracha"
-                      >
-                        <Eraser className="w-5 h-5" />
-                      </button>
-                    )}
-                    <AnimatePresence>
-                      {isHighlightMode && !isEraserMode && (
-                        <motion.div
-                          initial={{ width: 0, opacity: 0, scale: 0.8 }}
-                          animate={{ width: "auto", opacity: 1, scale: 1 }}
-                          exit={{ width: 0, opacity: 0, scale: 0.8 }}
-                          className="flex items-center gap-1.5 bg-[var(--bg-surface)] rounded-full px-2 py-1.5 border border-[var(--border-strong)] ml-2 overflow-hidden shadow-sm"
-                        >
-                          {[
-                            "#22c55e",
-                            "#eab308",
-                            "#ec4899",
-                            "#3b82f6",
-                            "#a855f7",
-                          ].map((color) => (
-                            <button
-                              key={color}
-                              onClick={() => setHighlightColor(color)}
-                              className={`w-5 h-5 rounded-full transition-transform hover:scale-110 flex-shrink-0 ${highlightColor === color ? "ring-2 ring-offset-2 ring-[var(--text-base)] ring-offset-[var(--bg-surface)]" : ""}`}
-                              style={{ backgroundColor: color }}
-                            />
-                          ))}
-                          <div className="w-px h-4 bg-[var(--border-strong)] mx-1 flex-shrink-0"></div>
-                          <button
-                            onClick={() => setIsHighlightMode(false)}
-                            className="p-1 text-[var(--text-muted)] hover:text-red-500 hover:bg-red-500/10 rounded-full transition-colors flex-shrink-0"
-                            title="Sair do modo marca-texto"
-                          >
-                            <X className="w-4 h-4" />
-                          </button>
-                        </motion.div>
-                      )}
-                    </AnimatePresence>
-                    {(undoStack.length > 0 || redoStack.length > 0) && (
-                      <div className="flex items-center gap-1 ml-2 border-l border-[var(--border-strong)] pl-2">
-                        <button
-                          onClick={handleUndo}
-                          disabled={undoStack.length === 0}
-                          className="p-2 text-[var(--text-muted)] hover:text-[var(--text-base)] disabled:opacity-30 transition-colors"
-                          title="Desfazer (Ctrl+Z)"
-                        >
-                          <Undo2 className="w-4 h-4" />
-                        </button>
-                        <button
-                          onClick={handleRedo}
-                          disabled={redoStack.length === 0}
-                          className="p-2 text-[var(--text-muted)] hover:text-[var(--text-base)] disabled:opacity-30 transition-colors"
-                          title="Refazer (Ctrl+Y)"
-                        >
-                          <Redo2 className="w-4 h-4" />
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                  <button
-                    onClick={() => {
-                      if (isLoading) {
-                        abortControllerRef.current?.abort();
-                        setIsLoading(false);
-                      } else {
-                        handleSend();
-                      }
-                    }}
-                    disabled={
-                      !input.trim() && selectedImages.length === 0 && !isLoading
-                    }
-                    className={`p-3 ${isLoading ? "bg-transparent border-2 border-[var(--color-sec)]" : "bg-[var(--color-sec)]"} hover:opacity-80 disabled:opacity-50 text-white rounded-2xl transition-all flex items-center justify-center shadow-lg disabled:shadow-none shrink-0`}
-                  >
-                    {isLoading ? (
-                      <div className="w-4 h-4 bg-[var(--color-sec)] rounded-sm" />
-                    ) : (
-                      <ArrowUp className="w-5 h-5" />
-                    )}
-                  </button>
-                </div>
-              </div>
-              <div
-                ref={versionBarRef}
-                className={`text-center mt-3 text-[11px] text-[var(--text-muted)] opacity-70 font-medium ${(currentSession?.messages.length === undefined || currentSession?.messages.length === 0) && selectedGroupId === null ? "hidden" : ""}`}
-              >
-                BroxaAI pode cometer erros. Confira informações importantes.
-              </div>
+          {!currentSession?.messages.length && selectedGroupId === null ? null : (
+            <div
+              className="fixed bottom-0 md:left-72 left-0 right-0 bg-gradient-to-t from-[var(--bg-base)] via-[var(--bg-base)] to-transparent pt-8 pb-4 px-4 md:px-8 z-20 pointer-events-none"
+            >
+              {renderInputArea()}
             </div>
-          </div>
+          )}
         </div>
 
         <AnimatePresence>

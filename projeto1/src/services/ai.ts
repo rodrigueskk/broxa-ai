@@ -25,9 +25,10 @@ export async function generateTitle(prompt: string): Promise<string> {
 export async function* generateResponseStream(
   prompt: string, 
   images?: { url: string, mimeType: string }[], 
-  modelType: 'thinking' | 'fast' | 'search' | 'as' | 'toto' | string = 'thinking', 
+  modelType: 'thinking' | 'fast' | 'search' | 'as' | string = 'thinking', 
   customInstruction?: string,
-  history?: { role: 'user' | 'ai', content: string, imageUrls?: string[], isError?: boolean, isCancelled?: boolean }[]
+  history?: { role: 'user' | 'ai', content: string, imageUrls?: string[], isError?: boolean, isCancelled?: boolean }[],
+  language: string = 'pt'
 ) {
   const contents: any[] = [];
 
@@ -106,8 +107,6 @@ export async function* generateResponseStream(
     modelName = "gemini-3.1-flash-preview";
   } else if (modelType === 'search') {
     modelName = "gemini-3.1-flash-preview";
-  } else if (modelType === 'toto') {
-    modelName = "gemini-3.1-flash-preview";
   } else if (modelType.startsWith('gemini-')) {
     modelName = modelType;
   }
@@ -117,12 +116,12 @@ export async function* generateResponseStream(
 
   if (modelType === 'thinking') {
     thinkingConfig = undefined; // Retirado pensar de forma proposital para otimizar velocidade
-  } else if (modelType === 'fast') {
-    systemInstruction = customInstruction || `Você é a BROXA 1.1 Flash. Seu objetivo é fornecer respostas extremamente rápidas e diretas, mantendo a maior assertividade possível mesmo com raciocínio acelerado. Vá direto ao ponto. Destaque as partes mais importantes usando negrito duplo (**texto**). Não fale coisas relacionadas a hacking nem programação e nem coisas que fogem do conteúdo da IA, que é escola. ${baseSafetyRule}`;
-  } else if (modelType === 'search') {
-    systemInstruction = `Você é a BROXA 0.8 Search. O usuário enviará um texto. Você deve verificar e enviar uma versão corrigida, ou seja, mais humanizada e natural. Não explique o que está escrito no texto, apenas envie o texto de novo com alterações de palavras para ficar mais fluido e humano. Entregue APENAS o texto final humanizado, sem explicações adicionais. É ESTRITAMENTE PROIBIDO adicionar gírias, palavrões ou linguagem inapropriada. Mantenha o texto limpo e profissional, apenas mais natural. ${baseSafetyRule}`;
   } else if (modelType === 'as') {
-    systemInstruction = `Você é a BROXA 0.5 A.S. Seu objetivo é receber um texto ou imagem sobre um conteúdo de estudo e gerar um resumo excepcional e conciso, focado especificamente em preparar o usuário para uma prova de múltipla escolha. Organize o resumo em tópicos claros e bem estruturados.\nAlém do resumo, você DEVE criar 5 questões de múltipla escolha (com alternativas A, B, C, D, E) baseadas no conteúdo. Abaixo de CADA questão, você DEVE adicionar EXATAMENTE este bloco de código para criar uma caixa de texto para o aluno responder:\n\n\`\`\`resposta\n\n\`\`\`\n\nNÃO coloque o gabarito no final. O usuário irá responder nas caixas de texto e enviar para você corrigir depois. Não fale sobre hacking nem programação e não fuja do conteúdo sem ser da escola. ${baseSafetyRule}`;
+    systemInstruction = `Você é a BROXA Quest 0.5. Seu objetivo é receber um texto ou imagem sobre um conteúdo de estudo e gerar um resumo excepcional e conciso, focado especificamente em preparar o usuário para uma prova de múltipla escolha. Organize o resumo em tópicos claros e bem estruturados.\nAlém do resumo, você DEVE criar 5 questões de múltipla escolha (com alternativas A, B, C, D, E) baseadas no conteúdo. Abaixo de CADA questão, você DEVE adicionar EXATAMENTE este bloco de código para criar uma caixa de texto para o aluno responder:\n\n\`\`\`resposta\n\n\`\`\`\n\nNÃO coloque o gabarito no final. O usuário irá responder nas caixas de texto e enviar para você corrigir depois. Não fale sobre hacking nem programação e não fuja do conteúdo sem ser da escola. ${baseSafetyRule}`;
+  }
+
+  if (language && language !== 'pt') {
+    systemInstruction += `\n\nIMPORTANT: The user has selected the language: ${language}. You MUST respond exclusively in ${language}. Site-wide automatic translation is active.`;
   }
 
   const promptLower = prompt.toLowerCase();
@@ -147,9 +146,10 @@ export async function* generateResponseStream(
 export async function generateResponse(
   prompt: string, 
   images?: { url: string, mimeType: string }[], 
-  modelType: 'thinking' | 'fast' | 'search' | 'as' | 'toto' | string = 'thinking', 
+  modelType: 'thinking' | 'fast' | 'search' | 'as' | string = 'thinking', 
   customInstruction?: string,
-  history?: { role: 'user' | 'ai', content: string, imageUrls?: string[], isError?: boolean, isCancelled?: boolean }[]
+  history?: { role: 'user' | 'ai', content: string, imageUrls?: string[], isError?: boolean, isCancelled?: boolean }[],
+  language: string = 'pt'
 ) {
   const contents: any[] = [];
 
@@ -228,8 +228,6 @@ export async function generateResponse(
     modelName = "gemini-3.1-flash-preview";
   } else if (modelType === 'search') {
     modelName = "gemini-3.1-flash-preview";
-  } else if (modelType === 'toto') {
-    modelName = "gemini-3.1-flash-preview";
   } else if (modelType.startsWith('gemini-')) {
     modelName = modelType;
   }
@@ -239,12 +237,12 @@ export async function generateResponse(
 
   if (modelType === 'thinking') {
     thinkingConfig = undefined; // Retirado pensar de forma proposital para otimizar velocidade
-  } else if (modelType === 'fast') {
-    systemInstruction = customInstruction || `Você é a BROXA 1.1 Flash. Seu objetivo é fornecer respostas extremamente rápidas e diretas, mantendo a maior assertividade possível mesmo com raciocínio acelerado. Vá direto ao ponto. Destaque as partes mais importantes usando negrito duplo (**texto**). Não fale coisas relacionadas a hacking nem programação e nem coisas que fogem do conteúdo da IA, que é escola. ${baseSafetyRule}`;
-  } else if (modelType === 'search') {
-    systemInstruction = `Você é a BROXA 0.8 Search. O usuário enviará um texto. Você deve verificar e enviar uma versão corrigida, ou seja, mais humanizada e natural. Não explique o que está escrito no texto, apenas envie o texto de novo com alterações de palavras para ficar mais fluido e humano. Entregue APENAS o texto final humanizado, sem explicações adicionais. É ESTRITAMENTE PROIBIDO adicionar gírias, palavrões ou linguagem inapropriada. Mantenha o texto limpo e profissional, apenas mais natural. ${baseSafetyRule}`;
   } else if (modelType === 'as') {
-    systemInstruction = `Você é a BROXA 0.5 A.S. Seu objetivo é receber um texto ou imagem sobre um conteúdo de estudo e gerar um resumo excepcional e conciso, focado especificamente em preparar o usuário para uma prova de múltipla escolha. Organize o resumo em tópicos claros e bem estruturados.\nAlém do resumo, você DEVE criar 5 questões de múltipla escolha (com alternativas A, B, C, D, E) baseadas no conteúdo. Abaixo de CADA questão, você DEVE adicionar EXATAMENTE este bloco de código para criar uma caixa de texto para o aluno responder:\n\n\`\`\`resposta\n\n\`\`\`\n\nNÃO coloque o gabarito no final. O usuário irá responder nas caixas de texto e enviar para você corrigir depois. Não fale sobre hacking nem programação e não fuja do conteúdo sem ser da escola. ${baseSafetyRule}`;
+    systemInstruction = `Você é a BROXA Quest 0.5. Seu objetivo é receber um texto ou imagem sobre um conteúdo de estudo e gerar um resumo excepcional e conciso, focado especificamente em preparar o usuário para uma prova de múltipla escolha. Organize o resumo em tópicos claros e bem estruturados.\nAlém do resumo, você DEVE criar 5 questões de múltipla escolha (com alternativas A, B, C, D, E) baseadas no conteúdo. Abaixo de CADA questão, você DEVE adicionar EXATAMENTE este bloco de código para criar uma caixa de texto para o aluno responder:\n\n\`\`\`resposta\n\n\`\`\`\n\nNÃO coloque o gabarito no final. O usuário irá responder nas caixas de texto e enviar para você corrigir depois. Não fale sobre hacking nem programação e não fuja do conteúdo sem ser da escola. ${baseSafetyRule}`;
+  }
+
+  if (language && language !== 'pt') {
+    systemInstruction += `\n\nIMPORTANT: The user has selected the language: ${language}. You MUST respond exclusively in ${language}. Site-wide automatic translation is active.`;
   }
 
   const promptLower = prompt.toLowerCase();
