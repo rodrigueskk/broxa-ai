@@ -1,0 +1,595 @@
+1 [OPEN line 3092] flex w-full h-full relative z-10
+2 [OPEN line 3138] flex gap-3 items-center
+3 [OPEN line 3139] 
+3 [CLOSE line 3147]
+3 [OPEN line 3148] flex flex-col text-left
+3 [CLOSE line 3155]
+2 [CLOSE line 3156]
+1 [CLOSE line 3163]
+1 [OPEN line 3187] flex items-center gap-3
+2 [OPEN line 3189] 
+2 [CLOSE line 3198]
+1 [CLOSE line 3199]
+1 [OPEN line 3224] flex flex-col items-center text-center mb-6
+2 [OPEN line 3225] w-12 h-12 rounded-full bg-yellow-500/10 flex items
+2 [CLOSE line 3227]
+1 [CLOSE line 3232]
+1 [OPEN line 3233] flex flex-col gap-3
+1 [CLOSE line 3250]
+1 [OPEN line 3286] flex flex-col items-center text-center mb-6
+2 [OPEN line 3287] w-12 h-12 rounded-full bg-red-500/10 flex items-ce
+2 [CLOSE line 3289]
+1 [CLOSE line 3294]
+1 [OPEN line 3295] flex w-full gap-3
+1 [CLOSE line 3312]
+1 [OPEN line 3332] flex items-center justify-between mb-6
+1 [CLOSE line 3337]
+1 [OPEN line 3339] space-y-4 mb-6
+2 [OPEN line 3340] 
+2 [CLOSE line 3350]
+1 [CLOSE line 3351]
+1 [OPEN line 3352] flex justify-end gap-3
+1 [CLOSE line 3377]
+1 [OPEN line 3398] flex justify-between items-center p-6 border-b bor
+2 [OPEN line 3399] flex items-center gap-3
+2 [CLOSE line 3402]
+1 [CLOSE line 3409]
+1 [OPEN line 3411] flex border-b border-[var(--border-subtle)] px-6 p
+1 [CLOSE line 3454]
+1 [OPEN line 3456] flex flex-col lg:flex-row flex-1 overflow-hidden
+2 [OPEN line 3459] flex-1 p-6 overflow-y-auto custom-scrollbar border
+3 [OPEN line 3460] space-y-6
+3 [CLOSE line 3665]
+3 [OPEN line 3668] pt-6 border-t border-[var(--border-subtle)]
+3 [CLOSE line 3694]
+2 [CLOSE line 3696]
+2 [OPEN line 3699] flex-1 p-6 bg-[var(--bg-base)] overflow-y-auto cus
+3 [OPEN line 3700] absolute inset-0 bg-[url(
+3 [CLOSE line 3700]
+3 [OPEN line 3702] w-full max-w-lg
+3 [CLOSE line 3842]
+2 [CLOSE line 3843]
+1 [CLOSE line 3844]
+1 [OPEN line 3849] flex-1 p-6 overflow-y-auto custom-scrollbar
+2 [OPEN line 3851] space-y-4
+3 [OPEN line 3856] 
+3 [CLOSE line 3893]
+2 [CLOSE line 3896]
+1 [CLOSE line 3897]
+1 [OPEN line 3901] flex-1 p-6 overflow-y-auto custom-scrollbar
+2 [OPEN line 3903] space-y-4
+3 [OPEN line 3912] 
+3 [CLOSE line 3942]
+2 [CLOSE line 3944]
+1 [CLOSE line 3945]
+1 [OPEN line 3949] flex-1 p-6 overflow-y-auto custom-scrollbar
+2 [OPEN line 3950] flex items-center justify-between mb-4
+3 [OPEN line 3952] relative w-64
+3 [CLOSE line 3961]
+2 [CLOSE line 3962]
+2 [OPEN line 3963] space-y-4 overflow-x-auto w-full
+3 [OPEN line 3964] min-w-[800px] flex flex-col gap-4 pb-2
+3 [CLOSE line 4026]
+2 [CLOSE line 4027]
+1 [CLOSE line 4028]
+1 [OPEN line 4032] flex-1 p-6 overflow-y-auto custom-scrollbar
+2 [OPEN line 4033] flex items-center justify-between mb-4
+3 [OPEN line 4035] relative w-64
+3 [CLOSE line 4044]
+2 [CLOSE line 4045]
+2 [OPEN line 4046] space-y-4
+3 [OPEN line 4051] 
+3 [CLOSE line 4090]
+2 [CLOSE line 4092]
+1 [CLOSE line 4093]
+1 [OPEN line 4097] flex-1 p-6 overflow-y-auto custom-scrollbar
+2 [OPEN line 4099] space-y-4
+3 [OPEN line 4101] flex flex-col items-center justify-center py-12 te
+3 [CLOSE line 4104]
+3 [OPEN line 4107] 
+3 [CLOSE line 4143]
+2 [CLOSE line 4146]
+1 [CLOSE line 4147]
+1 [OPEN line 4151] flex-1 p-6 overflow-y-auto custom-scrollbar
+2 [OPEN line 4152] space-y-6
+3 [OPEN line 4153] 
+3 [CLOSE line 4175]
+2 [CLOSE line 4176]
+2 [OPEN line 4177] mt-6
+3 [OPEN line 4180] grid grid-cols-2 gap-4
+3 [CLOSE line 4269]
+2 [CLOSE line 4270]
+1 [CLOSE line 4271]
+0 [CLOSE line 4273]
+0 [OPEN line 4304] w-full h-48 bg-[var(--bg-surface)] relative
+0 [CLOSE line 4317]
+0 [OPEN line 4320] p-6 overflow-y-auto custom-scrollbar relative
+1 [OPEN line 4357] inline-block px-3 py-1 bg-[var(--color-sec)]/20 te
+1 [CLOSE line 4359]
+1 [OPEN line 4372] space-y-3 mb-6 relative z-20
+1 [CLOSE line 4382]
+0 [CLOSE line 4394]
+0 [OPEN line 4430] flex justify-end gap-3
+0 [CLOSE line 4447]
+0 [OPEN line 4478] flex gap-3
+0 [CLOSE line 4498]
+0 [OPEN line 4530] flex gap-3
+0 [CLOSE line 4562]
+0 [OPEN line 4589] flex flex-col items-center text-center mb-8 mt-4
+1 [OPEN line 4590] relative mb-4
+2 [OPEN line 4592] absolute -bottom-2 -right-2 bg-[var(--bg-base)] ro
+3 [OPEN line 4593] flex items-center justify-center w-8 h-8 rounded-f
+3 [CLOSE line 4596]
+2 [CLOSE line 4597]
+1 [CLOSE line 4598]
+0 [CLOSE line 4609]
+0 [OPEN line 4611] space-y-4
+1 [OPEN line 4614] space-y-2
+2 [OPEN line 4624] flex items-center gap-3
+3 [OPEN line 4625] 
+3 [CLOSE line 4627]
+2 [CLOSE line 4631]
+1 [CLOSE line 4635]
+0 [CLOSE line 4637]
+-1 [CLOSE line 4638]
+-1 [OPEN line 4664] w-full md:w-64 md:flex-shrink-0 flex md:flex-col b
+0 [OPEN line 4665] hidden md:flex items-center justify-between p-4 bo
+0 [CLOSE line 4667]
+0 [OPEN line 4668] flex md:flex-col items-center gap-1 p-2 md:p-2 ove
+0 [CLOSE line 4686]
+0 [OPEN line 4688] hidden md:block p-4 border-t border-[var(--border-
+0 [CLOSE line 4700]
+-1 [CLOSE line 4702]
+-1 [OPEN line 4705] flex-1 overflow-y-auto
+0 [OPEN line 4708] p-6 space-y-6
+1 [OPEN line 4709] 
+2 [OPEN line 4711] flex gap-4
+3 [OPEN line 4726] w-full h-24 rounded-lg mb-2 bg-[var(--bg-input)] f
+3 [CLOSE line 4732]
+2 [CLOSE line 4736]
+1 [CLOSE line 4737]
+0 [CLOSE line 4738]
+0 [OPEN line 4743] p-6 space-y-6
+1 [OPEN line 4744] 
+2 [OPEN line 4746] flex gap-4
+2 [CLOSE line 4761]
+1 [CLOSE line 4762]
+1 [OPEN line 4763] 
+1 [CLOSE line 4776]
+1 [OPEN line 4778] 
+2 [OPEN line 4780] flex items-center gap-4
+2 [CLOSE line 4809]
+1 [CLOSE line 4818]
+0 [CLOSE line 4819]
+-1 [CLOSE line 4821]
+-1 [OPEN line 4826] p-6 space-y-6
+0 [OPEN line 4828] 
+0 [CLOSE line 4834]
+0 [OPEN line 4835] 
+0 [CLOSE line 4845]
+-1 [CLOSE line 4858]
+-1 [OPEN line 4863] p-6 space-y-6
+0 [OPEN line 4866] p-3 bg-yellow-500/10 border border-yellow-500/20 r
+0 [CLOSE line 4870]
+0 [OPEN line 4874] 
+1 [OPEN line 4884] mt-2 flex items-center gap-2
+2 [OPEN line 4885] flex-1 h-1.5 bg-[var(--bg-surface)] rounded-full o
+2 [CLOSE line 4897]
+1 [CLOSE line 4898]
+0 [CLOSE line 4911]
+-1 [CLOSE line 4913]
+-1 [OPEN line 4914] 
+-1 [CLOSE line 4923]
+-1 [OPEN line 4948] text-center py-4
+-1 [CLOSE line 4965]
+-2 [CLOSE line 4967]
+-2 [OPEN line 4972] p-6 space-y-6
+-1 [OPEN line 4973] 
+0 [OPEN line 4976] 
+1 [OPEN line 4977] flex items-center gap-2
+1 [CLOSE line 4980]
+0 [CLOSE line 4988]
+-1 [CLOSE line 5014]
+-1 [OPEN line 5015] 
+0 [OPEN line 5018] 
+1 [OPEN line 5019] flex items-center gap-2 mb-2
+1 [CLOSE line 5022]
+0 [CLOSE line 5028]
+0 [OPEN line 5045] text-red-500 text-sm mt-1 p-3 bg-red-500/10 rounde
+0 [CLOSE line 5048]
+-1 [CLOSE line 5058]
+-2 [CLOSE line 5059]
+-2 [OPEN line 5064] p-6 space-y-6
+-1 [OPEN line 5066] bg-[var(--bg-base)] border border-[var(--border-su
+0 [OPEN line 5067] flex items-center gap-4
+1 [OPEN line 5068] w-12 h-12 rounded-xl bg-green-500/10 flex items-ce
+1 [CLOSE line 5070]
+1 [OPEN line 5071] flex-1 min-w-0
+2 [OPEN line 5072] font-semibold text-[var(--text-base)] flex items-c
+2 [CLOSE line 5075]
+2 [OPEN line 5076] text-sm text-[var(--text-muted)] mt-0.5
+2 [CLOSE line 5076]
+1 [CLOSE line 5077]
+0 [CLOSE line 5078]
+-1 [CLOSE line 5079]
+-1 [OPEN line 5080] text-center py-10
+-1 [CLOSE line 5084]
+-2 [CLOSE line 5085]
+-3 [CLOSE line 5087]
+-3 [OPEN line 5107] flex flex-col items-center text-center mb-6
+-2 [OPEN line 5108] w-12 h-12 rounded-full bg-[var(--color-sec)]/10 fl
+-2 [CLOSE line 5110]
+-3 [CLOSE line 5115]
+-3 [OPEN line 5116] flex w-full gap-3
+-3 [CLOSE line 5129]
+-3 [OPEN line 5163] flex flex-col items-center text-center relative z-
+-2 [OPEN line 5184] w-full bg-[var(--bg-surface)] border border-[var(-
+-2 [CLOSE line 5189]
+-3 [CLOSE line 5202]
+-3 [OPEN line 5222] flex flex-col items-center text-center mb-6
+-2 [OPEN line 5223] w-12 h-12 rounded-full bg-[var(--color-sec)]/10 fl
+-2 [CLOSE line 5225]
+-3 [CLOSE line 5230]
+-3 [OPEN line 5231] flex w-full gap-3
+-3 [CLOSE line 5244]
+-3 [OPEN line 5258] text-2xl font-bold text-white flex flex-col items-
+-3 [CLOSE line 5261]
+-3 [OPEN line 5343] 
+-2 [OPEN line 5344] p-4 flex items-center justify-between
+-1 [OPEN line 5345] flex items-center text-lg font-bold text-[var(--te
+-1 [CLOSE line 5347]
+-1 [OPEN line 5348] flex items-center gap-1
+-1 [CLOSE line 5352]
+-2 [CLOSE line 5353]
+-2 [OPEN line 5356] md:hidden flex items-center gap-2 px-4 pb-3
+-2 [CLOSE line 5379]
+-2 [OPEN line 5383] hidden md:flex flex-col px-3 mb-2 space-y-2
+-1 [OPEN line 5385] 
+0 [OPEN line 5397] 
+1 [OPEN line 5402] w-6 h-6 rounded-full bg-[var(--bg-input)] flex ite
+1 [CLOSE line 5404]
+0 [CLOSE line 5414]
+-1 [CLOSE line 5419]
+-2 [CLOSE line 5445]
+-2 [OPEN line 5457] relative
+-2 [CLOSE line 5466]
+-2 [OPEN line 5472] md:hidden
+-1 [OPEN line 5476] px-4 mb-2
+0 [OPEN line 5477] text-xs font-bold text-[var(--text-muted)] upperca
+0 [CLOSE line 5477]
+0 [OPEN line 5478] space-y-1
+1 [OPEN line 5488] w-8 h-8 rounded-full bg-[var(--bg-input)] flex ite
+1 [CLOSE line 5490]
+1 [OPEN line 5492] ml-auto
+1 [CLOSE line 5500]
+0 [CLOSE line 5503]
+-1 [CLOSE line 5504]
+-2 [CLOSE line 5507]
+-2 [OPEN line 5510] flex-1 overflow-y-auto px-3 space-y-1 custom-scrol
+-1 [OPEN line 5513] mb-4 mt-2
+0 [OPEN line 5514] text-xs font-bold text-[var(--text-muted)] upperca
+0 [CLOSE line 5514]
+0 [OPEN line 5515] space-y-1
+0 [CLOSE line 5519]
+-1 [CLOSE line 5520]
+-1 [OPEN line 5523] text-xs font-bold text-[var(--text-muted)] upperca
+-1 [CLOSE line 5523]
+-1 [OPEN line 5524] space-y-1
+0 [OPEN line 5526] flex flex-col items-center justify-center p-6 text
+1 [OPEN line 5527] w-8 h-8 border-4 border-[#1ed760] border-t-transpa
+1 [CLOSE line 5527]
+0 [CLOSE line 5528]
+0 [OPEN line 5534] flex flex-col items-center justify-center p-6 text
+1 [OPEN line 5535] w-12 h-12 bg-red-500 rounded-full flex items-cente
+1 [CLOSE line 5537]
+0 [CLOSE line 5546]
+-1 [CLOSE line 5554]
+-2 [CLOSE line 5555]
+-2 [OPEN line 5557] px-4 py-3 border-t border-[var(--border-subtle)] s
+-1 [OPEN line 5569] relative
+0 [OPEN line 5574] w-8 h-8 rounded-full overflow-hidden flex-shrink-0
+1 [OPEN line 5578] w-full h-full bg-[var(--bg-surface)] flex items-ce
+1 [CLOSE line 5580]
+0 [CLOSE line 5582]
+-1 [CLOSE line 5612]
+-1 [OPEN line 5618] w-8 h-8 rounded-full bg-white border-2 border-[var
+-1 [CLOSE line 5620]
+-2 [CLOSE line 5624]
+-3 [CLOSE line 5625]
+-3 [OPEN line 5627] flex-1 flex flex-col min-w-0 bg-[var(--bg-base)] r
+-2 [OPEN line 5629] bg-[var(--color-sec)] text-black font-bold p-2 tex
+-2 [CLOSE line 5637]
+-2 [OPEN line 5640] flex items-center gap-4
+-1 [OPEN line 5646] flex items-center gap-3
+0 [OPEN line 5659] w-10 h-10 rounded-full bg-[var(--color-sec)] text-
+0 [CLOSE line 5665]
+0 [OPEN line 5666] 
+1 [OPEN line 5670] text-xs text-[var(--text-muted)] flex items-center
+1 [CLOSE line 5673]
+0 [CLOSE line 5674]
+-1 [CLOSE line 5721]
+-2 [CLOSE line 5722]
+-2 [OPEN line 5725] flex items-center w-full max-w-full min-w-0
+-1 [OPEN line 5726] 
+0 [OPEN line 5743] p-2
+1 [OPEN line 5744] text-xs font-bold text-[var(--text-muted)] px-3 py
+1 [CLOSE line 5744]
+1 [OPEN line 5762] 
+2 [OPEN line 5763] font-bold text-[var(--text-base)] flex items-cente
+2 [CLOSE line 5775]
+2 [OPEN line 5776] text-xs text-[var(--text-muted)]
+2 [CLOSE line 5776]
+1 [CLOSE line 5777]
+1 [OPEN line 5792] 
+2 [OPEN line 5793] font-bold flex items-center gap-2
+2 [CLOSE line 5798]
+2 [OPEN line 5799] text-xs opacity-80
+2 [CLOSE line 5799]
+1 [CLOSE line 5800]
+0 [CLOSE line 5805]
+-1 [CLOSE line 5809]
+-2 [CLOSE line 5810]
+-3 [CLOSE line 5813]
+-3 [OPEN line 5815] flex items-center gap-2 relative
+-2 [OPEN line 5859] relative
+-1 [OPEN line 5868] p-3 border-b border-[var(--border-subtle)] font-bo
+-1 [CLOSE line 5868]
+-1 [OPEN line 5869] max-h-64 overflow-y-auto custom-scrollbar p-2 spac
+0 [OPEN line 5871] text-center text-[var(--text-muted)] p-4 text-sm
+0 [CLOSE line 5871]
+0 [OPEN line 5875] 
+0 [CLOSE line 5878]
+0 [OPEN line 5881] 
+1 [OPEN line 5883] line-clamp-3
+1 [CLOSE line 5883]
+0 [CLOSE line 5893]
+-1 [CLOSE line 5897]
+-2 [CLOSE line 5901]
+-3 [CLOSE line 5904]
+-3 [OPEN line 5907] 
+-2 [OPEN line 5915] bg-[var(--bg-surface)] rounded-full p-2 shadow-lg 
+-2 [CLOSE line 5920]
+-3 [CLOSE line 5921]
+-3 [OPEN line 5924] max-w-3xl mx-auto space-y-8 pb-48
+-2 [OPEN line 5932] w-24 h-24 bg-[var(--bg-surface)] rounded-full flex
+-2 [CLOSE line 5934]
+-2 [OPEN line 5954] min-h-full flex flex-col items-center justify-cent
+-2 [CLOSE line 5973]
+-2 [OPEN line 6004] w-10 h-10 rounded-full bg-[var(--bg-surface)] flex
+-2 [CLOSE line 6006]
+-2 [OPEN line 6007] relative max-w-[90%] md:max-w-[75%] rounded-3xl px
+-2 [CLOSE line 6023]
+-2 [OPEN line 6032] w-10 h-10 rounded-full bg-[var(--bg-surface)] flex
+-2 [CLOSE line 6034]
+-2 [OPEN line 6035] px-6 py-5 flex items-center gap-3 text-[var(--text
+-1 [OPEN line 6036] flex items-center gap-3 text-[var(--text-base)] fo
+0 [OPEN line 6037] w-4 h-4 border-2 border-[var(--color-sec)] border-
+0 [CLOSE line 6037]
+-1 [CLOSE line 6039]
+-2 [CLOSE line 6040]
+-3 [CLOSE line 6044]
+-4 [CLOSE line 6045]
+-4 [OPEN line 6047] 
+-3 [OPEN line 6050] absolute -top-16 left-4 right-4 z-30 animate-slide
+-2 [OPEN line 6051] bg-[var(--bg-panel)] border border-[var(--border-s
+-1 [OPEN line 6052] w-8 h-8 rounded-full bg-yellow-500/20 flex items-c
+-1 [CLOSE line 6054]
+-1 [OPEN line 6055] flex-1
+-1 [CLOSE line 6058]
+-1 [OPEN line 6059] flex items-center gap-2
+-1 [CLOSE line 6072]
+-2 [CLOSE line 6073]
+-3 [CLOSE line 6074]
+-3 [OPEN line 6077] max-w-3xl mx-auto relative pointer-events-auto
+-3 [CLOSE line 6115]
+-3 [OPEN line 6120] 
+-2 [OPEN line 6127] w-10 h-1 rounded-full bg-[var(--text-muted)]
+-2 [CLOSE line 6127]
+-3 [CLOSE line 6128]
+-3 [OPEN line 6131] w-full flex flex-col items-center justify-center p
+-2 [OPEN line 6133] flex w-full gap-3 max-w-sm mt-2
+-2 [CLOSE line 6149]
+-3 [CLOSE line 6150]
+-3 [OPEN line 6152] w-full flex flex-col items-center justify-center p
+-2 [OPEN line 6155] flex items-center gap-3 bg-[var(--bg-panel)] borde
+-2 [CLOSE line 6160]
+-2 [OPEN line 6162] flex w-full gap-3 mt-2
+-2 [CLOSE line 6185]
+-3 [CLOSE line 6186]
+-3 [OPEN line 6202] flex items-end justify-between px-3 pb-3 pt-1 gap-
+-2 [OPEN line 6203] flex flex-wrap items-center gap-1 highlighter-tool
+-1 [OPEN line 6218] w-px h-6 bg-[var(--border-strong)] mx-1
+-1 [CLOSE line 6218]
+-1 [OPEN line 6257] w-px h-4 bg-[var(--border-strong)] mx-1 flex-shrin
+-1 [CLOSE line 6257]
+-1 [OPEN line 6269] flex items-center gap-1 ml-2 border-l border-[var(
+-1 [CLOSE line 6286]
+-2 [CLOSE line 6288]
+-3 [CLOSE line 6307]
+-4 [CLOSE line 6308]
+-4 [OPEN line 6309] 
+-4 [CLOSE line 6311]
+-5 [CLOSE line 6312]
+-6 [CLOSE line 6313]
+-7 [CLOSE line 6314]
+-7 [OPEN line 6334] space-y-4 mb-6
+-6 [OPEN line 6335] 
+-6 [CLOSE line 6345]
+-7 [CLOSE line 6351]
+-7 [OPEN line 6352] flex justify-end
+-7 [CLOSE line 6365]
+-7 [OPEN line 6385] flex items-center justify-between mb-4
+-7 [CLOSE line 6396]
+-7 [OPEN line 6398] flex gap-1 p-1 bg-[var(--bg-surface)] rounded-2xl 
+-7 [CLOSE line 6411]
+-7 [OPEN line 6414] space-y-4 mb-6
+-6 [OPEN line 6421] 
+-6 [CLOSE line 6431]
+-7 [CLOSE line 6432]
+-7 [OPEN line 6434] space-y-4 mb-6
+-6 [OPEN line 6436] p-3 bg-yellow-500/10 border border-yellow-500/20 r
+-6 [CLOSE line 6440]
+-6 [OPEN line 6445] 
+-5 [OPEN line 6455] mt-2 flex items-center gap-2
+-4 [OPEN line 6456] flex-1 h-1.5 bg-[var(--bg-surface)] rounded-full o
+-4 [CLOSE line 6468]
+-5 [CLOSE line 6469]
+-6 [CLOSE line 6482]
+-7 [CLOSE line 6484]
+-7 [OPEN line 6485] 
+-7 [CLOSE line 6494]
+-7 [OPEN line 6497] text-center py-4
+-7 [CLOSE line 6514]
+-8 [CLOSE line 6516]
+-8 [OPEN line 6520] flex justify-end gap-3
+-8 [CLOSE line 6566]
+-8 [OPEN line 6587] flex items-center justify-between mb-6
+-8 [CLOSE line 6592]
+-8 [OPEN line 6594] space-y-4 mb-6
+-7 [OPEN line 6595] 
+-7 [CLOSE line 6604]
+-7 [OPEN line 6606] 
+-6 [OPEN line 6608] flex items-center gap-2
+-6 [CLOSE line 6623]
+-7 [CLOSE line 6624]
+-8 [CLOSE line 6626]
+-8 [OPEN line 6627] flex justify-end gap-3
+-8 [CLOSE line 6663]
+-8 [OPEN line 6670] fixed top-20 right-4 z-[100] flex items-center gap
+-8 [CLOSE line 6676]
+-8 [OPEN line 6695] flex items-center justify-between mb-6
+-8 [CLOSE line 6700]
+-8 [OPEN line 6702] space-y-4 mb-6
+-7 [OPEN line 6703] 
+-7 [CLOSE line 6712]
+-8 [CLOSE line 6713]
+-8 [OPEN line 6714] flex justify-end gap-3
+-8 [CLOSE line 6739]
+-8 [OPEN line 6759] flex items-center justify-between mb-6
+-8 [CLOSE line 6764]
+-8 [OPEN line 6766] space-y-4 mb-8 text-center
+-8 [CLOSE line 6770]
+-8 [OPEN line 6772] flex flex-col gap-3
+-8 [CLOSE line 6791]
+-8 [OPEN line 6811] flex items-center justify-between mb-6
+-8 [CLOSE line 6816]
+-8 [OPEN line 6818] space-y-6 mb-6
+-7 [OPEN line 6819] 
+-7 [CLOSE line 6829]
+-7 [OPEN line 6837] 
+-7 [CLOSE line 6847]
+-8 [CLOSE line 6848]
+-8 [OPEN line 6849] flex justify-between items-center mt-6
+-7 [OPEN line 6869] flex gap-3 ml-auto
+-7 [CLOSE line 6904]
+-8 [CLOSE line 6905]
+-8 [OPEN line 6925] flex items-center justify-between mb-6
+-8 [CLOSE line 6930]
+-8 [OPEN line 6932] flex-1 overflow-y-auto space-y-3 mb-6 pr-2
+-7 [OPEN line 6942] 
+-6 [OPEN line 6943] flex items-center gap-3
+-5 [OPEN line 6947] w-10 h-10 rounded-full bg-[var(--bg-input)] flex i
+-5 [CLOSE line 6949]
+-5 [OPEN line 6951] 
+-4 [OPEN line 6952] font-medium text-[var(--text-base)] flex items-cen
+-4 [CLOSE line 6955]
+-4 [OPEN line 6956] text-xs text-[var(--text-muted)]
+-4 [CLOSE line 6956]
+-5 [CLOSE line 6957]
+-6 [CLOSE line 6958]
+-7 [CLOSE line 6977]
+-8 [CLOSE line 6980]
+-8 [OPEN line 7007] flex items-center gap-3 mb-6
+-7 [OPEN line 7008] w-12 h-12 bg-[var(--color-sec)]/20 rounded-xl flex
+-7 [CLOSE line 7010]
+-7 [OPEN line 7011] 
+-7 [CLOSE line 7014]
+-8 [CLOSE line 7015]
+-8 [OPEN line 7017] space-y-4 mb-6
+-7 [OPEN line 7025] text-left
+-6 [OPEN line 7026] font-bold text-[var(--text-base)] flex items-cente
+-6 [CLOSE line 7031]
+-6 [OPEN line 7032] text-xs text-[var(--text-muted)]
+-6 [CLOSE line 7032]
+-7 [CLOSE line 7033]
+-7 [OPEN line 7037] p-4 rounded-xl border border-[var(--border-subtle)
+-6 [OPEN line 7038] 
+-5 [OPEN line 7039] font-bold text-[var(--text-base)] flex items-cente
+-5 [CLOSE line 7044]
+-5 [OPEN line 7045] text-xs text-[var(--text-muted)]
+-5 [CLOSE line 7045]
+-6 [CLOSE line 7046]
+-7 [CLOSE line 7048]
+-8 [CLOSE line 7049]
+-8 [OPEN line 7076] w-16 h-16 bg-[var(--color-sec)]/20 rounded-full fl
+-8 [CLOSE line 7078]
+-8 [OPEN line 7112] flex justify-end gap-3
+-8 [CLOSE line 7128]
+-8 [OPEN line 7179] p-8 text-center
+-7 [OPEN line 7181] relative w-20 h-20 mx-auto mb-6
+-6 [OPEN line 7183] relative w-20 h-20 rounded-full bg-[var(--color-se
+-6 [CLOSE line 7185]
+-7 [CLOSE line 7186]
+-7 [OPEN line 7192] mb-6
+-7 [CLOSE line 7220]
+-7 [OPEN line 7226] space-y-3
+-7 [CLOSE line 7244]
+-8 [CLOSE line 7245]
+-8 [OPEN line 7277] p-6 pb-0 pt-6
+-7 [OPEN line 7281] flex items-center gap-2 mb-3 flex-wrap
+-7 [CLOSE line 7295]
+-7 [OPEN line 7298] flex items-center gap-2 mb-4
+-6 [OPEN line 7299] flex-1 relative
+-6 [CLOSE line 7308]
+-7 [CLOSE line 7316]
+-7 [OPEN line 7320] flex items-center gap-3 p-3 bg-[var(--color-sec)]/
+-7 [CLOSE line 7329]
+-8 [CLOSE line 7331]
+-8 [OPEN line 7334] flex-1 overflow-y-auto custom-scrollbar
+-7 [OPEN line 7336] flex flex-col items-center justify-center h-64 tex
+-7 [CLOSE line 7340]
+-7 [OPEN line 7342] grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap
+-6 [OPEN line 7354] w-full h-full bg-[var(--bg-base)] flex items-cente
+-6 [CLOSE line 7356]
+-6 [OPEN line 7359] 
+-6 [CLOSE line 7361]
+-6 [OPEN line 7363] absolute bottom-0 left-0 right-0 bg-gradient-to-t 
+-6 [CLOSE line 7374]
+-7 [CLOSE line 7375]
+-8 [CLOSE line 7378]
+-8 [OPEN line 7380] p-6 pt-3
+-7 [OPEN line 7390] w-12 h-12 rounded-lg overflow-hidden bg-[var(--bg-
+-7 [CLOSE line 7392]
+-7 [OPEN line 7394] w-12 h-12 rounded-lg bg-purple-500/10 flex items-c
+-7 [CLOSE line 7396]
+-7 [OPEN line 7398] flex-1 min-w-0
+-7 [CLOSE line 7401]
+-7 [OPEN line 7402] flex items-center gap-2
+-7 [CLOSE line 7412]
+-8 [CLOSE line 7413]
+-9 [CLOSE line 7416]
+-10 [CLOSE line 7418]
+-10 [OPEN line 7441] flex items-center gap-3 mb-4
+-9 [OPEN line 7442] w-10 h-10 rounded-full bg-red-500/10 flex items-ce
+-9 [CLOSE line 7444]
+-10 [CLOSE line 7446]
+-10 [OPEN line 7450] flex gap-3
+-10 [CLOSE line 7466]
+-10 [OPEN line 7491] flex items-center justify-between p-4 border-b bor
+-10 [CLOSE line 7496]
+-10 [OPEN line 7499] p-4 space-y-3 border-b border-[var(--border-subtle
+-9 [OPEN line 7500] relative
+-9 [CLOSE line 7509]
+-10 [CLOSE line 7516]
+-10 [OPEN line 7519] flex-1 overflow-y-auto custom-scrollbar p-4
+-9 [OPEN line 7521] flex flex-col items-center justify-center h-full t
+-9 [CLOSE line 7529]
+-9 [OPEN line 7531] space-y-2
+-8 [OPEN line 7542] w-12 h-12 rounded-full bg-[var(--bg-input)] flex i
+-8 [CLOSE line 7544]
+-8 [OPEN line 7545] flex-1 min-w-0
+-8 [CLOSE line 7550]
+-9 [CLOSE line 7553]
+-10 [CLOSE line 7555]
+-11 [CLOSE line 7560]
+-12 [CLOSE line 7561]

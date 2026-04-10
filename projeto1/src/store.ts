@@ -99,8 +99,8 @@ export function useChatStore() {
   const saveSessions = (newSessions: ChatSession[]) => {
     try {
       const uid = auth.currentUser?.uid;
+      localStorage.setItem(getSessionStorageKey(uid || null), JSON.stringify(newSessions));
       if (!uid) return;
-      localStorage.setItem(getSessionStorageKey(uid), JSON.stringify(newSessions));
       // Also save to Firestore for cross-device sync
       setDoc(doc(db, 'users', uid), { sessionsTimestamp: Date.now() }, { merge: true });
       for (const session of newSessions) {
