@@ -86,8 +86,8 @@ const ColorPickerDropdown: React.FC<ColorPickerDropdownProps> = ({ valueColor, c
         )}
       </AnimatePresence>
     </div>
-  </div>
-  );;
+  );
+};
 
 const RespostaOptions = ({ disabled }: { disabled: boolean }) => {
   const [selected, setSelected] = useState<string | null>(null);
@@ -7558,6 +7558,6 @@ export default function ChatPage() {
         </AnimatePresence>
       </div>
     </div>
-  </div>
   );
+}
 

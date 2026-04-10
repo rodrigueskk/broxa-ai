@@ -55,7 +55,7 @@ export function useChatStore() {
                   merged.sort((a, b) => b.updatedAt - a.updatedAt);
                   try {
                     localStorage.setItem(getSessionStorageKey(uid), JSON.stringify(merged));
-                  } catch(e) {}
+                  } catch (e) { }
                   return merged;
                 }
                 // Check if Firestore has newer data
@@ -78,13 +78,13 @@ export function useChatStore() {
                   merged.sort((a, b) => b.updatedAt - a.updatedAt);
                   try {
                     localStorage.setItem(getSessionStorageKey(uid), JSON.stringify(merged));
-                  } catch(e) {}
+                  } catch (e) { }
                   return merged;
                 }
                 return prev;
               });
             },
-            () => {}
+            () => { }
           );
           return () => { unsub(); unsubFs(); };
         }
