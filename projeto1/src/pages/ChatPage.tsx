@@ -5622,8 +5622,9 @@ export default function ChatPage() {
               </button>
             )}
         </div>
+      </div>
 
-        <div className="flex-1 flex flex-col min-w-0 bg-[var(--bg-base)] relative z-0 rounded-none md:rounded-l-[40px] md:border-l border-[var(--border-subtle)] shadow-2xl overflow-hidden">
+      <div className="flex-1 flex flex-col min-w-0 bg-[var(--bg-base)] relative z-0 rounded-none md:rounded-l-[40px] md:border-l border-[var(--border-subtle)] shadow-2xl overflow-hidden">
           {showUpdateBanner && (
             <div className="bg-[var(--color-sec)] text-black font-bold p-2 text-center text-sm flex items-center justify-center gap-4 shadow-md z-50 electron-drag">
                O site atualizou para a versão {remoteVersion}!
@@ -7558,7 +7559,6 @@ export default function ChatPage() {
         </AnimatePresence>
       </div>
     </div>
-  </div>
   );
 }
 

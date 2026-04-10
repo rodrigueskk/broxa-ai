@@ -457,6 +457,15 @@ export function useAdminStore(isAdmin: boolean) {
     );
     unsubscribeDoc.push(unsubReleaseNotes);
 
+    const unsubAiModels = onSnapshot(
+      collection(db, 'aiModels'),
+      (snapshot) => {
+        const models = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as AiModel));
+        setAiModels(models);
+      }
+    );
+    unsubscribeDoc.push(unsubAiModels);
+
     if (isAdmin) {
       const unsubFeedbacks = onSnapshot(
         collection(db, 'feedbacks'),
