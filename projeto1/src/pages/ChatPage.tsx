@@ -117,8 +117,8 @@ const RespostaOptions = ({ disabled }: { disabled: boolean }) => {
         </label>
       ))}
     </div>
-  </div>
-  );;
+  );
+};
 
 const Logo = ({ className, color }: { className?: string, color?: string }) => (
   <img src="/logo.png" className={`${className} rounded-full object-contain`} alt="Logo" />
