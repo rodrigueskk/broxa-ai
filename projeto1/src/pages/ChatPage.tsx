@@ -1103,10 +1103,10 @@ const GroupMessageItem = React.memo(
           </span>
           <div
             className={`p-4 rounded-2xl w-full ${isCurrentUser
-                ? "rounded-tr-sm border border-[var(--border-subtle)]"
-                : msg.senderId === "ai"
-                  ? "bg-[var(--bg-surface)] border border-[var(--border-strong)] rounded-tl-sm text-[var(--text-base)]"
-                  : "bg-[var(--bg-input)] border border-[var(--border-strong)] rounded-tl-sm text-[var(--text-base)]"
+              ? "rounded-tr-sm border border-[var(--border-subtle)]"
+              : msg.senderId === "ai"
+                ? "bg-[var(--bg-surface)] border border-[var(--border-strong)] rounded-tl-sm text-[var(--text-base)]"
+                : "bg-[var(--bg-input)] border border-[var(--border-strong)] rounded-tl-sm text-[var(--text-base)]"
               }`}
             style={
               isCurrentUser
@@ -2911,30 +2911,28 @@ export default function ChatPage() {
     for (const session of sessions) {
       if (!session.messages) continue;
       for (const msg of session.messages) {
-        // Photos: user messages with imageUrls or imageUrl
-        if (msg.role === "user") {
-          const urls = [...(msg.imageUrls || []), ...(msg.imageUrl ? [msg.imageUrl] : [])];
-          for (const url of urls) {
-            const itemId = `${session.id}-${msg.id}-${url}`;
-            if (seen.has(itemId)) continue;
-            seen.add(itemId);
-            items.push({
-              id: itemId,
-              type: "photo",
-              url,
-              title: `Foto - ${session.title || "Conversa sem título"}`,
-              modified: new Date(msg.timestamp || Date.now()),
-              size: "—",
-              sessionId: session.id,
-            });
-          }
+        // Photos: any messages with imageUrls or imageUrl
+        const urls = [...(msg.imageUrls || []), ...(msg.imageUrl ? [msg.imageUrl] : [])];
+        for (const url of urls) {
+          const itemId = `${session.id}-${msg.id}-${url}`;
+          if (seen.has(itemId)) continue;
+          seen.add(itemId);
+          items.push({
+            id: itemId,
+            type: "photo",
+            url,
+            title: `Foto - ${session.title || "Conversa sem título"}`,
+            modified: new Date(msg.timestamp || Date.now()),
+            size: "—",
+            sessionId: session.id,
+          });
         }
-        // Mindmaps: AI messages with language-mindmap code blocks
-        if (msg.role === "ai" && msg.content) {
+        // Mindmaps: from any message with language-mindmap code blocks
+        if (msg.content) {
           const mindmapRegex = /```language-mindmap\s*\n?([\s\S]*?)```/g;
           let match;
           while ((match = mindmapRegex.exec(msg.content)) !== null) {
-            const mmId = `${session.id}-${msg.id}-mm`;
+            const mmId = `${session.id}-${msg.id}-mm-${match.index}`;
             if (seen.has(mmId)) continue;
             seen.add(mmId);
             try {
@@ -2963,28 +2961,26 @@ export default function ChatPage() {
       for (const msg of groupMessages) {
         // Photos
         const urls = [...(msg.imageUrls || [])];
-        if (urls.length > 0) {
-          for (const url of urls) {
-            const itemId = `g-${selectedGroupId}-${msg.timestamp}-${url}`;
-            if (seen.has(itemId)) continue;
-            seen.add(itemId);
-            items.push({
-              id: itemId,
-              type: "photo",
-              url,
-              title: `Foto - ${activeGroup?.name || "Grupo"}`,
-              modified: new Date(msg.timestamp || Date.now()),
-              size: "—",
-              sessionId: `group-${selectedGroupId}`,
-            });
-          }
+        for (const url of urls) {
+          const itemId = `g-${selectedGroupId}-${msg.id}-${url}`;
+          if (seen.has(itemId)) continue;
+          seen.add(itemId);
+          items.push({
+            id: itemId,
+            type: "photo",
+            url,
+            title: `Foto - ${activeGroup?.name || "Grupo"}`,
+            modified: new Date(msg.timestamp || Date.now()),
+            size: "—",
+            sessionId: `group-${selectedGroupId}`,
+          });
         }
         // Mindmaps
-        if (msg.content && (msg.senderId === "ai" || msg.senderName === "AI")) {
+        if (msg.content) {
           const mindmapRegex = /```language-mindmap\s*\n?([\s\S]*?)```/g;
           let match;
           while ((match = mindmapRegex.exec(msg.content)) !== null) {
-            const mmId = `g-${selectedGroupId}-${msg.timestamp}-mm`;
+            const mmId = `g-${selectedGroupId}-${msg.id}-mm-${match.index}`;
             if (seen.has(mmId)) continue;
             seen.add(mmId);
             try {
@@ -3883,9 +3879,9 @@ export default function ChatPage() {
                 key={btn}
                 onClick={() => handleInput(btn)}
                 className={`h-12 rounded-xl font-bold transition-all active:scale-95 ${btn === '=' ? 'bg-[var(--color-sec)] text-white shadow-lg shadow-[var(--color-sec)]/20 hover:opacity-90' :
-                    btn === 'C' ? 'bg-red-500/10 text-red-500 hover:bg-red-500/20 border border-red-500/20' :
-                      ['÷', '×', '-', '+', '^'].includes(btn) ? 'bg-[var(--bg-surface)] text-[var(--color-sec)] hover:bg-[var(--border-strong)] border border-[var(--border-subtle)]' :
-                        'bg-[var(--bg-surface)] text-[var(--text-base)] hover:bg-[var(--border-strong)]'
+                  btn === 'C' ? 'bg-red-500/10 text-red-500 hover:bg-red-500/20 border border-red-500/20' :
+                    ['÷', '×', '-', '+', '^'].includes(btn) ? 'bg-[var(--bg-surface)] text-[var(--color-sec)] hover:bg-[var(--border-strong)] border border-[var(--border-subtle)]' :
+                      'bg-[var(--bg-surface)] text-[var(--text-base)] hover:bg-[var(--border-strong)]'
                   }`}
               >
                 {btn.replace('(', '')}
@@ -5321,14 +5317,14 @@ export default function ChatPage() {
                                   <div className="relative group">
                                     <span
                                       className={`px-2 py-1 text-[10px] font-bold rounded-full pointer-events-none ${badge.type === "BETA"
-                                          ? "bg-purple-500/20 text-purple-500"
-                                          : badge.type === "EM DESENVOLVIMENTO"
-                                            ? "bg-yellow-500/20 text-yellow-500"
-                                            : badge.type === "NOVO"
-                                              ? "bg-green-500/20 text-green-500"
-                                              : badge.type === "REMOVIDO"
-                                                ? "bg-red-500/20 text-red-500"
-                                                : "bg-blue-500/20 text-blue-500"
+                                        ? "bg-purple-500/20 text-purple-500"
+                                        : badge.type === "EM DESENVOLVIMENTO"
+                                          ? "bg-yellow-500/20 text-yellow-500"
+                                          : badge.type === "NOVO"
+                                            ? "bg-green-500/20 text-green-500"
+                                            : badge.type === "REMOVIDO"
+                                              ? "bg-red-500/20 text-red-500"
+                                              : "bg-blue-500/20 text-blue-500"
                                         }`}
                                       style={{
                                         transform: `scale(${badge.scale})`,
@@ -6155,14 +6151,14 @@ export default function ChatPage() {
                     <span
                       key={badge.id}
                       className={`absolute px-2 py-1 text-xs font-bold rounded-full pointer-events-none ${badge.type === "BETA"
-                          ? "bg-purple-500/20 text-purple-500"
-                          : badge.type === "EM DESENVOLVIMENTO"
-                            ? "bg-yellow-500/20 text-yellow-500"
-                            : badge.type === "NOVO"
-                              ? "bg-green-500/20 text-green-500"
-                              : badge.type === "REMOVIDO"
-                                ? "bg-red-500/20 text-red-500"
-                                : "bg-blue-500/20 text-blue-500"
+                        ? "bg-purple-500/20 text-purple-500"
+                        : badge.type === "EM DESENVOLVIMENTO"
+                          ? "bg-yellow-500/20 text-yellow-500"
+                          : badge.type === "NOVO"
+                            ? "bg-green-500/20 text-green-500"
+                            : badge.type === "REMOVIDO"
+                              ? "bg-red-500/20 text-red-500"
+                              : "bg-blue-500/20 text-blue-500"
                         }`}
                       style={{
                         left: badge.x,
@@ -7691,8 +7687,8 @@ export default function ChatPage() {
                           setIsSidebarOpen(false);
                         }}
                         className={`w-full text-left px-3 py-2.5 rounded-xl flex items-center gap-2 transition-colors ${selectedGroupId === group.id
-                            ? "bg-[var(--bg-surface)] text-[var(--text-base)] border border-[var(--border-strong)]"
-                            : "text-[var(--text-muted)] hover:bg-[var(--bg-surface)] border border-transparent"
+                          ? "bg-[var(--bg-surface)] text-[var(--text-base)] border border-[var(--border-strong)]"
+                          : "text-[var(--text-muted)] hover:bg-[var(--bg-surface)] border border-transparent"
                           }`}
                       >
                         <div className="w-8 h-8 rounded-full bg-[var(--bg-input)] flex items-center justify-center shrink-0">
@@ -8067,16 +8063,16 @@ export default function ChatPage() {
                                         model.badgeType !== "NENHUMA" && (
                                           <span
                                             className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${model.badgeType === "BETA"
-                                                ? "bg-yellow-500 text-black"
-                                                : model.badgeType ===
-                                                  "EM DESENVOLVIMENTO"
-                                                  ? "bg-red-600 text-white"
-                                                  : model.badgeType === "NOVO"
-                                                    ? "bg-green-500 text-white"
-                                                    : model.badgeType ===
-                                                      "REMOVIDO"
-                                                      ? "bg-gray-500 text-white"
-                                                      : "bg-blue-500 text-white"
+                                              ? "bg-yellow-500 text-black"
+                                              : model.badgeType ===
+                                                "EM DESENVOLVIMENTO"
+                                                ? "bg-red-600 text-white"
+                                                : model.badgeType === "NOVO"
+                                                  ? "bg-green-500 text-white"
+                                                  : model.badgeType ===
+                                                    "REMOVIDO"
+                                                    ? "bg-gray-500 text-white"
+                                                    : "bg-blue-500 text-white"
                                               }`}
                                           >
                                             {model.badgeType}
@@ -9814,7 +9810,10 @@ export default function ChatPage() {
               </motion.div>
             </motion.div>
           )}
-          <AnimatePresence>
+        </AnimatePresence>
+
+        <AnimatePresence>
+          {isCalculatorOpen && (
             <Calculator
               isOpen={isCalculatorOpen}
               onClose={() => setIsCalculatorOpen(false)}
@@ -9824,7 +9823,8 @@ export default function ChatPage() {
               setDisplay={setCalculatorDisplay}
               t={t}
             />
-          </AnimatePresence>
+          )}
+        </AnimatePresence>
       </div>
     </div>
   );
