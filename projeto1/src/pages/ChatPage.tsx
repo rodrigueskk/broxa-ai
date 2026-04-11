@@ -76,8 +76,7 @@ import {
   ReleaseNoteImage,
   ReleaseNoteBadge,
 } from "../store";
-import { Group, GroupMessage } from "../types";
-import { FriendRequest } from "../types";
+import { Group, GroupMessage, FriendRequest } from "../types";
 import { db } from "../firebase";
 import {
   collection,
@@ -113,7 +112,7 @@ import remarkGfm from "remark-gfm";
 import { motion, AnimatePresence } from "motion/react";
 import { Rnd } from "react-rnd";
 import { v4 as uuidv4 } from "uuid";
-import { Message, Point, FriendRequest } from "../types";
+import { Message, Point } from "../types";
 import { MindMap } from "../components/MindMap";
 import { checkContent, getViolationMessage } from "../services/moderation";
 import { BanScreen } from "../components/BanScreen";
@@ -1782,22 +1781,13 @@ export default function ChatPage() {
     { messageId: string; stroke: any }[]
   >([]);
   const [selectedModel, setSelectedModel] = useState<
-    "thinking" | "fast" | "search" | "as" | "toto"
+    "thinking" | "fast" | "search" | "as"
   >("thinking");
-  const [isTotoVerificationOpen, setIsTotoVerificationOpen] = useState(false);
-  const [isTotoHelpExpanded, setIsTotoHelpExpanded] = useState(false);
-  const [totoRecordingTime, setTotoRecordingTime] = useState(0);
-  const [askTotoAgain, setAskTotoAgain] = useState(false);
-  const [totoHoldProgress, setTotoHoldProgress] = useState(0);
-  const totoHoldIntervalRef = useRef<any>(null);
   const [isExtensionDetected, setIsExtensionDetected] = useState<
     boolean | null
   >(null);
-  const [isTotoAutoMode, setIsTotoAutoMode] = useState(false);
   const [isTabVisible, setIsTabVisible] = useState(true);
-  const [totoStream, setTotoStream] = useState<MediaStream | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const totoIntervalRef = useRef<any>(null);
   const hasShownRoleNotificationRef = useRef(false);
   const [isModelDropdownOpen, setIsModelDropdownOpen] = useState(false);
   const modelDropdownRef = useRef<HTMLDivElement>(null);
@@ -2127,126 +2117,6 @@ export default function ChatPage() {
     }
   }, []);
 
-  const stopTotoAuto = useCallback(() => {
-    if (totoIntervalRef.current) clearInterval(totoIntervalRef.current);
-    if (totoHoldIntervalRef.current) clearInterval(totoHoldIntervalRef.current);
-    if (totoStream) {
-      totoStream.getTracks().forEach((track) => track.stop());
-    }
-    setTotoStream(null);
-    setIsTotoAutoMode(false);
-  }, [totoStream]);
-
-  const startTotoHold = () => {
-    setTotoHoldProgress(0);
-    totoHoldIntervalRef.current = setInterval(() => {
-      setTotoHoldProgress((prev) => {
-        if (prev >= 100) {
-          stopTotoAuto();
-          clearInterval(totoHoldIntervalRef.current!);
-          return 0;
-        }
-        return prev + 10;
-      });
-    }, 100);
-  };
-
-  const endTotoHold = () => {
-    if (totoHoldIntervalRef.current) clearInterval(totoHoldIntervalRef.current);
-    setTotoHoldProgress(0);
-  };
-
-  const manualCaptureAndAskToto = async () => {
-    if (!totoStream || !canvasRef.current || isLoading) return;
-    try {
-      const video = document.createElement("video");
-      video.srcObject = totoStream;
-      await video.play();
-
-      const canvas = canvasRef.current;
-      canvas.width = Math.min(video.videoWidth, 1280);
-      canvas.height = (video.videoHeight / video.videoWidth) * canvas.width;
-      const ctx = canvas.getContext("2d");
-      if (ctx) {
-        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-        canvas.toBlob(
-          async (blob) => {
-            if (blob) {
-              await handleSend(
-                "[TOTO_AUTO] Você é o Totó, assistente especializado em exercícios de inglês. Analise esta captura de tela e:\n1. Se houver questões/exercícios de inglês legíveis: resolva cada um de forma clara e objetiva, explicando o raciocínio em português.\n2. Se houver texto em inglês para traduzir: traduza para o português.\n3. Se a imagem não contiver conteúdo legível relacionado a exercícios: responda apenas 'Não consegui identificar nenhuma questão na imagem enviada.'\nNão invente informações que não estão na imagem. Não comente sobre elementos da interface (barra de tarefas, navegador, etc.). Foque APENAS no conteúdo educacional visível.",
-                [{ url: URL.createObjectURL(blob), mimeType: "image/jpeg" }],
-                "toto",
-              );
-              setAskTotoAgain(true);
-              stopTotoAuto();
-            }
-          },
-          "image/jpeg",
-          0.5,
-        );
-      }
-      video.pause();
-      video.srcObject = null;
-    } catch (err) {
-      console.error("Capture failed", err);
-    }
-  };
-
-  const startTotoWeb = async () => {
-    try {
-      const stream = await navigator.mediaDevices.getDisplayMedia({
-        video: { displaySurface: "browser" },
-      });
-      setTotoStream(stream);
-      setIsTotoAutoMode(true);
-      setIsTotoVerificationOpen(false);
-      setTotoRecordingTime(0);
-      setAskTotoAgain(false);
-      setTotoHoldProgress(0);
-
-      stream.getVideoTracks()[0].onended = () => stopTotoAuto();
-    } catch (err) {
-      console.error("Failed to share screen", err);
-    }
-  };
-
-  useEffect(() => {
-    if (selectedModel === "toto" && !isTotoAutoMode && !askTotoAgain) {
-      setIsTotoVerificationOpen(true);
-    }
-  }, [selectedModel, isTotoAutoMode, askTotoAgain]);
-
-  useEffect(() => {
-    const handleVisibilityChange = () => {
-      setIsTabVisible(!document.hidden);
-    };
-    document.addEventListener("visibilitychange", handleVisibilityChange);
-    return () =>
-      document.removeEventListener("visibilitychange", handleVisibilityChange);
-  }, []);
-
-  useEffect(() => {
-    if (isTotoAutoMode && totoStream) {
-      if (!isTabVisible) {
-        totoIntervalRef.current = setInterval(() => {
-          setTotoRecordingTime((prev) => {
-            if (prev >= 30) {
-              stopTotoAuto();
-              return 60;
-            }
-            return prev + 1;
-          });
-        }, 1000);
-      } else {
-        if (totoIntervalRef.current) clearInterval(totoIntervalRef.current);
-      }
-    } else {
-      if (totoIntervalRef.current) clearInterval(totoIntervalRef.current);
-    }
-    return () => {
-      if (totoIntervalRef.current) clearInterval(totoIntervalRef.current);
-    };
-  }, [isTotoAutoMode, totoStream, isTabVisible]);
 
   const prevStreakRef = useRef(streakDays);
 
@@ -2535,8 +2405,8 @@ export default function ChatPage() {
     ) {
       hasShownProfileSetupRef.current = true;
       setIsProfileSetupOpen(true);
-      setTempDisplayName(displayName || auth.currentUser.displayName || "");
-      setTempPhotoURL(photoURL || auth.currentUser.photoURL || "");
+      setTempDisplayName(displayName || auth.currentUser?.displayName || "");
+      setTempPhotoURL(photoURL || auth.currentUser?.photoURL || "");
     }
   }, [isUserLoaded, auth.currentUser, hasSetProfile, displayName, photoURL]);
 
@@ -3717,73 +3587,7 @@ export default function ChatPage() {
                 <div className="w-10 h-1 rounded-full bg-[var(--text-muted)]"></div>
               </div>
             )}
-            {askTotoAgain ? (
-              <div className="w-full flex flex-col items-center justify-center p-6 gap-3">
-                <h3 className="text-lg font-bold text-[var(--text-base)] text-center">
-                  Tem mais coisas que deseja enviar para a IA responder?
-                </h3>
-                <div className="flex w-full gap-3 max-w-sm mt-2">
-                  <button
-                    onClick={() => setAskTotoAgain(false)}
-                    className="flex-1 py-3 rounded-xl border border-[var(--border-strong)] bg-[var(--bg-surface)] hover:bg-[var(--bg-panel)] transition-colors text-[var(--text-base)] font-bold text-sm"
-                  >
-                    Não
-                  </button>
-                  <button
-                    onClick={() => {
-                      setAskTotoAgain(false);
-                      startTotoWeb();
-                    }}
-                    className="flex-1 py-3 rounded-xl bg-[var(--color-sec)] text-black font-black uppercase text-sm shadow-md hover:scale-[1.02] transition-all"
-                  >
-                    Sim
-                  </button>
-                </div>
-              </div>
-            ) : isTotoAutoMode ? (
-              <div className="w-full flex flex-col items-center justify-center p-6 gap-4">
-                <h3 className="text-xl font-bold text-[var(--text-base)] text-center">
-                  Estamos no aguardo do envio
-                </h3>
-
-                <div className="flex items-center gap-3 bg-[var(--bg-panel)] border border-red-500/30 px-5 py-3 rounded-2xl">
-                  <div className="w-3 h-3 rounded-full bg-red-500 animate-pulse shadow-[0_0_10px_rgba(239,68,68,0.5)]" />
-                  <span className="text-red-400 font-mono font-bold text-lg">
-                    {Math.floor(totoRecordingTime / 60)
-                      .toString()
-                      .padStart(2, "0")}
-                    :{(totoRecordingTime % 60).toString().padStart(2, "0")}{" "}
-                    / 01:00
-                  </span>
-                </div>
-
-                <div className="flex w-full gap-3 mt-2">
-                  <button
-                    onMouseDown={startTotoHold}
-                    onMouseUp={endTotoHold}
-                    onMouseLeave={endTotoHold}
-                    onTouchStart={startTotoHold}
-                    onTouchEnd={endTotoHold}
-                    className="flex-1 relative overflow-hidden py-3 rounded-xl border border-[var(--border-strong)] bg-[var(--bg-surface)] hover:bg-[var(--bg-panel)] transition-colors select-none"
-                  >
-                    <div
-                      className="absolute inset-y-0 left-0 bg-red-500/30 transition-all duration-100 ease-linear"
-                      style={{ width: `${totoHoldProgress}%` }}
-                    />
-                    <span className="relative z-10 text-[var(--text-base)] font-bold text-sm">
-                      {totoHoldProgress > 0 ? "Segurando..." : "Cancelar"}
-                    </span>
-                  </button>
-                  <button
-                    onClick={manualCaptureAndAskToto}
-                    className="flex-1 py-3 rounded-xl bg-[var(--color-sec)] text-black font-black uppercase text-sm shadow-md hover:scale-[1.02] active:scale-[0.98] transition-all"
-                  >
-                    Enviar a gravação
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <textarea
+            <textarea
                 ref={textareaRef}
                 value={input}
                 onChange={(e) => {
@@ -3802,7 +3606,6 @@ export default function ChatPage() {
                 className="w-full bg-transparent text-[var(--text-base)] placeholder-[var(--text-muted)] px-5 py-3 resize-none focus:outline-none custom-scrollbar text-base"
                 style={{ height: `${textareaHeight}px` }}
               />
-            )}
             <div className="flex items-end justify-between px-3 pb-3 pt-1 gap-2">
               <div className="flex flex-wrap items-center gap-1 highlighter-tools flex-1">
                 <input
@@ -3899,7 +3702,7 @@ export default function ChatPage() {
   const handleSend = async (
     overrideInput?: string,
     overrideImages?: { url: string; mimeType: string }[],
-    overrideModel?: "thinking" | "fast" | "search" | "as" | "toto",
+    overrideModel?: "thinking" | "fast" | "search" | "as",
   ) => {
     const textToSend =
       overrideInput !== undefined ? overrideInput : input.trim();
@@ -3939,9 +3742,9 @@ export default function ChatPage() {
       setTextareaHeight(60);
 
       const userMessage: Omit<GroupMessage, "id"> = {
-        senderId: auth.currentUser.uid,
-        senderName: displayName || auth.currentUser.displayName || "Usuário",
-        senderPhotoURL: photoURL || auth.currentUser.photoURL || null,
+        senderId: auth.currentUser?.uid || "guest",
+        senderName: displayName || auth.currentUser?.displayName || "Convidado",
+        senderPhotoURL: photoURL || auth.currentUser?.photoURL || null,
         content: textToSend,
         imageUrls: imagesToSend.map((img) => img.url),
         timestamp: Date.now(),
@@ -3982,13 +3785,7 @@ export default function ChatPage() {
           (group?.systemInstruction || settings.customInstruction) +
           "\n\nIMPORTANTE: Você nunca deve gerar conteúdo relacionado a: sexo, pornografia, abuso, racismo, homofobia, machismo, drogas pesadas ou qualquer ato carnal/sexual. Se solicitado, recuse educadamente dizendo que o conteúdo não é tolerado.";
 
-        const modelToUseApi =
-          modelToUse === "toto" ? "gemini-3-flash-preview" : modelToUse;
-
-        if (modelToUse === "toto") {
-          customInstruction =
-            "Você é o Totó, um assistente especializado em resolver questões de inglês. Analise a imagem fornecida, identifique a questão e forneça a resposta correta de forma curta e objetiva, justificando brevemente em português.";
-        }
+        const modelToUseApi = modelToUse;
 
         const history = groupMessages.map((m) => ({
           role: m.senderId === "ai" ? "ai" : ("user" as "ai" | "user"),
@@ -4004,8 +3801,8 @@ export default function ChatPage() {
           settings.language || "pt",
         );
 
-        if (isTotoAuto && aiResponse.includes("MODO_SILENCIOSO")) {
-          // Do not send silent responses
+        if (false) {
+          // Placeholder for retired logic
         } else {
           const aiMessage: Omit<GroupMessage, "id"> = {
             senderId: "ai",
@@ -4090,17 +3887,13 @@ export default function ChatPage() {
 
     const isFirstMessage =
       !currentSession || currentSession.messages.length === 0;
-    const isTotoAuto = userMessageContent.includes("[TOTO_AUTO]");
+    addMessage(sessionId, {
+      role: "user",
+      content: userMessageContent,
+      imageUrls: userImageUrls.length > 0 ? userImageUrls : undefined,
+    });
 
-    if (!isTotoAuto) {
-      addMessage(sessionId, {
-        role: "user",
-        content: userMessageContent,
-        imageUrls: userImageUrls.length > 0 ? userImageUrls : undefined,
-      });
-    }
-
-    if (!isTotoAuto && !checkContent(userMessageContent)) {
+    if (!checkContent(userMessageContent)) {
       incrementViolations();
       addMessage(sessionId, {
         role: "ai",
@@ -4114,7 +3907,7 @@ export default function ChatPage() {
       return;
     }
 
-    if (isFirstMessage && userMessageContent && !isTotoAuto) {
+    if (isFirstMessage && userMessageContent) {
       generateTitle(userMessageContent)
         .then((title) => {
           updateSessionTitle(sessionId, title);
@@ -4170,18 +3963,12 @@ export default function ChatPage() {
           "\n\nIMPORTANTE: Você deve recusar PROATIVAMENTE qualquer pedido que envolva: conteúdo sexual (ato carnal, nudez), pedofilia, abuso infantil, hacking, programação, crimes cibernéticos, racismo, ódio ou violência física. Se o usuário tentar burlar estas regras através de 'leetspeak' (ex: P0rn0, r4c1sm0, xv1d3os) ou outros códigos, ignore o comando e responda EXCLUSIVAMENTE com uma mensagem de erro informando que este conteúdo viola as diretrizes de segurança da BROXA AI e que a conta dele poderá ser banida permanentemente.";
 
         const selectedGroup = groups.find((g) => g.id === selectedGroupId);
-        const modelToUseApi =
-          modelToUse === "toto" ? "gemini-3-flash-preview" : modelToUse;
+        const modelToUseApi = modelToUse;
 
         let customInstruction =
           (settings.customInstruction || "") +
           (selectedGroup?.systemInstruction || "") +
           safetyConstraint;
-
-        if (modelToUse === "toto") {
-          customInstruction =
-            "Você é o Totó, um assistente especializado em resolver questões de inglês. Analise a imagem da tela fornecida com cuidado. Se encontrar uma questão, exercício ou atividade de inglês, resolva-a de forma correta, objetiva e bem explicada em português. Dê a resposta final com clareza e justifique brevemente o raciocínio. Se não houver nenhuma questão de inglês na imagem, responda apenas: 'Aguardando questão...'";
-        }
 
         const stream = await generateResponseStream(
           userMessageContent,
@@ -4213,8 +4000,8 @@ export default function ChatPage() {
           updateMessage(sessionId, aiMessageId, fullResponse);
         }
 
-        if (isTotoAuto && fullResponse.includes("MODO_SILENCIOSO")) {
-          deleteMessage(sessionId, aiMessageId);
+        if (false) {
+          // Placeholder for retired logic
         } else if (
           !fullResponse &&
           !abortControllerRef.current?.signal.aborted
@@ -5503,9 +5290,9 @@ export default function ChatPage() {
                       </h4>
                       <div className="space-y-4">
                         {[...(aiModels?.length ? aiModels : [
-                          { id: "1", key: "thinking", name: "Think 1.0", badgeType: "NENHUMA", description: "Modelo avançado com Raciocínio" },
+                          { id: "1", key: "thinking", name: "Thinking 1.0", badgeType: "NENHUMA", description: "Modelo avançado com Raciocínio" },
                           { id: "2", key: "fast", name: "Flash 1.1", badgeType: "NENHUMA", description: "Respostas instantâneas e leves" },
-                          { id: "3", key: "as", name: "Quest 0.5", badgeType: "NENHUMA", description: "Modelo otimizado e balanceado" },
+                          { id: "3", key: "as", name: "Quest 0.5", badgeType: "NENHUMA", description: "Modelo otimizado para estudos" },
                           { id: "4", key: "search", name: "Search 0.8", badgeType: "NENHUMA", description: "Excelente para busca de informações" }
                         ])]
                           .sort((a, b) => {
@@ -6573,8 +6360,9 @@ export default function ChatPage() {
                 </div>
 
                 {/* Right content */}
-                          {/* === IDIOMAS === */}
-                          {settingsTab === "idiomas" && (
+                <div className="flex-1 overflow-y-auto custom-scrollbar">
+                  {/* === IDIOMAS === */}
+                  {settingsTab === "idiomas" && (
                             <div className="p-6 space-y-6">
                               <h2 className="text-lg font-semibold text-[var(--text-base)]">
                                 Idiomas
@@ -7742,9 +7530,9 @@ export default function ChatPage() {
                   className="flex items-center gap-3 w-full p-2.5 rounded-xl hover:bg-[var(--bg-surface)] transition-colors"
                 >
                   <div className="w-8 h-8 rounded-full overflow-hidden flex-shrink-0 border border-[var(--border-subtle)]">
-                    {photoURL || auth.currentUser.photoURL ? (
+                    {photoURL || auth.currentUser?.photoURL ? (
                       <img
-                        src={photoURL || auth.currentUser.photoURL!}
+                        src={photoURL || auth.currentUser?.photoURL || ""}
                         alt="Avatar"
                         className="w-full h-full object-cover"
                       />
@@ -7756,8 +7544,8 @@ export default function ChatPage() {
                   </div>
                   <span className="text-sm text-[var(--text-base)] font-medium truncate">
                     {displayName ||
-                      auth.currentUser.displayName?.split(" ")[0] ||
-                      "Usuário"}
+                      auth.currentUser?.displayName?.split(" ")[0] ||
+                      (settings.language === "en" ? "Log in" : "Fazer login")}
                   </span>
                 </button>
                 <AnimatePresence>
@@ -7953,7 +7741,7 @@ export default function ChatPage() {
                       >
                         {aiModels?.find((m) => m.key === selectedModel)?.name ||
                           (selectedModel === "thinking"
-                            ? "Think 1.0"
+                            ? "Thinking 1.0"
                             : selectedModel === "fast"
                               ? "Flash 1.1"
                               : selectedModel === "search"
@@ -7976,13 +7764,13 @@ export default function ChatPage() {
                               </div>
 
                               {[...(aiModels?.length ? aiModels : [
-                                { id: "1", key: "thinking", name: "Think 1.0", badgeType: "NENHUMA", description: "Modelo avançado com Raciocínio" },
+                                { id: "1", key: "thinking", name: "Thinking 1.0", badgeType: "NENHUMA", description: "Modelo avançado com Raciocínio" },
                                 { id: "2", key: "fast", name: "Flash 1.1", badgeType: "NENHUMA", description: "Respostas instantâneas e leves" },
-                                { id: "3", key: "as", name: "Quest 0.5", badgeType: "NENHUMA", description: "Modelo otimizado e balanceado" },
+                                { id: "3", key: "as", name: "Quest 0.5", badgeType: "NENHUMA", description: "Modelo otimizado para estudos" },
                                 { id: "4", key: "search", name: "Search 0.8", badgeType: "NENHUMA", description: "Excelente para busca de informações" }
                               ])]
                                 .filter(
-                                  (m) => !(isElectronApp && m.key === "toto"),
+                                  (m) => !(isElectronApp && m.key === "as"),
                                 )
                                 .sort((a, b) => {
                                   const order = [
@@ -8004,7 +7792,7 @@ export default function ChatPage() {
                                       setSelectedModel(model.key as any);
                                       setIsModelDropdownOpen(false);
                                     }}
-                                    className={`w-full text-left px-3 py-3 rounded-xl flex items-center justify-between transition-colors ${selectedModel === model.key ? "bg-[var(--bg-surface)]" : "hover:bg-[var(--bg-surface)]"} ${model.key === "toto" ? "opacity-30 cursor-not-allowed" : ""}`}
+                                    className={`w-full text-left px-3 py-3 rounded-xl flex items-center justify-between transition-colors ${selectedModel === model.key ? "bg-[var(--bg-surface)]" : "hover:bg-[var(--bg-surface)]"}`}
                                   >
                                     <div>
                                       <div className="font-bold text-[var(--text-base)] flex items-center gap-2">
@@ -8817,22 +8605,6 @@ export default function ChatPage() {
           )}
         </AnimatePresence>
 
-        {isTotoAutoMode && (
-          <div className="fixed top-20 right-4 z-[100] flex items-center gap-3 bg-[var(--bg-panel)] p-3 rounded-2xl border border-[var(--color-sec)]/30 shadow-[0_0_20px_rgba(234,179,8,0.2)]">
-            <div className="w-2 h-2 rounded-full bg-green-400 shadow-[0_0_10px_#4ade80] animate-pulse" />
-            <span className="text-xs font-bold text-[var(--text-base)]">
-              Visualizando a tela
-            </span>
-            <button
-              onClick={stopTotoAuto}
-              className="ml-2 hover:bg-red-500/10 p-1 rounded-lg"
-            >
-              <X className="w-4 h-4 text-red-500" />
-            </button>
-          </div>
-        )}
-
-        <canvas ref={canvasRef} className="hidden" />
 
         <AnimatePresence>
           {isRenameGroupModalOpen && (
@@ -9258,30 +9030,6 @@ export default function ChatPage() {
                 </div>
 
                 <div className="space-y-4 mb-6">
-                  <button
-                    onClick={() => {
-                      setSelectedModel("toto");
-                      setIsDevModelsModalOpen(false);
-                    }}
-                    className={`p-4 rounded-xl border transition-all flex items-center justify-between w-full ${selectedModel === "toto" ? "border-[var(--color-sec)] bg-[var(--color-sec)]/10" : "border-[var(--border-subtle)] bg-[var(--bg-surface)] hover:border-[var(--color-sec)]/50"}`}
-                  >
-                    <div className="text-left">
-                      <div className="font-bold text-[var(--text-base)] flex items-center gap-2">
-                        Totó 1.0 (Beta)
-                        <span className="text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wide bg-[var(--color-sec)]/20 text-[var(--color-sec)]">
-                          DISPONÍVEL
-                        </span>
-                      </div>
-                      <div className="text-xs text-[var(--text-muted)]">
-                        Respostas ultra-rápidas para Inglês via Extensão
-                      </div>
-                    </div>
-                    <img
-                      src="/logo.png"
-                      className="w-5 h-5 rounded-full object-contain"
-                      alt=""
-                    />
-                  </button>
 
                   <div className="p-4 rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] flex items-center justify-between opacity-50 cursor-not-allowed">
                     <div>

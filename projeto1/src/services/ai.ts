@@ -16,7 +16,7 @@ function getAI(): GoogleGenAI {
 export async function generateTitle(prompt: string): Promise<string> {
   const aiClient = getAI();
   const response = await aiClient.models.generateContent({
-    model: "gemini-3.1-flash-preview",
+    model: "gemini-1.5-flash",
     contents: `Crie um título muito curto (máximo 4 palavras) para uma conversa que começou com este prompt: "${prompt}". Retorne apenas o título, sem aspas ou pontuação final.`,
   });
   return response.text?.trim() || "Nova Conversa";
@@ -97,16 +97,16 @@ export async function* generateResponseStream(
 
   const baseSafetyRule = "É ESTRITAMENTE PROIBIDO usar gírias como viado, mlk, cuzao, entre outras, bem como palavrões, termos ofensivos, conteúdo explícito ou qualquer linguagem inapropriada. Você deve bloquear e se recusar a responder qualquer coisa que seja considerada inadequada para uma IA segura. NUNCA, SOB NENHUMA HIPÓTESE, mencione que você usa a API do Gemini, que foi desenvolvida pelo Google, ou qualquer coisa relacionada a modelos de linguagem de terceiros. Aja e responda sempre como uma IA independente.";
 
-  let modelName = "gemini-3.1-flash-preview";
+  let modelName = "gemini-1.5-flash";
 
   if (modelType === 'thinking') {
-    modelName = 'gemini-3.1-pro-preview';
+    modelName = "gemini-2.0-pro-exp-02-05";
   } else if (modelType === 'fast') {
-    modelName = "gemini-3.1-flash-preview";
+    modelName = "gemini-1.5-flash";
   } else if (modelType === 'as') {
-    modelName = "gemini-3.1-flash-preview";
+    modelName = "gemini-1.5-flash";
   } else if (modelType === 'search') {
-    modelName = "gemini-3.1-flash-preview";
+    modelName = "gemini-1.5-pro";
   } else if (modelType.startsWith('gemini-')) {
     modelName = modelType;
   }
@@ -218,16 +218,16 @@ export async function generateResponse(
 
   const baseSafetyRule = "É ESTRITAMENTE PROIBIDO usar gírias como viado, mlk, cuzao, entre outras, bem como palavrões, termos ofensivos, conteúdo explícito ou qualquer linguagem inapropriada. Você deve bloquear e se recusar a responder qualquer coisa que seja considerada inadequada para uma IA segura. NUNCA, SOB NENHUMA HIPÓTESE, mencione que você usa a API do Gemini, que foi desenvolvida pelo Google, ou qualquer coisa relacionada a modelos de linguagem de terceiros. Aja e responda sempre como uma IA independente.";
 
-  let modelName = "gemini-3.1-flash-preview";
+  let modelName = "gemini-1.5-flash";
 
   if (modelType === 'thinking') {
-    modelName = 'gemini-3.1-pro-preview';
+    modelName = "gemini-2.0-pro-exp-02-05";
   } else if (modelType === 'fast') {
-    modelName = "gemini-3.1-flash-preview";
+    modelName = "gemini-1.5-flash";
   } else if (modelType === 'as') {
-    modelName = "gemini-3.1-flash-preview";
+    modelName = "gemini-1.5-flash";
   } else if (modelType === 'search') {
-    modelName = "gemini-3.1-flash-preview";
+    modelName = "gemini-1.5-pro";
   } else if (modelType.startsWith('gemini-')) {
     modelName = modelType;
   }
