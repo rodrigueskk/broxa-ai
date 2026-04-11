@@ -324,10 +324,10 @@ export function useSettingsStore() {
   const [settings, setSettings] = useState(() => {
     try {
       const saved = localStorage.getItem('broxa_ai_settings');
-      return saved ? JSON.parse(saved) : { theme: 'dark', secondaryColor: '#2563eb', customInstruction: '', backgroundImage: null, selectionColor: '#2563eb', customTitleFont: 'BROXA AI', userMessageColor: '#ffffff', language: 'pt' };
+      return saved ? JSON.parse(saved) : { theme: 'dark', secondaryColor: '#3b82f6', customInstruction: '', backgroundImage: null, selectionColor: '#3b82f6', customTitleFont: 'BROXA AI', userMessageColor: '#ffffff', language: 'pt' };
     } catch (e) {
       console.warn('localStorage is not available', e);
-      return { theme: 'dark', secondaryColor: '#2563eb', customInstruction: '', backgroundImage: null, selectionColor: '#2563eb', customTitleFont: 'BROXA AI', userMessageColor: '#ffffff', language: 'pt' };
+      return { theme: 'dark', secondaryColor: '#3b82f6', customInstruction: '', backgroundImage: null, selectionColor: '#3b82f6', customTitleFont: 'BROXA AI', userMessageColor: '#ffffff', language: 'pt' };
     }
   });
 
@@ -699,7 +699,7 @@ export function useGroupStore() {
       await setDoc(groupRef, {
         name,
         photoURL: photoURL || '',
-        systemInstruction,
+        systemInstruction: systemInstruction || '',
         ownerId: auth.currentUser.uid,
         members: [auth.currentUser.uid],
         streakDays: 0,

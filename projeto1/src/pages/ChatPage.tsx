@@ -65,6 +65,7 @@ import {
   LinkIcon,
   Eye,
   EyeOff,
+  Calculator as CalculatorIcon,
 } from "lucide-react";
 import {
   useChatStore,
@@ -573,11 +574,13 @@ const MessageItem = React.memo(
           ref={containerRef}
           className={`relative max-w-[90%] md:max-w-[75%] group ${msg.role === "user" ? "rounded-3xl px-4 py-3 md:px-6 md:py-4 shadow-sm rounded-tr-sm border border-[var(--border-subtle)] select-none" : "rounded-tl-sm border-0 shadow-none px-0 py-0 md:px-0 md:py-0 select-text"}`}
           style={{
-            backgroundColor:
-              msg.role === "user"
-                ? settings.userMessageColor || "var(--bg-surface)"
-                : undefined,
-            color: msg.role === "user" ? "#ffffff" : "var(--text-base)",
+            backgroundColor: msg.role === "user"
+              ? settings.theme === "light"
+                ? "transparent"
+                : settings.secondaryColor || "#3b82f6"
+              : undefined,
+            color: msg.role === "user" ? (settings.theme === "light" ? "#000000" : "#ffffff") : "var(--text-base)",
+            border: msg.role === "user" && settings.theme === "light" ? "1px solid #000000" : "none",
           }}
           onTouchStart={handleTouchStartCopy}
           onTouchEnd={handleTouchEndCopy}
@@ -1109,9 +1112,9 @@ const GroupMessageItem = React.memo(
             style={
               isCurrentUser
                 ? {
-                    backgroundColor:
-                      settings.userMessageColor || "var(--bg-surface)",
-                    color: "#ffffff",
+                    backgroundColor: settings.theme === "light" ? "transparent" : settings.secondaryColor || "var(--bg-surface)",
+                    color: settings.theme === "light" ? "#000000" : "#ffffff",
+                    border: settings.theme === "light" ? "1px solid #000000" : undefined,
                   }
                 : { color: "var(--text-base)" }
             }
@@ -1544,7 +1547,90 @@ const ImageUpload = ({
   );
 };
 
+const translations: any = {
+  pt: {
+    send_message: "Mande uma mensagem para o Broxa AI...",
+    how_can_i_help: "Como posso ajudar?",
+    good_morning: "Bom dia",
+    good_afternoon: "Boa tarde",
+    good_evening: "Boa noite",
+    good_late_night: "Boa madrugada",
+    settings: "Configurações",
+    profile: "Perfil",
+    security: "Segurança",
+    languages: "Idiomas",
+    ai: "Inteligência Artificial",
+    devices: "Dispositivos",
+    logout: "Sair da conta",
+    calculator: "Calculadora",
+    scientific: "Científica",
+    basic: "Básica",
+    appearance: "Aparência",
+    general: "Geral",
+    model_ai: "Modelo de IA",
+    admin_panel: "Painel de Administração",
+    close: "Fechar",
+    save: "Salvar",
+    cancel: "Cancelar",
+  },
+  en: {
+    send_message: "Send a message to Broxa AI...",
+    how_can_i_help: "How can I help you?",
+    good_morning: "Good morning",
+    good_afternoon: "Good afternoon",
+    good_evening: "Good evening",
+    good_late_night: "Good night",
+    settings: "Settings",
+    profile: "Profile",
+    security: "Security",
+    languages: "Languages",
+    ai: "Intelligence",
+    devices: "Devices",
+    logout: "Log out",
+    calculator: "Calculator",
+    scientific: "Scientific",
+    basic: "Basic",
+    appearance: "Appearance",
+    general: "General",
+    model_ai: "AI Model",
+    admin_panel: "Admin Panel",
+    close: "Close",
+    save: "Save",
+    cancel: "Cancel",
+  },
+  es: {
+    send_message: "Envía un mensaje a Broxa AI...",
+    how_can_i_help: "¿Como posso ajudarte?",
+    good_morning: "Buenos días",
+    good_afternoon: "Buenas tardes",
+    good_evening: "Buenas noches",
+    good_late_night: "Buenas noches",
+    settings: "Configuración",
+    profile: "Perfil",
+    security: "Seguridad",
+    languages: "Idiomas",
+    ai: "Inteligencia",
+    devices: "Dispositivos",
+    logout: "Cerrar sesión",
+    calculator: "Calculadora",
+    scientific: "Científica",
+    basic: "Básica",
+    appearance: "Apariencia",
+    general: "General",
+    model_ai: "Modelo de IA",
+    admin_panel: "Panel de Admin",
+    close: "Cerrar",
+    save: "Guardar",
+    cancel: "Cancelar",
+  }
+};
+
 export default function ChatPage() {
+  const t = (key: string) => {
+    const lang = settings.language || "pt";
+    return translations[lang]?.[key] || translations["pt"][key] || key;
+  };
+
   const navigate = useNavigate();
   const [historyLoadStatus, setHistoryLoadStatus] = useState<
     "loading" | "success" | "loaded" | "error"
@@ -1826,6 +1912,10 @@ export default function ChatPage() {
 
   // Gallery state
   const [isGalleryOpen, setIsGalleryOpen] = useState(false);
+  const [isCalculatorOpen, setIsCalculatorOpen] = useState(false);
+  const [calculatorMode, setCalculatorMode] = useState<'basic' | 'scientific'>('basic');
+  const [calculatorDisplay, setCalculatorDisplay] = useState('0');
+
   const closeGallery = () => setIsGalleryOpen(false);
   const [isGroupsScreenOpen, setIsGroupsScreenOpen] = useState(false);
   const [groupsScreenSearch, setGroupsScreenSearch] = useState("");
@@ -3128,7 +3218,7 @@ export default function ChatPage() {
   useEffect(() => {
     document.documentElement.style.setProperty(
       "--color-sec",
-      settings.secondaryColor,
+      settings.secondaryColor || "#3b82f6",
     );
     document.documentElement.style.setProperty(
       "--selection-color",
@@ -3692,6 +3782,110 @@ export default function ChatPage() {
       </div>
     );
   };
+
+const Calculator = ({ isOpen, onClose, mode, setMode, display, setDisplay, t }: any) => {
+  if (!isOpen) return null;
+
+  const handleInput = (val: string) => {
+    if (val === 'C') {
+      setDisplay('0');
+    } else if (val === '=') {
+      try {
+        let expression = display.replace(/×/g, '*').replace(/÷/g, '/');
+        expression = expression.replace(/sin\(/g, 'Math.sin(')
+                               .replace(/cos\(/g, 'Math.cos(')
+                               .replace(/tan\(/g, 'Math.tan(')
+                               .replace(/log\(/g, 'Math.log10(')
+                               .replace(/ln\(/g, 'Math.log(')
+                               .replace(/sqrt\(/g, 'Math.sqrt(')
+                               .replace(/π/g, 'Math.PI')
+                               .replace(/e/g, 'Math.E')
+                               .replace(/\^/g, '**');
+        
+        const result = eval(expression);
+        setDisplay(String(Number(result.toFixed(8))));
+      } catch (e) {
+        setDisplay('Error');
+      }
+    } else {
+      if (display === '0' || display === 'Error') {
+        setDisplay(val);
+      } else {
+        setDisplay(display + val);
+      }
+    }
+  };
+
+  const buttons = mode === 'basic' ? [
+    ['7', '8', '9', '÷'],
+    ['4', '5', '6', '×'],
+    ['1', '2', '3', '-'],
+    ['C', '0', '=', '+']
+  ] : [
+    ['sin(', 'cos(', 'tan(', '÷'],
+    ['log(', 'ln(', 'sqrt(', '×'],
+    ['7', '8', '9', '-'],
+    ['4', '5', '6', '+'],
+    ['1', '2', '3', '^'],
+    ['C', '0', '.', '=']
+  ];
+
+  return (
+    <div className="fixed inset-0 z-[250] flex items-center justify-center bg-black/60 backdrop-blur-md p-4" onClick={onClose}>
+      <motion.div 
+        initial={{ scale: 0.9, opacity: 0, y: 20 }}
+        animate={{ scale: 1, opacity: 1, y: 0 }}
+        exit={{ scale: 0.9, opacity: 0, y: 20 }}
+        className="bg-[var(--bg-panel)] border border-[var(--border-strong)] rounded-[32px] p-6 w-full max-w-xs shadow-2xl"
+        onClick={e => e.stopPropagation()}
+      >
+        <div className="flex justify-between items-center mb-6">
+          <h3 className="font-bold text-[var(--text-base)] flex items-center gap-2">
+            <div className="w-8 h-8 rounded-lg bg-[var(--color-sec)]/10 flex items-center justify-center">
+              <CalculatorIcon className="w-5 h-5 text-[var(--color-sec)]" />
+            </div>
+            {mode === 'basic' ? t('basic') : t('scientific')}
+          </h3>
+          <div className="flex gap-2">
+            <button
+               onClick={() => setMode(mode === 'basic' ? 'scientific' : 'basic')}
+               className="px-3 py-1.5 hover:bg-[var(--bg-surface)] rounded-xl text-[var(--text-muted)] text-[10px] font-bold uppercase border border-[var(--border-subtle)] transition-colors"
+            >
+              {mode === 'basic' ? t('scientific') : t('basic')}
+            </button>
+            <button onClick={onClose} className="p-2 hover:bg-[var(--bg-surface)] rounded-xl text-[var(--text-muted)] transition-colors">
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+        </div>
+        
+        <div className="bg-[var(--bg-input)] rounded-2xl p-5 mb-6 text-right overflow-hidden border border-[var(--border-strong)] shadow-inner">
+          <div className="text-sm text-[var(--text-muted)] font-mono mb-1 h-5 truncate opacity-50">
+            {display !== '0' && display !== 'Error' ? display : ''}
+          </div>
+          <div className="text-3xl font-mono text-[var(--text-base)] truncate font-bold">{display}</div>
+        </div>
+        
+        <div className="grid grid-cols-4 gap-2.5">
+          {buttons.flat().map((btn) => (
+            <button
+              key={btn}
+              onClick={() => handleInput(btn)}
+              className={`h-12 rounded-xl font-bold transition-all active:scale-95 ${
+                btn === '=' ? 'bg-[var(--color-sec)] text-white shadow-lg shadow-[var(--color-sec)]/20 hover:opacity-90' :
+                btn === 'C' ? 'bg-red-500/10 text-red-500 hover:bg-red-500/20 border border-red-500/20' :
+                ['÷', '×', '-', '+', '^'].includes(btn) ? 'bg-[var(--bg-surface)] text-[var(--color-sec)] hover:bg-[var(--border-strong)] border border-[var(--border-subtle)]' :
+                'bg-[var(--bg-surface)] text-[var(--text-base)] hover:bg-[var(--border-strong)]'
+              }`}
+            >
+              {btn.replace('(', '')}
+            </button>
+          ))}
+        </div>
+      </motion.div>
+    </div>
+  );
+};
 
   const handlePaste = (e: React.ClipboardEvent) => {
     const items = e.clipboardData.items;
@@ -5343,6 +5537,21 @@ export default function ChatPage() {
                                 </div>
                                 <div>
                                   <label className="block text-xs font-medium text-[var(--text-muted)] mb-1">
+                                    ID do Modelo (Key)
+                                  </label>
+                                  <input
+                                    type="text"
+                                    value={model.key}
+                                    onChange={(e) =>
+                                      updateAiModel(model.id, {
+                                        key: e.target.value,
+                                      })
+                                    }
+                                    className="w-full bg-[var(--bg-base)] border border-[var(--border-strong)] rounded-lg px-3 py-2 text-sm text-[var(--text-base)] focus:outline-none focus:border-[var(--color-sec)]"
+                                  />
+                                </div>
+                                <div>
+                                  <label className="block text-xs font-medium text-[var(--text-muted)] mb-1">
                                     Badge
                                   </label>
                                   <select
@@ -6323,23 +6532,24 @@ export default function ChatPage() {
                 <div className="w-full md:w-64 md:flex-shrink-0 flex md:flex-col border-b md:border-b-0 md:border-r border-[var(--border-subtle)]">
                   <div className="hidden md:flex items-center justify-between p-4 border-b border-[var(--border-subtle)]">
                     <h3 className="text-lg font-semibold text-[var(--text-base)]">
-                      Configurações
+                      {t('settings')}
                     </h3>
                   </div>
                   <div className="flex md:flex-col items-center gap-1 p-2 md:p-2 overflow-x-auto md:overflow-y-auto w-full md:w-auto">
                     {[
-                      { label: "Geral", icon: Palette },
-                      { label: "Aparência", icon: Palette },
-                      { label: "Perfil", icon: User },
-                      { label: "Segurança", icon: ShieldCheck },
-                      { label: "Idiomas", icon: Globe },
+                      { label: "Geral", icon: Palette, key: 'general' },
+                      { label: "Aparência", icon: Palette, key: 'appearance' },
+                      { label: "Perfil", icon: User, key: 'profile' },
+                      { label: "Segurança", icon: ShieldCheck, key: 'security' },
+                      { label: "Idiomas", icon: Globe, key: 'languages' },
                       {
                         label: "Inteligência Artificial",
                         icon: Bot,
                         short: "IA",
+                        key: 'ai'
                       },
-                      { label: "Dispositivos", icon: Monitor },
-                    ].map(({ label, icon: Icon, short }) => (
+                      { label: "Dispositivos", icon: Monitor, key: 'devices' },
+                    ].map(({ label, icon: Icon, short, key }) => (
                       <button
                         key={label}
                         onClick={() =>
@@ -6349,7 +6559,7 @@ export default function ChatPage() {
                       >
                         <Icon className="w-5 h-5" />
                         <span className="hidden md:block">
-                          {short || label}
+                          {t(key)}
                         </span>
                       </button>
                     ))}
@@ -6538,7 +6748,7 @@ export default function ChatPage() {
                         </h2>
                         <div className={tempSettings.theme === "light" ? "opacity-50 pointer-events-none" : ""}>
                           <ColorPickerDropdown
-                            valueColor={tempSettings.theme === "light" ? "#000000" : (tempSettings.secondaryColor || "#22c55e")}
+                            valueColor={tempSettings.theme === "light" ? "#000000" : (tempSettings.secondaryColor || "#3b82f6")}
                             colorMap={
                               tempSettings.theme === "light"
                                 ? [{ value: "#000000", label: "Preto (Tema Claro)" }]
@@ -7399,17 +7609,17 @@ export default function ChatPage() {
             )}
             {auth.currentUser && (
               <button
-                onClick={() => setIsGalleryOpen(true)}
+                onClick={() => setIsCalculatorOpen(true)}
                 className="flex items-center justify-center gap-2 px-3 py-2.5 bg-[var(--bg-surface)] hover:bg-[var(--border-strong)] border border-[var(--border-strong)] rounded-xl text-xs font-medium transition-colors"
               >
-                <FolderOpen className="w-4 h-4" /> Galeria
+                <CalculatorIcon className="w-4 h-4" /> {t('calculator')}
               </button>
             )}
             <button
               onClick={handleNewChat}
               className="flex items-center justify-center gap-2 px-3 py-2.5 bg-[var(--bg-surface)] hover:bg-[var(--border-strong)] border border-[var(--border-strong)] rounded-xl text-xs font-medium transition-colors"
             >
-              <FileText className="w-4 h-4" /> Nova Conversa
+              <FileText className="w-4 h-4" /> {t('Nova Conversa')}
             </button>
             <div className="border-t border-[var(--border-subtle)]" />
           </div>
@@ -7593,8 +7803,8 @@ export default function ChatPage() {
                         }}
                         className="flex items-center gap-3 w-full p-2.5 rounded-xl hover:bg-[var(--bg-surface)] transition-colors"
                       >
-                        <Settings className="w-4 h-4 text-white" />
-                        <span className="text-sm font-medium text-white">
+                        <Settings className="w-4 h-4 text-[var(--text-base)]" />
+                        <span className="text-sm font-medium text-[var(--text-base)]">
                           Configurações
                         </span>
                       </button>
@@ -7606,8 +7816,8 @@ export default function ChatPage() {
                         }}
                         className="flex items-center gap-3 w-full p-2.5 rounded-xl hover:bg-[var(--bg-surface)] transition-colors border-t border-[var(--border-subtle)]"
                       >
-                        <LogOut className="w-4 h-4 text-white" />
-                        <span className="text-sm font-medium text-white">
+                        <LogOut className="w-4 h-4 text-[var(--text-base)]" />
+                        <span className="text-sm font-medium text-[var(--text-base)]">
                           Sair
                         </span>
                       </button>
@@ -7726,8 +7936,8 @@ export default function ChatPage() {
                             }}
                             className="w-full flex items-center gap-3 px-4 py-3 hover:bg-[var(--bg-surface)] transition-colors"
                           >
-                            <Settings className="w-4 h-4 text-white" />
-                            <span className="text-sm font-medium text-white">
+                            <Settings className="w-4 h-4 text-[var(--text-base)]" />
+                            <span className="text-sm font-medium text-[var(--text-base)]">
                               Configurações
                             </span>
                           </button>
@@ -7746,8 +7956,8 @@ export default function ChatPage() {
                             }}
                             className="w-full flex items-center gap-3 px-4 py-3 hover:bg-[var(--bg-surface)] transition-colors border-t border-[var(--border-subtle)]"
                           >
-                            <LogOut className="w-4 h-4 text-white" />
-                            <span className="text-sm font-medium text-white">
+                            <LogOut className="w-4 h-4 text-[var(--text-base)]" />
+                            <span className="text-sm font-medium text-[var(--text-base)]">
                               Sair
                             </span>
                           </button>
@@ -8088,46 +8298,32 @@ export default function ChatPage() {
                       className="text-4xl md:text-5xl claude-font text-[var(--text-base)] mb-3 tracking-tight"
                       style={{ fontWeight: 400 }}
                     >
-                      {(() => {
-                        const hour = new Date().getHours();
-                        let greeting = "";
-                        const lang = settings.language || "pt";
-
-                        if (lang === "en") {
-                          greeting = hour < 12 ? "Good morning" : hour < 18 ? "Good afternoon" : "Good evening";
-                        } else if (lang === "es") {
-                          greeting = hour < 12 ? "Buenos días" : hour < 18 ? "Buenas tardes" : "Buenas noches";
-                        } else if (lang === "fr") {
-                          greeting = hour < 12 ? "Bonjour" : "Bonsoir";
-                        } else {
-                          greeting =
-                            hour >= 0 && hour < 5
-                              ? "Boa madrugada"
-                              : hour < 12
-                                ? "Bom dia"
-                                : hour < 18
-                                  ? "Boa tarde"
-                                  : "Boa noite";
-                        }
-
                         const name =
                           displayName?.split(" ")[0] ||
                           auth.currentUser?.displayName?.split(" ")[0] ||
                           (lang === "en" ? "guest" : lang === "es" ? "invitado" : "visitante");
                         
-                        return `${greeting}, ${name}`;
+                        return `${t(
+                          hour >= 0 && hour < 5
+                            ? "good_late_night"
+                            : hour < 12
+                              ? "good_morning"
+                              : hour < 18
+                                ? "good_afternoon"
+                                : "good_evening"
+                        )}, ${name}`;
                       })()}
                     </h1>
                     <h2
                       className="text-4xl md:text-5xl claude-font text-[var(--text-muted)] tracking-tight opacity-75"
                       style={{ fontWeight: 400 }}
                     >
-                      {settings.language === "en" ? "How can I help you?" : settings.language === "es" ? "¿Como posso ajudarte?" : "Como posso ajudar?"}
+                      {t("how_can_i_help")}
                     </h2>
                   </motion.div>
 
-                  {/* Move input here when empty */}
-                  <div className="w-full max-w-2xl mx-auto mt-4 pointer-events-auto">
+                  {/* Move input here when empty - only on desktop */}
+                  <div className="hidden md:block w-full max-w-2xl mx-auto mt-4 pointer-events-auto">
                     {renderInputArea()}
                   </div>
                 </div>
@@ -8223,9 +8419,9 @@ export default function ChatPage() {
             </div>
           </div>
 
-          {!currentSession?.messages.length && selectedGroupId === null ? null : (
+          {(!currentSession?.messages.length && selectedGroupId === null && !isElectronApp) ? null : (
             <div
-              className="fixed bottom-0 md:left-72 left-0 right-0 bg-gradient-to-t from-[var(--bg-base)] via-[var(--bg-base)] to-transparent pt-8 pb-4 px-4 md:px-8 z-20 pointer-events-none"
+              className={`fixed bottom-0 md:left-72 left-0 right-0 bg-gradient-to-t from-[var(--bg-base)] via-[var(--bg-base)] to-transparent pt-8 pb-4 px-4 md:px-8 z-20 pointer-events-none ${!currentSession?.messages.length && "md:hidden"}`}
             >
               {renderInputArea()}
             </div>
@@ -8303,7 +8499,7 @@ export default function ChatPage() {
                 initial={{ scale: 0.95, opacity: 0 }}
                 animate={{ scale: 1, opacity: 1 }}
                 exit={{ scale: 0.95, opacity: 0 }}
-                className="bg-[var(--bg-base)] border border-[var(--border-strong)] rounded-3xl p-6 max-w-sm w-full shadow-2xl"
+                className="bg-[var(--bg-base)] border border-[var(--border-strong)] rounded-3xl p-6 max-w-sm w-full shadow-2xl max-h-[90vh] overflow-y-auto"
               >
                 <div className="flex items-center justify-between mb-4">
                   <h2 className="text-xl font-bold">Configurações</h2>
