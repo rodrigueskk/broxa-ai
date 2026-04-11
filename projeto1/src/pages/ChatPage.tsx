@@ -364,6 +364,7 @@ const MessageItem = React.memo(
     aiModels,
     addFeedback,
     onSendAnswer,
+    t,
   }: any) => {
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const containerRef = useRef<HTMLDivElement>(null);
@@ -1055,7 +1056,7 @@ const MessageItem = React.memo(
 );
 
 const GroupMessageItem = React.memo(
-  ({ msg, settings, isCurrentUser, onFeedbackRequest }: any) => {
+  ({ msg, settings, isCurrentUser, onFeedbackRequest, t }: any) => {
     const [isFeedbackModalOpen, setIsFeedbackModalOpen] = useState(false);
     const [feedbackType, setFeedbackType] = useState<"like" | "dislike" | null>(
       null,
@@ -8310,6 +8311,7 @@ export default function ChatPage() {
                         msg={msg}
                         settings={settings}
                         isCurrentUser={msg.senderId === auth.currentUser?.uid}
+                        t={t}
                       />
                     ))}
                   </AnimatePresence>
@@ -8385,6 +8387,7 @@ export default function ChatPage() {
                       onSendAnswer={(text: string) =>
                         handleSend(text, [], "as")
                       }
+                      t={t}
                     />
                   ))}
                 </AnimatePresence>
