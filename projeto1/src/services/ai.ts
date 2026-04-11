@@ -16,7 +16,7 @@ function getAI(): GoogleGenAI {
 export async function generateTitle(prompt: string): Promise<string> {
   const aiClient = getAI();
   const response = await aiClient.models.generateContent({
-    model: "gemini-3.1-flash",
+    model: "gemini-2.5-flash",
     contents: `Crie um título muito curto (máximo 4 palavras) para uma conversa que começou com este prompt: "${prompt}". Retorne apenas o título, sem aspas ou pontuação final.`,
   });
   return response.text?.trim() || "Nova Conversa";
@@ -100,13 +100,13 @@ export async function* generateResponseStream(
   let modelName = "gemini-1.5-flash";
 
   if (modelType === 'thinking') {
-    modelName = "gemini-3.1-pro";
+    modelName = "gemini-2.5-pro";
   } else if (modelType === 'fast') {
-    modelName = "gemini-3.1-flash";
+    modelName = "gemini-2.5-flash";
   } else if (modelType === 'as') {
-    modelName = "gemini-3.1-pro";
+    modelName = "gemini-2.5-pro";
   } else if (modelType === 'search') {
-    modelName = "gemini-3.1-pro";
+    modelName = "gemini-2.5-pro";
   } else if (modelType.startsWith('gemini-')) {
     modelName = modelType;
   }
@@ -221,13 +221,13 @@ export async function generateResponse(
   let modelName = "gemini-1.5-flash";
 
   if (modelType === 'thinking') {
-    modelName = "gemini-3.1-pro";
+    modelName = "gemini-2.5-pro";
   } else if (modelType === 'fast') {
-    modelName = "gemini-3.1-flash";
+    modelName = "gemini-2.5-flash";
   } else if (modelType === 'as') {
-    modelName = "gemini-3.1-pro";
+    modelName = "gemini-2.5-pro";
   } else if (modelType === 'search') {
-    modelName = "gemini-3.1-pro";
+    modelName = "gemini-2.5-pro";
   } else if (modelType.startsWith('gemini-')) {
     modelName = modelType;
   }
