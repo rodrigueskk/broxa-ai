@@ -577,7 +577,7 @@ const MessageItem = React.memo(
               msg.role === "user"
                 ? settings.userMessageColor || "var(--bg-surface)"
                 : undefined,
-            color: "#ffffff",
+            color: msg.role === "user" ? "#ffffff" : "var(--text-base)",
           }}
           onTouchStart={handleTouchStartCopy}
           onTouchEnd={handleTouchEndCopy}
@@ -1111,9 +1111,9 @@ const GroupMessageItem = React.memo(
                 ? {
                     backgroundColor:
                       settings.userMessageColor || "var(--bg-surface)",
-                    color: "var(--text-base)",
+                    color: "#ffffff",
                   }
-                : {}
+                : { color: "var(--text-base)" }
             }
           >
             {msg.imageUrls && msg.imageUrls.length > 0 && (
@@ -5616,7 +5616,7 @@ export default function ChatPage() {
                                     <div className="w-10 h-10 rounded-full bg-[var(--bg-base)] border border-[var(--border-strong)] flex items-center justify-center font-bold text-[var(--color-sec)]">
                                       {(user.displayName ||
                                         user.email ||
-                                        "?")[0].toUpperCase()}
+                                        "?")[0]?.toUpperCase() || "?"}
                                     </div>
                                     <div>
                                       <div className="font-bold text-[var(--text-base)]">
@@ -6408,7 +6408,7 @@ export default function ChatPage() {
                                       Translação Automática Ativa
                                     </p>
                                     <p className="text-xs text-[var(--text-muted)]">
-                                      As respostas e a interface estão sendo traduzidas automaticamente para {settings.language.toUpperCase()}.
+                                      As respostas e a interface estão sendo traduzidas automaticamente para {settings.language?.toUpperCase() || "PT"}.
                                     </p>
                                   </div>
                                 </div>
@@ -6868,64 +6868,36 @@ export default function ChatPage() {
                         <h2 className="text-lg font-semibold text-[var(--text-base)] mb-3">
                           Comportamento da IA
                         </h2>
-                        {streakDays < 20 ? (
-                          <div className={`opacity-50 pointer-events-none`}>
-                            <div className="flex items-center gap-2 mb-2">
-                              <Flame className="w-4 h-4 text-orange-500" />
-                              <span className="text-xs text-orange-500 font-bold">
-                                Desbloqueie com 20 dias de ofensiva
-                              </span>
-                            </div>
-                            <textarea
-                              value=""
-                              disabled
-                              className="w-full bg-[var(--bg-input)] text-[var(--text-base)] border border-[var(--border-subtle)] rounded-xl p-4 min-h-[120px] opacity-50"
-                            />
+                        <select
+                          value={tempSettings.customInstruction || ""}
+                          onChange={(e) => {
+                            setTempSettings({
+                              ...tempSettings,
+                              customInstruction: e.target.value,
+                            });
+                            setSettingsError(null);
+                          }}
+                          disabled={selectedModel === "as"}
+                          className={`w-full bg-[var(--bg-input)] text-[var(--text-base)] border ${settingsError ? "border-red-500" : "border-[var(--border-subtle)]"} rounded-xl p-4 focus:outline-none focus:border-[var(--color-sec)] disabled:opacity-50 disabled:cursor-not-allowed`}
+                        >
+                          <option value="">Padrão (Sem comportamento específico)</option>
+                          <option value="Responda como um jovem, usando gírias e sendo muito descontraído e informal.">Jovem</option>
+                          <option value="Responda de forma engraçada, fazendo piadas, trocadilhos e sendo bem humorado na conversa.">Engraçadão</option>
+                          <option value="Responda com extrema formalidade, utilizando vocabulário culto, polidez e estrutura impecável.">Formal</option>
+                          <option value="Responda como um grande parceiro e amigo, sendo inclusivo, compreensivo e dando forte apoio.">Parceiro</option>
+                          <option value="Responda de forma extremamente focada, direta ao ponto e analisando profundamente o assunto sem enrolação.">Focado</option>
+                        </select>
+                        {selectedModel === "as" && (
+                          <span className="text-xs text-[var(--text-muted)] mt-2 block">
+                            O comportamento customizado não é aplicável ao
+                            modelo A.S.
+                          </span>
+                        )}
+                        {settingsError && (
+                          <div className="text-red-500 text-sm mt-1 p-3 bg-red-500/10 rounded-xl border border-red-500/20 flex items-start gap-2">
+                            <AlertTriangle className="w-5 h-5 shrink-0 mt-0.5" />
+                            <span>{settingsError}</span>
                           </div>
-                        ) : (
-                          <>
-                            <textarea
-                              value={tempSettings.customInstruction || ""}
-                              onChange={(e) => {
-                                setTempSettings({
-                                  ...tempSettings,
-                                  customInstruction: e.target.value,
-                                });
-                                setSettingsError(null);
-                              }}
-                              disabled={selectedModel === "as"}
-                              placeholder={
-                                selectedModel === "as"
-                                  ? "Não disponível para o modelo A.S"
-                                  : "Melhorar textos..."
-                              }
-                              className={`w-full bg-[var(--bg-input)] text-[var(--text-base)] border ${settingsError ? "border-red-500" : "border-[var(--border-subtle)]"} rounded-xl p-4 min-h-[120px] resize-y focus:outline-none focus:border-[var(--color-sec)] disabled:opacity-50 disabled:cursor-not-allowed`}
-                            />
-                            {selectedModel === "as" && (
-                              <span className="text-xs text-[var(--text-muted)]">
-                                O comportamento customizado não é aplicável ao
-                                modelo A.S.
-                              </span>
-                            )}
-                            {settingsError && (
-                              <div className="text-red-500 text-sm mt-1 p-3 bg-red-500/10 rounded-xl border border-red-500/20 flex items-start gap-2">
-                                <AlertTriangle className="w-5 h-5 shrink-0 mt-0.5" />
-                                <span>{settingsError}</span>
-                              </div>
-                            )}
-                            <button
-                              onClick={() =>
-                                setTempSettings({
-                                  ...tempSettings,
-                                  customInstruction: "",
-                                })
-                              }
-                              className="text-sm text-[var(--color-sec)] hover:underline text-left mt-3 block"
-                            >
-                              Não curtiu o comportamento da IA? Clique aqui para
-                              redefinir.
-                            </button>
-                          </>
                         )}
                       </div>
                     </div>

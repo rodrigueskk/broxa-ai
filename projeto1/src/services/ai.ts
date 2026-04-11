@@ -16,16 +16,16 @@ function getAI(): GoogleGenAI {
 export async function generateTitle(prompt: string): Promise<string> {
   const aiClient = getAI();
   const response = await aiClient.models.generateContent({
-    model: "gemini-1.5-flash",
+    model: "gemini-3.1-flash",
     contents: `Crie um título muito curto (máximo 4 palavras) para uma conversa que começou com este prompt: "${prompt}". Retorne apenas o título, sem aspas ou pontuação final.`,
   });
   return response.text?.trim() || "Nova Conversa";
 }
 
 export async function* generateResponseStream(
-  prompt: string, 
-  images?: { url: string, mimeType: string }[], 
-  modelType: 'thinking' | 'fast' | 'search' | 'as' | string = 'thinking', 
+  prompt: string,
+  images?: { url: string, mimeType: string }[],
+  modelType: 'thinking' | 'fast' | 'search' | 'as' | string = 'thinking',
   customInstruction?: string,
   history?: { role: 'user' | 'ai', content: string, imageUrls?: string[], isError?: boolean, isCancelled?: boolean }[],
   language: string = 'pt'
@@ -34,7 +34,7 @@ export async function* generateResponseStream(
 
   if (history && history.length > 0) {
     const validHistory = history.filter(msg => !msg.isError && !msg.isCancelled);
-    
+
     validHistory.forEach(msg => {
       const parts: any[] = [];
       if (msg.imageUrls && msg.imageUrls.length > 0) {
@@ -70,7 +70,7 @@ export async function* generateResponseStream(
   }
 
   const currentParts: any[] = [];
-  
+
   if (images && images.length > 0) {
     images.forEach(img => {
       const base64Data = img.url.split(',')[1];
@@ -84,9 +84,9 @@ export async function* generateResponseStream(
       }
     });
   }
-  
+
   currentParts.push({ text: prompt });
-  
+
   if (contents.length > 0 && contents[contents.length - 1].role === 'user') {
     contents[contents.length - 1].parts.push(...currentParts);
   } else {
@@ -100,13 +100,13 @@ export async function* generateResponseStream(
   let modelName = "gemini-1.5-flash";
 
   if (modelType === 'thinking') {
-    modelName = "gemini-2.0-pro-exp-02-05";
+    modelName = "gemini-3.1-pro";
   } else if (modelType === 'fast') {
-    modelName = "gemini-1.5-flash";
+    modelName = "gemini-3.1-flash";
   } else if (modelType === 'as') {
-    modelName = "gemini-1.5-flash";
+    modelName = "gemini-3.1-pro";
   } else if (modelType === 'search') {
-    modelName = "gemini-1.5-pro";
+    modelName = "gemini-3.1-pro";
   } else if (modelType.startsWith('gemini-')) {
     modelName = modelType;
   }
@@ -144,9 +144,9 @@ export async function* generateResponseStream(
 }
 
 export async function generateResponse(
-  prompt: string, 
-  images?: { url: string, mimeType: string }[], 
-  modelType: 'thinking' | 'fast' | 'search' | 'as' | string = 'thinking', 
+  prompt: string,
+  images?: { url: string, mimeType: string }[],
+  modelType: 'thinking' | 'fast' | 'search' | 'as' | string = 'thinking',
   customInstruction?: string,
   history?: { role: 'user' | 'ai', content: string, imageUrls?: string[], isError?: boolean, isCancelled?: boolean }[],
   language: string = 'pt'
@@ -155,7 +155,7 @@ export async function generateResponse(
 
   if (history && history.length > 0) {
     const validHistory = history.filter(msg => !msg.isError && !msg.isCancelled);
-    
+
     validHistory.forEach(msg => {
       const parts: any[] = [];
       if (msg.imageUrls && msg.imageUrls.length > 0) {
@@ -191,7 +191,7 @@ export async function generateResponse(
   }
 
   const currentParts: any[] = [];
-  
+
   if (images && images.length > 0) {
     images.forEach(img => {
       const base64Data = img.url.split(',')[1];
@@ -205,9 +205,9 @@ export async function generateResponse(
       }
     });
   }
-  
+
   currentParts.push({ text: prompt });
-  
+
   if (contents.length > 0 && contents[contents.length - 1].role === 'user') {
     contents[contents.length - 1].parts.push(...currentParts);
   } else {
@@ -221,13 +221,13 @@ export async function generateResponse(
   let modelName = "gemini-1.5-flash";
 
   if (modelType === 'thinking') {
-    modelName = "gemini-2.0-pro-exp-02-05";
+    modelName = "gemini-3.1-pro";
   } else if (modelType === 'fast') {
-    modelName = "gemini-1.5-flash";
+    modelName = "gemini-3.1-flash";
   } else if (modelType === 'as') {
-    modelName = "gemini-1.5-flash";
+    modelName = "gemini-3.1-pro";
   } else if (modelType === 'search') {
-    modelName = "gemini-1.5-pro";
+    modelName = "gemini-3.1-pro";
   } else if (modelType.startsWith('gemini-')) {
     modelName = modelType;
   }
