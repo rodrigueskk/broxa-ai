@@ -590,9 +590,7 @@ const MessageItem = React.memo(
           {msg.role === "ai" && settings.language && settings.language !== "pt" && (
             <div className="flex items-center gap-1.5 mb-2 px-3 py-1 bg-[var(--color-sec)]/10 border border-[var(--color-sec)]/20 rounded-full w-fit">
               <Globe className="w-3 h-3 text-[var(--color-sec)]" />
-              <span className="text-[10px] font-bold text-[var(--color-sec)] uppercase tracking-wider">
-                Translação automática / Recurso BETA
-              </span>
+              {t('auto_translation_beta') || "Translação automática / Recurso BETA"}
             </div>
           )}
           {msg.role === "ai" && (
@@ -1638,6 +1636,113 @@ const translations: any = {
     logout_button: "Salir",
   }
 };
+
+const Calculator = React.memo(({ isOpen, onClose, mode, setMode, display, setDisplay, t }: any) => {
+  if (!isOpen) return null;
+
+  const handleInput = (val: string) => {
+    if (val === 'C') {
+      setDisplay('0');
+    } else if (val === '=') {
+      try {
+        let expression = display.replace(/×/g, '*').replace(/÷/g, '/');
+        expression = expression.replace(/sin\(/g, 'Math.sin(')
+          .replace(/cos\(/g, 'Math.cos(')
+          .replace(/tan\(/g, 'Math.tan(')
+          .replace(/log\(/g, 'Math.log10(')
+          .replace(/ln\(/g, 'Math.log(')
+          .replace(/sqrt\(/g, 'Math.sqrt(')
+          .replace(/π/g, 'Math.PI')
+          .replace(/e/g, 'Math.E')
+          .replace(/\^/g, '**')
+          .replace(/!/g, ''); // Basic factorial would need a function
+
+        // Factorial helper if needed or just use mathjs logic if available
+        // For now, keep it simple but inclusive of symbols
+
+        const result = eval(expression);
+        setDisplay(String(Number(result.toFixed(8))));
+      } catch (e) {
+        setDisplay('Error');
+      }
+    } else {
+      if (display === '0' || display === 'Error') {
+        setDisplay(val);
+      } else {
+        setDisplay(display + val);
+      }
+    }
+  };
+
+  const buttons = mode === 'basic' ? [
+    ['7', '8', '9', '÷'],
+    ['4', '5', '6', '×'],
+    ['1', '2', '3', '-'],
+    ['C', '0', '=', '+']
+  ] : [
+    ['(', ')', '%', 'C', '÷'],
+    ['sin(', 'cos(', 'tan(', '^', '×'],
+    ['log(', 'ln(', 'sqrt(', 'π', '-'],
+    ['7', '8', '9', 'e', '+'],
+    ['4', '5', '6', '0', '.'],
+    ['1', '2', '3', '=', 'ANS']
+  ];
+
+  return (
+    <div className="fixed inset-0 z-[250] flex items-center justify-center bg-black/60 backdrop-blur-md p-4" onClick={onClose}>
+      <motion.div
+        initial={{ scale: 0.9, opacity: 0, y: 20 }}
+        animate={{ scale: 1, opacity: 1, y: 0 }}
+        exit={{ scale: 0.9, opacity: 0, y: 20 }}
+        className="bg-[var(--bg-panel)] border border-[var(--border-strong)] rounded-[32px] p-6 w-full max-w-sm shadow-2xl"
+        onClick={e => e.stopPropagation()}
+      >
+        <div className="flex justify-between items-center mb-6">
+          <h3 className="font-bold text-[var(--text-base)] flex items-center gap-2">
+            <div className="w-8 h-8 rounded-lg bg-[var(--color-sec)]/10 flex items-center justify-center">
+              <CalculatorIcon className="w-5 h-5 text-[var(--color-sec)]" />
+            </div>
+            {mode === 'basic' ? t('basic') : t('scientific')}
+          </h3>
+          <div className="flex gap-2">
+            <button
+              onClick={() => setMode(mode === 'basic' ? 'scientific' : 'basic')}
+              className="px-3 py-1.5 hover:bg-[var(--bg-surface)] rounded-xl text-[var(--text-muted)] text-[10px] font-bold uppercase border border-[var(--border-subtle)] transition-colors"
+            >
+              {mode === 'basic' ? t('scientific') : t('basic')}
+            </button>
+            <button onClick={onClose} className="p-2 hover:bg-[var(--bg-surface)] rounded-xl text-[var(--text-muted)] transition-colors">
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+        </div>
+
+        <div className="bg-[var(--bg-input)] rounded-2xl p-5 mb-6 text-right overflow-hidden border border-[var(--border-strong)] shadow-inner">
+          <div className="text-sm text-[var(--text-muted)] font-mono mb-1 h-5 truncate opacity-50">
+            {display !== '0' && display !== 'Error' ? display : ''}
+          </div>
+          <div className="text-3xl font-mono text-[var(--text-base)] truncate font-bold">{display}</div>
+        </div>
+
+        <div className={`grid ${mode === 'basic' ? 'grid-cols-4' : 'grid-cols-5'} gap-2.5`}>
+          {buttons.flat().map((btn) => (
+            <button
+              key={btn}
+              onClick={() => handleInput(btn)}
+              className={`h-12 rounded-xl font-bold transition-all active:scale-95 ${btn === '=' ? 'bg-[var(--color-sec)] text-white shadow-lg shadow-[var(--color-sec)]/20 hover:opacity-90 col-span-1' :
+                btn === 'C' ? 'bg-red-500/10 text-red-500 hover:bg-red-500/20 border border-red-500/20' :
+                  ['÷', '×', '-', '+', '^', '(', ')', '%'].includes(btn) ? 'bg-[var(--bg-surface)] text-[var(--color-sec)] hover:bg-[var(--border-strong)] border border-[var(--border-subtle)]' :
+                    'bg-[var(--bg-surface)] text-[var(--text-base)] hover:bg-[var(--border-strong)]'
+                }`}
+            >
+              {btn.replace('(', '')}
+            </button>
+          ))}
+        </div>
+      </motion.div>
+    </div>
+  );
+});
 
 export default function ChatPage() {
 
@@ -3783,115 +3888,13 @@ export default function ChatPage() {
           <div
             className="text-center mt-3 text-[11px] text-[var(--text-muted)] opacity-70 font-medium"
           >
-            Explore o BROXA AI. Pode cometer erros. Verifique informações importantes.
+            Broxa AI pode cometer erros. Considere verificar informações importantes.
           </div>
         </div>
       </div>
     );
   };
 
-  const Calculator = ({ isOpen, onClose, mode, setMode, display, setDisplay, t }: any) => {
-    if (!isOpen) return null;
-
-    const handleInput = (val: string) => {
-      if (val === 'C') {
-        setDisplay('0');
-      } else if (val === '=') {
-        try {
-          let expression = display.replace(/×/g, '*').replace(/÷/g, '/');
-          expression = expression.replace(/sin\(/g, 'Math.sin(')
-            .replace(/cos\(/g, 'Math.cos(')
-            .replace(/tan\(/g, 'Math.tan(')
-            .replace(/log\(/g, 'Math.log10(')
-            .replace(/ln\(/g, 'Math.log(')
-            .replace(/sqrt\(/g, 'Math.sqrt(')
-            .replace(/π/g, 'Math.PI')
-            .replace(/e/g, 'Math.E')
-            .replace(/\^/g, '**');
-
-          const result = eval(expression);
-          setDisplay(String(Number(result.toFixed(8))));
-        } catch (e) {
-          setDisplay('Error');
-        }
-      } else {
-        if (display === '0' || display === 'Error') {
-          setDisplay(val);
-        } else {
-          setDisplay(display + val);
-        }
-      }
-    };
-
-    const buttons = mode === 'basic' ? [
-      ['7', '8', '9', '÷'],
-      ['4', '5', '6', '×'],
-      ['1', '2', '3', '-'],
-      ['C', '0', '=', '+']
-    ] : [
-      ['sin(', 'cos(', 'tan(', '÷'],
-      ['log(', 'ln(', 'sqrt(', '×'],
-      ['7', '8', '9', '-'],
-      ['4', '5', '6', '+'],
-      ['1', '2', '3', '^'],
-      ['C', '0', '.', '=']
-    ];
-
-    return (
-      <div className="fixed inset-0 z-[250] flex items-center justify-center bg-black/60 backdrop-blur-md p-4" onClick={onClose}>
-        <motion.div
-          initial={{ scale: 0.9, opacity: 0, y: 20 }}
-          animate={{ scale: 1, opacity: 1, y: 0 }}
-          exit={{ scale: 0.9, opacity: 0, y: 20 }}
-          className="bg-[var(--bg-panel)] border border-[var(--border-strong)] rounded-[32px] p-6 w-full max-w-xs shadow-2xl"
-          onClick={e => e.stopPropagation()}
-        >
-          <div className="flex justify-between items-center mb-6">
-            <h3 className="font-bold text-[var(--text-base)] flex items-center gap-2">
-              <div className="w-8 h-8 rounded-lg bg-[var(--color-sec)]/10 flex items-center justify-center">
-                <CalculatorIcon className="w-5 h-5 text-[var(--color-sec)]" />
-              </div>
-              {mode === 'basic' ? t('basic') : t('scientific')}
-            </h3>
-            <div className="flex gap-2">
-              <button
-                onClick={() => setMode(mode === 'basic' ? 'scientific' : 'basic')}
-                className="px-3 py-1.5 hover:bg-[var(--bg-surface)] rounded-xl text-[var(--text-muted)] text-[10px] font-bold uppercase border border-[var(--border-subtle)] transition-colors"
-              >
-                {mode === 'basic' ? t('scientific') : t('basic')}
-              </button>
-              <button onClick={onClose} className="p-2 hover:bg-[var(--bg-surface)] rounded-xl text-[var(--text-muted)] transition-colors">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-          </div>
-
-          <div className="bg-[var(--bg-input)] rounded-2xl p-5 mb-6 text-right overflow-hidden border border-[var(--border-strong)] shadow-inner">
-            <div className="text-sm text-[var(--text-muted)] font-mono mb-1 h-5 truncate opacity-50">
-              {display !== '0' && display !== 'Error' ? display : ''}
-            </div>
-            <div className="text-3xl font-mono text-[var(--text-base)] truncate font-bold">{display}</div>
-          </div>
-
-          <div className="grid grid-cols-4 gap-2.5">
-            {buttons.flat().map((btn) => (
-              <button
-                key={btn}
-                onClick={() => handleInput(btn)}
-                className={`h-12 rounded-xl font-bold transition-all active:scale-95 ${btn === '=' ? 'bg-[var(--color-sec)] text-white shadow-lg shadow-[var(--color-sec)]/20 hover:opacity-90' :
-                  btn === 'C' ? 'bg-red-500/10 text-red-500 hover:bg-red-500/20 border border-red-500/20' :
-                    ['÷', '×', '-', '+', '^'].includes(btn) ? 'bg-[var(--bg-surface)] text-[var(--color-sec)] hover:bg-[var(--border-strong)] border border-[var(--border-subtle)]' :
-                      'bg-[var(--bg-surface)] text-[var(--text-base)] hover:bg-[var(--border-strong)]'
-                  }`}
-              >
-                {btn.replace('(', '')}
-              </button>
-            ))}
-          </div>
-        </motion.div>
-      </div>
-    );
-  };
 
   const handlePaste = (e: React.ClipboardEvent) => {
     const items = e.clipboardData.items;
@@ -6388,7 +6391,7 @@ export default function ChatPage() {
                         const snap = await getDoc(groupDoc);
                         const currentMembers = snap.data()?.members ?? [];
                         const newMembers = currentMembers.filter(
-                          (m: any) => m.userId !== auth.currentUser?.uid,
+                          (m: string) => m !== auth.currentUser?.uid,
                         );
                         if (newMembers.length === 0) {
                           await updateDoc(groupDoc, { members: deleteField() });
@@ -6552,7 +6555,6 @@ export default function ChatPage() {
                         short: "IA",
                         key: 'ai'
                       },
-                      { label: "Dispositivos", icon: Monitor, key: 'devices' },
                     ].map(({ label, icon: Icon, short, key }) => (
                       <button
                         key={key}
@@ -6579,7 +6581,7 @@ export default function ChatPage() {
                         className="flex items-center justify-center gap-2 w-full py-2.5 px-4 bg-[var(--bg-surface)] text-[var(--text-base)] hover:bg-[var(--border-strong)] rounded-xl transition-colors font-medium text-sm"
                       >
                         <LogOut className="w-5 h-5" />
-                        Sair da conta
+                        {t('logout')}
                       </button>
                     </div>
                   )}
@@ -6880,7 +6882,7 @@ export default function ChatPage() {
 
                   {/* === SEGURANÇA === */}
                   {settingsTab === "segurança" && (
-                    <div className="p-6 space-y-6">
+                    <div className="p-6 space-y-6 overflow-y-auto max-h-[60vh] custom-scrollbar">
                       <h2 className="text-lg font-semibold text-[var(--text-base)]">
                         Segurança
                       </h2>
@@ -6893,7 +6895,7 @@ export default function ChatPage() {
                         </div>
                       )}
                       {!securityOtpStep ? (
-                        <>
+                        <div className="space-y-4">
                           <div>
                             <label className="block text-sm font-medium text-[var(--text-muted)] mb-1">
                               Nova Senha
@@ -6996,7 +6998,7 @@ export default function ChatPage() {
                           >
                             Continuar e Enviar Código
                           </button>
-                        </>
+                        </div>
                       ) : (
                         <div className="text-center py-4">
                           <ShieldCheck className="w-12 h-12 text-[var(--color-sec)] mx-auto mb-4" />
@@ -7018,6 +7020,57 @@ export default function ChatPage() {
                           </button>
                         </div>
                       )}
+
+                      {/* Device Management Section */}
+                      <div className="pt-6 border-t border-[var(--border-subtle)] space-y-4">
+                        <h3 className="text-sm font-bold text-[var(--text-muted)] uppercase tracking-wider">
+                          Gerenciamento de Dispositivos
+                        </h3>
+                        <div className="bg-[var(--bg-panel)] border border-[var(--border-strong)] rounded-2xl p-5 shadow-sm">
+                          <div className="flex items-center gap-4">
+                            <div className="w-12 h-12 rounded-xl bg-green-500/10 flex items-center justify-center shrink-0">
+                              <Monitor className="w-6 h-6 text-green-400" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="font-semibold text-[var(--text-base)] flex items-center gap-2">
+                                Dispositivo Atual
+                                <span className="text-[10px] px-2 py-0.5 rounded-full font-bold bg-green-500/20 text-green-400">
+                                  ATIVO
+                                </span>
+                              </div>
+                              <div className="text-sm text-[var(--text-muted)] mt-0.5">
+                                {navigator?.userAgent?.includes("Mobile")
+                                  ? "Dispositivo Móvel"
+                                  : "Navegador Web"} • {new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Simulated other devices */}
+                        <div className="space-y-3">
+                          <div className="bg-[var(--bg-base)] border border-[var(--border-subtle)] rounded-2xl p-5 flex items-center gap-4">
+                            <div className="w-12 h-12 rounded-xl bg-[var(--bg-surface)] flex items-center justify-center shrink-0">
+                              <Smartphone className="w-6 h-6 text-[var(--text-muted)]" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="font-semibold text-[var(--text-base)]">iPhone 15 Pro</div>
+                              <div className="text-xs text-[var(--text-muted)]">São Paulo, Brasil • Há 2 horas</div>
+                            </div>
+                            <button
+                              onClick={() => {
+                                setGroupToLeaveId("simulated-device-1");
+                                setLeaveGroupName("iPhone 15 Pro");
+                                setGroupLeavePhrase(generatePhrase());
+                                setIsGroupLeaveModalOpen(true);
+                              }}
+                              className="px-4 py-2 bg-red-500/10 text-red-500 hover:bg-red-500/20 rounded-xl text-xs font-bold transition-colors"
+                            >
+                              Desconectar
+                            </button>
+                          </div>
+                        </div>
+                      </div>
                     </div>
                   )}
 
@@ -7140,49 +7193,6 @@ export default function ChatPage() {
                     </div>
                   )}
 
-                  {/* === DISPOSITIVOS === */}
-                  {settingsTab === "dispositivos" && (
-                    <div className="p-6 space-y-6">
-                      <h2 className="text-lg font-semibold text-[var(--text-base)]">
-                        Dispositivos
-                      </h2>
-                      <div className="bg-[var(--bg-base)] border border-[var(--border-subtle)] rounded-2xl p-5">
-                        <div className="flex items-center gap-4">
-                          <div className="w-12 h-12 rounded-xl bg-green-500/10 flex items-center justify-center shrink-0">
-                            <Monitor className="w-6 h-6 text-green-400" />
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <div className="font-semibold text-[var(--text-base)] flex items-center gap-2">
-                              Dispositivo Atual
-                              <span className="text-[10px] px-2 py-0.5 rounded-full font-bold bg-green-500/20 text-green-400">
-                                ATIVO
-                              </span>
-                            </div>
-                            <div className="text-sm text-[var(--text-muted)] mt-0.5">
-                              {navigator?.userAgent?.includes("Mobile")
-                                ? "Dispositivo Móvel"
-                                : "Navegador Web"}{" "}
-                              •{" "}
-                              {new Date().toLocaleTimeString("pt-BR", {
-                                hour: "2-digit",
-                                minute: "2-digit",
-                              })}
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                      <div className="text-center py-10">
-                        <Shield className="w-14 h-14 text-[var(--text-muted)] mx-auto mb-3 opacity-20" />
-                        <p className="text-sm font-medium text-[var(--text-muted)]">
-                          Nenhum outro dispositivo conectado
-                        </p>
-                        <p className="text-xs text-[var(--text-muted)] mt-1.5">
-                          Quando fizer login em outro dispositivo, ele aparecerá
-                          aqui
-                        </p>
-                      </div>
-                    </div>
-                  )}
                 </div>
               </motion.div>
             </motion.div>
@@ -8441,7 +8451,7 @@ export default function ChatPage() {
 
           {(!currentSession?.messages.length && selectedGroupId === null && !isElectronApp) ? null : (
             <div
-              className={`fixed bottom-0 md:left-72 left-0 right-0 bg-gradient-to-t from-[var(--bg-base)] via-[var(--bg-base)] to-transparent pt-8 pb-4 px-4 md:px-8 z-20 pointer-events-none ${!currentSession?.messages.length && "md:hidden"}`}
+              className={`fixed bottom-0 md:left-72 left-0 right-0 bg-gradient-to-t from-[var(--bg-base)] via-[var(--bg-base)] to-transparent pt-8 pb-4 px-4 md:px-8 z-20 pointer-events-none ${!currentSession?.messages.length && !selectedGroupId && "md:hidden"}`}
             >
               {renderInputArea()}
             </div>
@@ -8814,10 +8824,19 @@ export default function ChatPage() {
                             setTimeout(() => setRateLimitWarning(null), 5000);
                             return;
                           }
+                          if (newGroupName.trim().length < 5 || newGroupName.trim().length > 20) {
+                            setRateLimitWarning(
+                              "O nome do grupo deve ter entre 5 e 20 caracteres.",
+                            );
+                            setTimeout(() => setRateLimitWarning(null), 5000);
+                            return;
+                          }
                           const groupId = await createGroup(
                             newGroupName.trim(),
                           );
                           if (groupId) {
+                            setIsGroupModalOpen(false);
+                            setNewGroupName("");
                             const inviterName = encodeURIComponent(
                               displayName ||
                               auth.currentUser?.displayName ||
