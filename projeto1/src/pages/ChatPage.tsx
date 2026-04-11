@@ -319,7 +319,7 @@ const RespostaOptions = ({ disabled }: { disabled: boolean }) => {
             type="radio"
             name={`q-${id}`}
             checked={selected === opt}
-            onChange={() => {}}
+            onChange={() => { }}
             onClick={(e) => {
               if (disabled) return;
               if (selected === opt) {
@@ -675,7 +675,7 @@ const MessageItem = React.memo(
                                 mindmapData = JSON.parse(
                                   (child.props as any).children,
                                 );
-                              } catch (e) {}
+                              } catch (e) { }
                             } else {
                               const match = /language-(\w+)/.exec(className);
                               if (match) language = match[1];
@@ -824,11 +824,11 @@ const MessageItem = React.memo(
                               previousUserMessage.content,
                               previousUserMessage.imageUrls
                                 ? previousUserMessage.imageUrls.map(
-                                    (url: string) => ({
-                                      url,
-                                      mimeType: "image/jpeg",
-                                    }),
-                                  )
+                                  (url: string) => ({
+                                    url,
+                                    mimeType: "image/jpeg",
+                                  }),
+                                )
                                 : [],
                             );
                           }
@@ -1102,20 +1102,19 @@ const GroupMessageItem = React.memo(
             {msg.senderName}
           </span>
           <div
-            className={`p-4 rounded-2xl w-full ${
-              isCurrentUser
+            className={`p-4 rounded-2xl w-full ${isCurrentUser
                 ? "rounded-tr-sm border border-[var(--border-subtle)]"
                 : msg.senderId === "ai"
                   ? "bg-[var(--bg-surface)] border border-[var(--border-strong)] rounded-tl-sm text-[var(--text-base)]"
                   : "bg-[var(--bg-input)] border border-[var(--border-strong)] rounded-tl-sm text-[var(--text-base)]"
-            }`}
+              }`}
             style={
               isCurrentUser
                 ? {
-                    backgroundColor: settings.theme === "light" ? "transparent" : settings.secondaryColor || "var(--bg-surface)",
-                    color: settings.theme === "light" ? "#000000" : "#ffffff",
-                    border: settings.theme === "light" ? "1px solid #000000" : undefined,
-                  }
+                  backgroundColor: settings.theme === "light" ? "transparent" : settings.secondaryColor || "var(--bg-surface)",
+                  color: settings.theme === "light" ? "#000000" : "#ffffff",
+                  border: settings.theme === "light" ? "1px solid #000000" : undefined,
+                }
                 : { color: "var(--text-base)" }
             }
           >
@@ -1572,6 +1571,11 @@ const translations: any = {
     close: "Fechar",
     save: "Salvar",
     cancel: "Cancelar",
+    groups: "Grupos",
+    gallery: "Galeria",
+    new_chat: "Nova Conversa",
+    login: "Fazer login",
+    logout_button: "Sair",
   },
   en: {
     send_message: "Send a message to Broxa AI...",
@@ -1597,6 +1601,11 @@ const translations: any = {
     close: "Close",
     save: "Save",
     cancel: "Cancel",
+    groups: "Groups",
+    gallery: "Gallery",
+    new_chat: "New Chat",
+    login: "Log in",
+    logout_button: "Log out",
   },
   es: {
     send_message: "Envía un mensaje a Broxa AI...",
@@ -1622,6 +1631,11 @@ const translations: any = {
     close: "Cerrar",
     save: "Guardar",
     cancel: "Cancelar",
+    groups: "Grupos",
+    gallery: "Galería",
+    new_chat: "Nueva Conversación",
+    login: "Iniciar sesión",
+    logout_button: "Salir",
   }
 };
 
@@ -1944,7 +1958,7 @@ export default function ChatPage() {
   const [groupLeaveInput, setGroupLeaveInput] = useState("");
   const [isGroupLeaveModalOpen, setIsGroupLeaveModalOpen] = useState(false);
   const [mobileGroupsOpen, setMobileGroupsOpen] = useState(true);
-  const [settingsTab, setSettingsTab] = useState("geral");
+  const [settingsTab, setSettingsTab] = useState("general");
   const [tempDisplayName, setTempDisplayName] = useState("");
   const [tempPhotoURL, setTempPhotoURL] = useState("");
   const [activeSettingsTab, setActiveSettingsTab] = useState<
@@ -2224,7 +2238,7 @@ export default function ChatPage() {
     }
   }, [auth.currentUser, lastMessageDate, checkStreak]);
   useEffect(() => {
-    let unsubscribe: () => void = () => {};
+    let unsubscribe: () => void = () => { };
 
     const unsubscribeAuth = auth.onAuthStateChanged((user) => {
       if (!user) {
@@ -2311,7 +2325,7 @@ export default function ChatPage() {
         );
         setFriendRequests(reqs);
       },
-      () => {},
+      () => { },
     );
   }, []);
 
@@ -2336,7 +2350,7 @@ export default function ChatPage() {
         );
         setFriends(fr);
       },
-      () => {},
+      () => { },
     );
   }, []);
 
@@ -2351,7 +2365,7 @@ export default function ChatPage() {
         const ids = new Set(snapshot.docs.map((d) => d.id));
         setPendingSentRequests(ids);
       },
-      () => {},
+      () => { },
     );
   }, []);
 
@@ -2895,10 +2909,12 @@ export default function ChatPage() {
 
     // Collect from sessions
     for (const session of sessions) {
+      if (!session.messages) continue;
       for (const msg of session.messages) {
-        // Photos: user messages with imageUrls
-        if (msg.role === "user" && msg.imageUrls && msg.imageUrls.length > 0) {
-          for (const url of msg.imageUrls) {
+        // Photos: user messages with imageUrls or imageUrl
+        if (msg.role === "user") {
+          const urls = [...(msg.imageUrls || []), ...(msg.imageUrl ? [msg.imageUrl] : [])];
+          for (const url of urls) {
             const itemId = `${session.id}-${msg.id}-${url}`;
             if (seen.has(itemId)) continue;
             seen.add(itemId);
@@ -2922,8 +2938,8 @@ export default function ChatPage() {
             if (seen.has(mmId)) continue;
             seen.add(mmId);
             try {
-              const mindmapData = JSON.parse(match[1].trim());
-              // Show the mindmap as SVG or preview; we store it with a special URL marker
+              // Validate JSON
+              JSON.parse(match[1].trim());
               items.push({
                 id: mmId,
                 type: "mindmap",
@@ -2941,37 +2957,34 @@ export default function ChatPage() {
       }
     }
 
-    // Collect from group messages - filter by group
-    for (const group of groups) {
-      const groupMsgs = groupMessages.filter(
-        (m) => m.senderId === group.id || m.senderId === "ai",
-      );
-      for (const msg of groupMsgs) {
-        if (
-          msg.senderId !== "ai" &&
-          msg.imageUrls &&
-          msg.imageUrls.length > 0
-        ) {
-          for (const url of msg.imageUrls) {
-            const itemId = `g-${group.id}-${msg.timestamp}-${url}`;
+    // Collect from current group messages
+    if (selectedGroupId && groupMessages.length > 0) {
+      const activeGroup = groups.find(g => g.id === selectedGroupId);
+      for (const msg of groupMessages) {
+        // Photos
+        const urls = [...(msg.imageUrls || [])];
+        if (urls.length > 0) {
+          for (const url of urls) {
+            const itemId = `g-${selectedGroupId}-${msg.timestamp}-${url}`;
             if (seen.has(itemId)) continue;
             seen.add(itemId);
             items.push({
               id: itemId,
               type: "photo",
               url,
-              title: `Foto - ${group.name || "Grupo"}`,
+              title: `Foto - ${activeGroup?.name || "Grupo"}`,
               modified: new Date(msg.timestamp || Date.now()),
               size: "—",
-              sessionId: `group-${group.id}`,
+              sessionId: `group-${selectedGroupId}`,
             });
           }
         }
-        if (msg.senderId === "ai" && msg.content) {
+        // Mindmaps
+        if (msg.content && (msg.senderId === "ai" || msg.senderName === "AI")) {
           const mindmapRegex = /```language-mindmap\s*\n?([\s\S]*?)```/g;
           let match;
           while ((match = mindmapRegex.exec(msg.content)) !== null) {
-            const mmId = `g-${group.id}-${msg.timestamp}-mm`;
+            const mmId = `g-${selectedGroupId}-${msg.timestamp}-mm`;
             if (seen.has(mmId)) continue;
             seen.add(mmId);
             try {
@@ -2980,10 +2993,10 @@ export default function ChatPage() {
                 id: mmId,
                 type: "mindmap",
                 url: match[1].trim(),
-                title: `Mapa Mental - ${group.name || "Grupo"}`,
+                title: `Mapa Mental - ${activeGroup?.name || "Grupo"}`,
                 modified: new Date(msg.timestamp || Date.now()),
                 size: "—",
-                sessionId: `group-${group.id}`,
+                sessionId: `group-${selectedGroupId}`,
               });
             } catch (e) {
               /* skip */
@@ -3000,14 +3013,17 @@ export default function ChatPage() {
     if (galleryFilter === "mindmaps")
       filtered = items.filter((i) => i.type === "mindmap");
 
-    // Apply search
+    // Search
     if (gallerySearch.trim()) {
       const q = gallerySearch.toLowerCase();
-      filtered = filtered.filter((i) => i.title.toLowerCase().includes(q));
+      filtered = filtered.filter(
+        (i) =>
+          i.title.toLowerCase().includes(q) || i.url.toLowerCase().includes(q),
+      );
     }
 
-    return filtered;
-  }, [sessions, groups, groupMessages, galleryFilter, gallerySearch]);
+    return filtered.sort((a, b) => b.modified.getTime() - a.modified.getTime());
+  }, [sessions, groups, groupMessages, galleryFilter, gallerySearch, selectedGroupId]);
 
   const toggleGalleryItem = (id: string) => {
     setSelectedGalleryItems((prev) =>
@@ -3691,24 +3707,18 @@ export default function ChatPage() {
               </div>
             )}
             <textarea
-                ref={textareaRef}
-                value={input}
-                onChange={(e) => {
-                  setInput(e.target.value);
-                  if (isHighlightMode) setIsHighlightMode(false);
-                  if (isEraserMode) setIsEraserMode(false);
-                }}
-                onKeyDown={handleKeyDown}
-                placeholder={(() => {
-                  const lang = settings.language || "pt";
-                  if (lang === "en") return "Send a message to Broxa AI...";
-                  if (lang === "es") return "Envía un mensaje a Broxa AI...";
-                  if (lang === "fr") return "Envoyer um message à Broxa AI...";
-                  return "Mande uma mensagem para o Broxa AI...";
-                })()}
-                className="w-full bg-transparent text-[var(--text-base)] placeholder-[var(--text-muted)] px-5 py-3 resize-none focus:outline-none custom-scrollbar text-base"
-                style={{ height: `${textareaHeight}px` }}
-              />
+              ref={textareaRef}
+              value={input}
+              onChange={(e) => {
+                setInput(e.target.value);
+                if (isHighlightMode) setIsHighlightMode(false);
+                if (isEraserMode) setIsEraserMode(false);
+              }}
+              onKeyDown={handleKeyDown}
+              placeholder={t('send_message')}
+              className="w-full bg-transparent text-[var(--text-base)] placeholder-[var(--text-muted)] px-5 py-3 resize-none focus:outline-none custom-scrollbar text-base"
+              style={{ height: `${textareaHeight}px` }}
+            />
             <div className="flex items-end justify-between px-3 pb-3 pt-1 gap-2">
               <div className="flex flex-wrap items-center gap-1 highlighter-tools flex-1">
                 <input
@@ -3748,7 +3758,7 @@ export default function ChatPage() {
                     <Eraser className="w-5 h-5" />
                   </button>
                 )}
-                
+
                 <div className="flex-1" />
 
                 <button
@@ -3784,109 +3794,108 @@ export default function ChatPage() {
     );
   };
 
-const Calculator = ({ isOpen, onClose, mode, setMode, display, setDisplay, t }: any) => {
-  if (!isOpen) return null;
+  const Calculator = ({ isOpen, onClose, mode, setMode, display, setDisplay, t }: any) => {
+    if (!isOpen) return null;
 
-  const handleInput = (val: string) => {
-    if (val === 'C') {
-      setDisplay('0');
-    } else if (val === '=') {
-      try {
-        let expression = display.replace(/×/g, '*').replace(/÷/g, '/');
-        expression = expression.replace(/sin\(/g, 'Math.sin(')
-                               .replace(/cos\(/g, 'Math.cos(')
-                               .replace(/tan\(/g, 'Math.tan(')
-                               .replace(/log\(/g, 'Math.log10(')
-                               .replace(/ln\(/g, 'Math.log(')
-                               .replace(/sqrt\(/g, 'Math.sqrt(')
-                               .replace(/π/g, 'Math.PI')
-                               .replace(/e/g, 'Math.E')
-                               .replace(/\^/g, '**');
-        
-        const result = eval(expression);
-        setDisplay(String(Number(result.toFixed(8))));
-      } catch (e) {
-        setDisplay('Error');
-      }
-    } else {
-      if (display === '0' || display === 'Error') {
-        setDisplay(val);
+    const handleInput = (val: string) => {
+      if (val === 'C') {
+        setDisplay('0');
+      } else if (val === '=') {
+        try {
+          let expression = display.replace(/×/g, '*').replace(/÷/g, '/');
+          expression = expression.replace(/sin\(/g, 'Math.sin(')
+            .replace(/cos\(/g, 'Math.cos(')
+            .replace(/tan\(/g, 'Math.tan(')
+            .replace(/log\(/g, 'Math.log10(')
+            .replace(/ln\(/g, 'Math.log(')
+            .replace(/sqrt\(/g, 'Math.sqrt(')
+            .replace(/π/g, 'Math.PI')
+            .replace(/e/g, 'Math.E')
+            .replace(/\^/g, '**');
+
+          const result = eval(expression);
+          setDisplay(String(Number(result.toFixed(8))));
+        } catch (e) {
+          setDisplay('Error');
+        }
       } else {
-        setDisplay(display + val);
+        if (display === '0' || display === 'Error') {
+          setDisplay(val);
+        } else {
+          setDisplay(display + val);
+        }
       }
-    }
-  };
+    };
 
-  const buttons = mode === 'basic' ? [
-    ['7', '8', '9', '÷'],
-    ['4', '5', '6', '×'],
-    ['1', '2', '3', '-'],
-    ['C', '0', '=', '+']
-  ] : [
-    ['sin(', 'cos(', 'tan(', '÷'],
-    ['log(', 'ln(', 'sqrt(', '×'],
-    ['7', '8', '9', '-'],
-    ['4', '5', '6', '+'],
-    ['1', '2', '3', '^'],
-    ['C', '0', '.', '=']
-  ];
+    const buttons = mode === 'basic' ? [
+      ['7', '8', '9', '÷'],
+      ['4', '5', '6', '×'],
+      ['1', '2', '3', '-'],
+      ['C', '0', '=', '+']
+    ] : [
+      ['sin(', 'cos(', 'tan(', '÷'],
+      ['log(', 'ln(', 'sqrt(', '×'],
+      ['7', '8', '9', '-'],
+      ['4', '5', '6', '+'],
+      ['1', '2', '3', '^'],
+      ['C', '0', '.', '=']
+    ];
 
-  return (
-    <div className="fixed inset-0 z-[250] flex items-center justify-center bg-black/60 backdrop-blur-md p-4" onClick={onClose}>
-      <motion.div 
-        initial={{ scale: 0.9, opacity: 0, y: 20 }}
-        animate={{ scale: 1, opacity: 1, y: 0 }}
-        exit={{ scale: 0.9, opacity: 0, y: 20 }}
-        className="bg-[var(--bg-panel)] border border-[var(--border-strong)] rounded-[32px] p-6 w-full max-w-xs shadow-2xl"
-        onClick={e => e.stopPropagation()}
-      >
-        <div className="flex justify-between items-center mb-6">
-          <h3 className="font-bold text-[var(--text-base)] flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg bg-[var(--color-sec)]/10 flex items-center justify-center">
-              <CalculatorIcon className="w-5 h-5 text-[var(--color-sec)]" />
+    return (
+      <div className="fixed inset-0 z-[250] flex items-center justify-center bg-black/60 backdrop-blur-md p-4" onClick={onClose}>
+        <motion.div
+          initial={{ scale: 0.9, opacity: 0, y: 20 }}
+          animate={{ scale: 1, opacity: 1, y: 0 }}
+          exit={{ scale: 0.9, opacity: 0, y: 20 }}
+          className="bg-[var(--bg-panel)] border border-[var(--border-strong)] rounded-[32px] p-6 w-full max-w-xs shadow-2xl"
+          onClick={e => e.stopPropagation()}
+        >
+          <div className="flex justify-between items-center mb-6">
+            <h3 className="font-bold text-[var(--text-base)] flex items-center gap-2">
+              <div className="w-8 h-8 rounded-lg bg-[var(--color-sec)]/10 flex items-center justify-center">
+                <CalculatorIcon className="w-5 h-5 text-[var(--color-sec)]" />
+              </div>
+              {mode === 'basic' ? t('basic') : t('scientific')}
+            </h3>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setMode(mode === 'basic' ? 'scientific' : 'basic')}
+                className="px-3 py-1.5 hover:bg-[var(--bg-surface)] rounded-xl text-[var(--text-muted)] text-[10px] font-bold uppercase border border-[var(--border-subtle)] transition-colors"
+              >
+                {mode === 'basic' ? t('scientific') : t('basic')}
+              </button>
+              <button onClick={onClose} className="p-2 hover:bg-[var(--bg-surface)] rounded-xl text-[var(--text-muted)] transition-colors">
+                <X className="w-5 h-5" />
+              </button>
             </div>
-            {mode === 'basic' ? t('basic') : t('scientific')}
-          </h3>
-          <div className="flex gap-2">
-            <button
-               onClick={() => setMode(mode === 'basic' ? 'scientific' : 'basic')}
-               className="px-3 py-1.5 hover:bg-[var(--bg-surface)] rounded-xl text-[var(--text-muted)] text-[10px] font-bold uppercase border border-[var(--border-subtle)] transition-colors"
-            >
-              {mode === 'basic' ? t('scientific') : t('basic')}
-            </button>
-            <button onClick={onClose} className="p-2 hover:bg-[var(--bg-surface)] rounded-xl text-[var(--text-muted)] transition-colors">
-              <X className="w-5 h-5" />
-            </button>
           </div>
-        </div>
-        
-        <div className="bg-[var(--bg-input)] rounded-2xl p-5 mb-6 text-right overflow-hidden border border-[var(--border-strong)] shadow-inner">
-          <div className="text-sm text-[var(--text-muted)] font-mono mb-1 h-5 truncate opacity-50">
-            {display !== '0' && display !== 'Error' ? display : ''}
+
+          <div className="bg-[var(--bg-input)] rounded-2xl p-5 mb-6 text-right overflow-hidden border border-[var(--border-strong)] shadow-inner">
+            <div className="text-sm text-[var(--text-muted)] font-mono mb-1 h-5 truncate opacity-50">
+              {display !== '0' && display !== 'Error' ? display : ''}
+            </div>
+            <div className="text-3xl font-mono text-[var(--text-base)] truncate font-bold">{display}</div>
           </div>
-          <div className="text-3xl font-mono text-[var(--text-base)] truncate font-bold">{display}</div>
-        </div>
-        
-        <div className="grid grid-cols-4 gap-2.5">
-          {buttons.flat().map((btn) => (
-            <button
-              key={btn}
-              onClick={() => handleInput(btn)}
-              className={`h-12 rounded-xl font-bold transition-all active:scale-95 ${
-                btn === '=' ? 'bg-[var(--color-sec)] text-white shadow-lg shadow-[var(--color-sec)]/20 hover:opacity-90' :
-                btn === 'C' ? 'bg-red-500/10 text-red-500 hover:bg-red-500/20 border border-red-500/20' :
-                ['÷', '×', '-', '+', '^'].includes(btn) ? 'bg-[var(--bg-surface)] text-[var(--color-sec)] hover:bg-[var(--border-strong)] border border-[var(--border-subtle)]' :
-                'bg-[var(--bg-surface)] text-[var(--text-base)] hover:bg-[var(--border-strong)]'
-              }`}
-            >
-              {btn.replace('(', '')}
-            </button>
-          ))}
-        </div>
-      </motion.div>
-    </div>
-  );
-};
+
+          <div className="grid grid-cols-4 gap-2.5">
+            {buttons.flat().map((btn) => (
+              <button
+                key={btn}
+                onClick={() => handleInput(btn)}
+                className={`h-12 rounded-xl font-bold transition-all active:scale-95 ${btn === '=' ? 'bg-[var(--color-sec)] text-white shadow-lg shadow-[var(--color-sec)]/20 hover:opacity-90' :
+                    btn === 'C' ? 'bg-red-500/10 text-red-500 hover:bg-red-500/20 border border-red-500/20' :
+                      ['÷', '×', '-', '+', '^'].includes(btn) ? 'bg-[var(--bg-surface)] text-[var(--color-sec)] hover:bg-[var(--border-strong)] border border-[var(--border-subtle)]' :
+                        'bg-[var(--bg-surface)] text-[var(--text-base)] hover:bg-[var(--border-strong)]'
+                  }`}
+              >
+                {btn.replace('(', '')}
+              </button>
+            ))}
+          </div>
+        </motion.div>
+      </div>
+    );
+  };
 
   const handlePaste = (e: React.ClipboardEvent) => {
     const items = e.clipboardData.items;
@@ -3937,7 +3946,7 @@ const Calculator = ({ isOpen, onClose, mode, setMode, display, setDisplay, t }: 
       } else {
         setGuestMessageCount(prev => prev + 1);
       }
-      
+
       setShowGuestWarning(true);
     }
 
@@ -4240,7 +4249,7 @@ const Calculator = ({ isOpen, onClose, mode, setMode, display, setDisplay, t }: 
       let errorJson = "";
       try {
         errorJson = JSON.stringify(error);
-      } catch (e) {}
+      } catch (e) { }
 
       const isQuotaError =
         error?.status === 429 ||
@@ -5253,13 +5262,13 @@ const Calculator = ({ isOpen, onClose, mode, setMode, display, setDisplay, t }: 
                                       images: newReleaseNote.images.map((i) =>
                                         i.id === img.id
                                           ? {
-                                              ...i,
-                                              x: position.x,
-                                              y: position.y,
-                                              scale:
-                                                parseFloat(ref.style.width) /
-                                                100,
-                                            }
+                                            ...i,
+                                            x: position.x,
+                                            y: position.y,
+                                            scale:
+                                              parseFloat(ref.style.width) /
+                                              100,
+                                          }
                                           : i,
                                       ),
                                     });
@@ -5311,8 +5320,7 @@ const Calculator = ({ isOpen, onClose, mode, setMode, display, setDisplay, t }: 
                                 >
                                   <div className="relative group">
                                     <span
-                                      className={`px-2 py-1 text-[10px] font-bold rounded-full pointer-events-none ${
-                                        badge.type === "BETA"
+                                      className={`px-2 py-1 text-[10px] font-bold rounded-full pointer-events-none ${badge.type === "BETA"
                                           ? "bg-purple-500/20 text-purple-500"
                                           : badge.type === "EM DESENVOLVIMENTO"
                                             ? "bg-yellow-500/20 text-yellow-500"
@@ -5321,7 +5329,7 @@ const Calculator = ({ isOpen, onClose, mode, setMode, display, setDisplay, t }: 
                                               : badge.type === "REMOVIDO"
                                                 ? "bg-red-500/20 text-red-500"
                                                 : "bg-blue-500/20 text-blue-500"
-                                      }`}
+                                        }`}
                                       style={{
                                         transform: `scale(${badge.scale})`,
                                         display: "inline-block",
@@ -5986,7 +5994,7 @@ const Calculator = ({ isOpen, onClose, mode, setMode, display, setDisplay, t }: 
                                           "broxa_ui_before",
                                           dataUrl,
                                         );
-                                      } catch (_e) {}
+                                      } catch (_e) { }
                                       setPersistedBefore(dataUrl);
                                       updateDoc(
                                         doc(db, "settings", "global"),
@@ -6055,7 +6063,7 @@ const Calculator = ({ isOpen, onClose, mode, setMode, display, setDisplay, t }: 
                                           "broxa_ui_after",
                                           dataUrl,
                                         );
-                                      } catch (_e) {}
+                                      } catch (_e) { }
                                       setPersistedAfter(dataUrl);
                                       updateDoc(
                                         doc(db, "settings", "global"),
@@ -6146,8 +6154,7 @@ const Calculator = ({ isOpen, onClose, mode, setMode, display, setDisplay, t }: 
                   {currentReleaseNote.badges?.map((badge) => (
                     <span
                       key={badge.id}
-                      className={`absolute px-2 py-1 text-xs font-bold rounded-full pointer-events-none ${
-                        badge.type === "BETA"
+                      className={`absolute px-2 py-1 text-xs font-bold rounded-full pointer-events-none ${badge.type === "BETA"
                           ? "bg-purple-500/20 text-purple-500"
                           : badge.type === "EM DESENVOLVIMENTO"
                             ? "bg-yellow-500/20 text-yellow-500"
@@ -6156,7 +6163,7 @@ const Calculator = ({ isOpen, onClose, mode, setMode, display, setDisplay, t }: 
                               : badge.type === "REMOVIDO"
                                 ? "bg-red-500/20 text-red-500"
                                 : "bg-blue-500/20 text-blue-500"
-                      }`}
+                        }`}
                       style={{
                         left: badge.x,
                         top: badge.y,
@@ -6552,11 +6559,11 @@ const Calculator = ({ isOpen, onClose, mode, setMode, display, setDisplay, t }: 
                       { label: "Dispositivos", icon: Monitor, key: 'devices' },
                     ].map(({ label, icon: Icon, short, key }) => (
                       <button
-                        key={label}
+                        key={key}
                         onClick={() =>
-                          setSettingsTab(label.toLowerCase() as any)
+                          setSettingsTab(key as any)
                         }
-                        className={`flex flex-col items-center gap-1 p-3 md:px-3 md:py-2 rounded-lg md:rounded-lg text-xs md:text-sm shrink-0 md:w-full transition-colors ${settingsTab === label.toLowerCase() ? "bg-[var(--color-sec)]/20 text-[var(--color-sec)] font-medium" : "text-[var(--text-muted)] hover:text-[var(--text-base)] hover:bg-[var(--bg-base)]"}`}
+                        className={`flex flex-col items-center gap-1 p-3 md:px-3 md:py-2 rounded-lg md:rounded-lg text-xs md:text-sm shrink-0 md:w-full transition-colors ${settingsTab === key ? "bg-[var(--color-sec)]/20 text-[var(--color-sec)] font-medium" : "text-[var(--text-muted)] hover:text-[var(--text-base)] hover:bg-[var(--bg-base)]"}`}
                       >
                         <Icon className="w-5 h-5" />
                         <span className="hidden md:block">
@@ -6585,65 +6592,65 @@ const Calculator = ({ isOpen, onClose, mode, setMode, display, setDisplay, t }: 
                 {/* Right content */}
                 <div className="flex-1 overflow-y-auto custom-scrollbar">
                   {/* === IDIOMAS === */}
-                  {settingsTab === "idiomas" && (
-                            <div className="p-6 space-y-6">
-                              <h2 className="text-lg font-semibold text-[var(--text-base)]">
-                                Idiomas
-                              </h2>
-                              <p className="text-xs text-[var(--text-muted)] -mt-4 opacity-70">
-                                Selecione seu idioma preferido. O site será traduzido e as respostas da IA seguirão este idioma.
-                              </p>
+                  {settingsTab === "languages" && (
+                    <div className="p-6 space-y-6">
+                      <h2 className="text-lg font-semibold text-[var(--text-base)]">
+                        {t('languages')}
+                      </h2>
+                      <p className="text-xs text-[var(--text-muted)] -mt-4 opacity-70">
+                        Selecione seu idioma preferido. O site será traduzido e as respostas da IA seguirão este idioma.
+                      </p>
 
-                              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                                {[
-                                  { code: "pt", label: "Português (Brasil)", flag: "🇧🇷" },
-                                  { code: "en", label: "English", flag: "🇺🇸" },
-                                  { code: "es", label: "Español", flag: "🇪🇸" },
-                                  { code: "fr", label: "Français", flag: "🇫🇷" },
-                                  { code: "de", label: "Deutsch", flag: "🇩🇪" },
-                                  { code: "it", label: "Italiano", flag: "🇮🇹" },
-                                  { code: "ja", label: "日本語", flag: "🇯🇵" },
-                                  { code: "zh", label: "中文", flag: "🇨🇳" },
-                                ].map((lang) => (
-                                  <button
-                                    key={lang.code}
-                                    onClick={() => setTempSettings({ ...tempSettings, language: lang.code })}
-                                    className={`flex items-center gap-3 p-4 rounded-xl border-2 transition-all ${(tempSettings.language || settings.language) === lang.code ? "border-[var(--color-sec)] bg-[var(--color-sec)]/5" : "border-[var(--border-strong)] hover:border-[var(--text-muted)] bg-[var(--bg-surface)]"}`}
-                                  >
-                                    <span className="text-2xl">{lang.flag}</span>
-                                    <span className="font-medium text-[var(--text-base)]">
-                                      {lang.label}
-                                    </span>
-                                    {(tempSettings.language || settings.language) === lang.code && (
-                                      <Check className="w-4 h-4 text-[var(--color-sec)] ml-auto" />
-                                    )}
-                                  </button>
-                                ))}
-                              </div>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        {[
+                          { code: "pt", label: "Português (Brasil)", flag: "🇧🇷" },
+                          { code: "en", label: "English", flag: "🇺🇸" },
+                          { code: "es", label: "Español", flag: "🇪🇸" },
+                          { code: "fr", label: "Français", flag: "🇫🇷" },
+                          { code: "de", label: "Deutsch", flag: "🇩🇪" },
+                          { code: "it", label: "Italiano", flag: "🇮🇹" },
+                          { code: "ja", label: "日本語", flag: "🇯🇵" },
+                          { code: "zh", label: "中文", flag: "🇨🇳" },
+                        ].map((lang) => (
+                          <button
+                            key={lang.code}
+                            onClick={() => setTempSettings({ ...tempSettings, language: lang.code })}
+                            className={`flex items-center gap-3 p-4 rounded-xl border-2 transition-all ${(tempSettings.language || settings.language) === lang.code ? "border-[var(--color-sec)] bg-[var(--color-sec)]/5" : "border-[var(--border-strong)] hover:border-[var(--text-muted)] bg-[var(--bg-surface)]"}`}
+                          >
+                            <span className="text-2xl">{lang.flag}</span>
+                            <span className="font-medium text-[var(--text-base)]">
+                              {lang.label}
+                            </span>
+                            {(tempSettings.language || settings.language) === lang.code && (
+                              <Check className="w-4 h-4 text-[var(--color-sec)] ml-auto" />
+                            )}
+                          </button>
+                        ))}
+                      </div>
 
-                              {settings.language !== "pt" && (
-                                <div className="p-4 bg-[var(--color-sec)]/10 border border-[var(--color-sec)]/20 rounded-xl flex items-center gap-3">
-                                  <div className="p-2 bg-[var(--color-sec)]/20 rounded-full">
-                                    <Globe className="w-5 h-5 text-[var(--color-sec)]" />
-                                  </div>
-                                  <div>
-                                    <p className="text-sm font-bold text-[var(--text-base)]">
-                                      Translação Automática Ativa
-                                    </p>
-                                    <p className="text-xs text-[var(--text-muted)]">
-                                      As respostas e a interface estão sendo traduzidas automaticamente para {settings.language?.toUpperCase() || "PT"}.
-                                    </p>
-                                  </div>
-                                </div>
-                              )}
-                            </div>
-                          )}
+                      {settings.language !== "pt" && (
+                        <div className="p-4 bg-[var(--color-sec)]/10 border border-[var(--color-sec)]/20 rounded-xl flex items-center gap-3">
+                          <div className="p-2 bg-[var(--color-sec)]/20 rounded-full">
+                            <Globe className="w-5 h-5 text-[var(--color-sec)]" />
+                          </div>
+                          <div>
+                            <p className="text-sm font-bold text-[var(--text-base)]">
+                              Translação Automática Ativa
+                            </p>
+                            <p className="text-xs text-[var(--text-muted)]">
+                              As respostas e a interface estão sendo traduzidas automaticamente para {settings.language?.toUpperCase() || "PT"}.
+                            </p>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
                   {/* === GERAL === */}
-                  {settingsTab === "geral" && (
+                  {settingsTab === "general" && (
                     <div className="p-6 space-y-6">
                       <div>
                         <h2 className="text-lg font-semibold text-[var(--text-base)] mb-3">
-                          Modelo de UI
+                          {t('model_ai')}
                         </h2>
                         <div className="flex gap-4">
                           {[
@@ -6694,11 +6701,11 @@ const Calculator = ({ isOpen, onClose, mode, setMode, display, setDisplay, t }: 
                   )}
 
                   {/* === APARÊNCIA === */}
-                  {settingsTab === "aparência" && (
+                  {settingsTab === "appearance" && (
                     <div className="p-6 space-y-6">
                       <div>
                         <h2 className="text-lg font-semibold text-[var(--text-base)] mb-3">
-                          Padrão de Cores
+                          {t('appearance')}
                         </h2>
                         <div className="flex gap-4">
                           {[
@@ -6754,12 +6761,12 @@ const Calculator = ({ isOpen, onClose, mode, setMode, display, setDisplay, t }: 
                               tempSettings.theme === "light"
                                 ? [{ value: "#000000", label: "Preto (Tema Claro)" }]
                                 : [
-                                    { value: "#22c55e", label: "Verde" },
-                                    { value: "#eab308", label: "Amarelo" },
-                                    { value: "#ec4899", label: "Rosa" },
-                                    { value: "#3b82f6", label: "Azul" },
-                                    { value: "#a855f7", label: "Roxo" },
-                                  ]
+                                  { value: "#22c55e", label: "Verde" },
+                                  { value: "#eab308", label: "Amarelo" },
+                                  { value: "#ec4899", label: "Rosa" },
+                                  { value: "#3b82f6", label: "Azul" },
+                                  { value: "#a855f7", label: "Roxo" },
+                                ]
                             }
                             onSelect={(color) =>
                               setTempSettings({
@@ -7505,7 +7512,7 @@ const Calculator = ({ isOpen, onClose, mode, setMode, display, setDisplay, t }: 
             <div className="flex items-center gap-1">
               <button
                 onClick={() => setIsSidebarOpen(false)}
-                className="p-3 text-[var(--text-muted)] hover:text-[var(--text-base)]"
+                className="p-3 text-[var(--text-muted)] hover:text-[var(--text-base)] md:hidden"
               >
                 <X className="w-6 h-6" />
               </button>
@@ -7530,6 +7537,12 @@ const Calculator = ({ isOpen, onClose, mode, setMode, display, setDisplay, t }: 
                 <FolderOpen className="w-6 h-6 text-[var(--text-base)]" />
               </button>
             )}
+            <button
+              onClick={() => setIsCalculatorOpen(true)}
+              className="w-14 h-14 rounded-full bg-[var(--bg-surface)] flex items-center justify-center border border-[var(--border-strong)] hover:bg-[var(--border-strong)] transition-colors"
+            >
+              <CalculatorIcon className="w-6 h-6 text-[var(--text-base)]" />
+            </button>
             <button
               onClick={() => {
                 handleNewChat();
@@ -7605,9 +7618,19 @@ const Calculator = ({ isOpen, onClose, mode, setMode, display, setDisplay, t }: 
                 onClick={() => setIsGroupsScreenOpen(true)}
                 className="flex items-center justify-center gap-2 px-3 py-2.5 bg-[var(--bg-surface)] hover:bg-[var(--border-strong)] border border-[var(--border-strong)] rounded-xl text-xs font-medium transition-colors"
               >
-                <Users className="w-4 h-4" /> Grupos
+                <Users className="w-4 h-4" /> {t('groups')}
               </button>
             )}
+
+            {auth.currentUser && (
+              <button
+                onClick={() => setIsGalleryOpen(true)}
+                className="flex items-center justify-center gap-2 px-3 py-2.5 bg-[var(--bg-surface)] hover:bg-[var(--border-strong)] border border-[var(--border-strong)] rounded-xl text-xs font-medium transition-colors"
+              >
+                <FolderOpen className="w-4 h-4" /> {t('gallery')}
+              </button>
+            )}
+
             {auth.currentUser && (
               <button
                 onClick={() => setIsCalculatorOpen(true)}
@@ -7616,11 +7639,12 @@ const Calculator = ({ isOpen, onClose, mode, setMode, display, setDisplay, t }: 
                 <CalculatorIcon className="w-4 h-4" /> {t('calculator')}
               </button>
             )}
+
             <button
               onClick={handleNewChat}
               className="flex items-center justify-center gap-2 px-3 py-2.5 bg-[var(--bg-surface)] hover:bg-[var(--border-strong)] border border-[var(--border-strong)] rounded-xl text-xs font-medium transition-colors"
             >
-              <FileText className="w-4 h-4" /> {t('Nova Conversa')}
+              <FileText className="w-4 h-4" /> {t('new_chat')}
             </button>
             <div className="border-t border-[var(--border-subtle)]" />
           </div>
@@ -7666,11 +7690,10 @@ const Calculator = ({ isOpen, onClose, mode, setMode, display, setDisplay, t }: 
                           setCurrentSessionId(null);
                           setIsSidebarOpen(false);
                         }}
-                        className={`w-full text-left px-3 py-2.5 rounded-xl flex items-center gap-2 transition-colors ${
-                          selectedGroupId === group.id
+                        className={`w-full text-left px-3 py-2.5 rounded-xl flex items-center gap-2 transition-colors ${selectedGroupId === group.id
                             ? "bg-[var(--bg-surface)] text-[var(--text-base)] border border-[var(--border-strong)]"
                             : "text-[var(--text-muted)] hover:bg-[var(--bg-surface)] border border-transparent"
-                        }`}
+                          }`}
                       >
                         <div className="w-8 h-8 rounded-full bg-[var(--bg-input)] flex items-center justify-center shrink-0">
                           <MessageSquare className="w-4 h-4" />
@@ -7746,10 +7769,10 @@ const Calculator = ({ isOpen, onClose, mode, setMode, display, setDisplay, t }: 
 
               {(historyLoadStatus === "success" ||
                 historyLoadStatus === "loaded") && (
-                <AnimatePresence>
-                  {unpinnedSessions.map(renderSession)}
-                </AnimatePresence>
-              )}
+                  <AnimatePresence>
+                    {unpinnedSessions.map(renderSession)}
+                  </AnimatePresence>
+                )}
             </div>
           </div>
 
@@ -7760,7 +7783,7 @@ const Calculator = ({ isOpen, onClose, mode, setMode, display, setDisplay, t }: 
                 className="flex items-center gap-3 text-sm text-[var(--color-sec)] hover:text-white transition-colors w-full p-2 rounded-xl hover:bg-[var(--color-sec)]/20"
               >
                 <ShieldAlert className="w-4 h-4" />
-                Painel Admin
+                {t('admin_panel')}
               </button>
             )}
             {/* Profile / Settings */}
@@ -8041,25 +8064,24 @@ const Calculator = ({ isOpen, onClose, mode, setMode, display, setDisplay, t }: 
                                         {model.key === "toto" ? (
                                           <span className="text-[10px] px-2 py-0.5 rounded-full font-bold bg-zinc-500 text-white">EM BREVE</span>
                                         ) : model.badgeType &&
-                                          model.badgeType !== "NENHUMA" && (
-                                            <span
-                                              className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${
-                                                model.badgeType === "BETA"
-                                                  ? "bg-yellow-500 text-black"
-                                                  : model.badgeType ===
-                                                      "EM DESENVOLVIMENTO"
-                                                    ? "bg-red-600 text-white"
-                                                    : model.badgeType === "NOVO"
-                                                      ? "bg-green-500 text-white"
-                                                      : model.badgeType ===
-                                                          "REMOVIDO"
-                                                        ? "bg-gray-500 text-white"
-                                                        : "bg-blue-500 text-white"
+                                        model.badgeType !== "NENHUMA" && (
+                                          <span
+                                            className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${model.badgeType === "BETA"
+                                                ? "bg-yellow-500 text-black"
+                                                : model.badgeType ===
+                                                  "EM DESENVOLVIMENTO"
+                                                  ? "bg-red-600 text-white"
+                                                  : model.badgeType === "NOVO"
+                                                    ? "bg-green-500 text-white"
+                                                    : model.badgeType ===
+                                                      "REMOVIDO"
+                                                      ? "bg-gray-500 text-white"
+                                                      : "bg-blue-500 text-white"
                                               }`}
-                                            >
-                                              {model.badgeType}
-                                            </span>
-                                          )}
+                                          >
+                                            {model.badgeType}
+                                          </span>
+                                        )}
                                       </div>
                                       <div className="text-xs text-[var(--text-muted)]">
                                         {model.description}
@@ -8113,8 +8135,8 @@ const Calculator = ({ isOpen, onClose, mode, setMode, display, setDisplay, t }: 
                     onClick={() => {
                       const inviterName = encodeURIComponent(
                         displayName ||
-                          auth.currentUser?.displayName ||
-                          "Um usuário",
+                        auth.currentUser?.displayName ||
+                        "Um usuário",
                       );
                       const link = `${window.location.origin}?joinGroup=${selectedGroupId}&inviterName=${inviterName}`;
                       navigator.clipboard.writeText(link);
@@ -8304,7 +8326,7 @@ const Calculator = ({ isOpen, onClose, mode, setMode, display, setDisplay, t }: 
                           displayName?.split(" ")[0] ||
                           auth.currentUser?.displayName?.split(" ")[0] ||
                           (lang === "en" ? "guest" : lang === "es" ? "invitado" : "visitante");
-                        
+
                         return `${t(
                           hour >= 0 && hour < 5
                             ? "good_late_night"
@@ -8802,8 +8824,8 @@ const Calculator = ({ isOpen, onClose, mode, setMode, display, setDisplay, t }: 
                           if (groupId) {
                             const inviterName = encodeURIComponent(
                               displayName ||
-                                auth.currentUser?.displayName ||
-                                "Um usuário",
+                              auth.currentUser?.displayName ||
+                              "Um usuário",
                             );
                             const link = `${window.location.origin}?joinGroup=${groupId}&inviterName=${inviterName}`;
                             setGroupInviteLink(link);
@@ -9046,25 +9068,25 @@ const Calculator = ({ isOpen, onClose, mode, setMode, display, setDisplay, t }: 
                 <div className="flex justify-between items-center mt-6">
                   {groups.find((g) => g.id === selectedGroupId)?.ownerId ===
                     auth.currentUser?.uid && (
-                    <button
-                      onClick={() => {
-                        setConfirmModalData({
-                          title: "Deletar Grupo",
-                          message:
-                            "Tem certeza que deseja deletar este grupo? Esta ação não pode ser desfeita.",
-                          onConfirm: () => {
-                            deleteGroup(selectedGroupId);
-                            setIsGroupSettingsModalOpen(false);
-                            navigate("/");
-                          },
-                        });
-                      }}
-                      className="px-4 py-2 rounded-xl text-red-500 hover:bg-red-500/10 transition-colors flex items-center gap-2"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                      Deletar Grupo
-                    </button>
-                  )}
+                      <button
+                        onClick={() => {
+                          setConfirmModalData({
+                            title: "Deletar Grupo",
+                            message:
+                              "Tem certeza que deseja deletar este grupo? Esta ação não pode ser desfeita.",
+                            onConfirm: () => {
+                              deleteGroup(selectedGroupId);
+                              setIsGroupSettingsModalOpen(false);
+                              navigate("/");
+                            },
+                          });
+                        }}
+                        className="px-4 py-2 rounded-xl text-red-500 hover:bg-red-500/10 transition-colors flex items-center gap-2"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                        Deletar Grupo
+                      </button>
+                    )}
                   <div className="flex gap-3 ml-auto">
                     <button
                       onClick={() => setIsGroupSettingsModalOpen(false)}
@@ -9542,7 +9564,7 @@ const Calculator = ({ isOpen, onClose, mode, setMode, display, setDisplay, t }: 
                               <div className="w-full h-full bg-[var(--bg-base)] flex items-center justify-center p-4">
                                 <MindMap
                                   data={JSON.parse(item.url)}
-                                  onFeedbackRequest={() => {}}
+                                  onFeedbackRequest={() => { }}
                                 />
                               </div>
                             )}
@@ -9792,7 +9814,17 @@ const Calculator = ({ isOpen, onClose, mode, setMode, display, setDisplay, t }: 
               </motion.div>
             </motion.div>
           )}
-        </AnimatePresence>
+          <AnimatePresence>
+            <Calculator
+              isOpen={isCalculatorOpen}
+              onClose={() => setIsCalculatorOpen(false)}
+              mode={calculatorMode}
+              setMode={setCalculatorMode}
+              display={calculatorDisplay}
+              setDisplay={setCalculatorDisplay}
+              t={t}
+            />
+          </AnimatePresence>
       </div>
     </div>
   );
