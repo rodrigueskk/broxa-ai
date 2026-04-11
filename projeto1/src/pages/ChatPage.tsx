@@ -1767,6 +1767,8 @@ export default function ChatPage() {
   const [showSettingsConfirm, setShowSettingsConfirm] = useState(false);
   const [settingsError, setSettingsError] = useState<string | null>(null);
   const [tempSettings, setTempSettings] = useState(settings);
+  const [isSavingSettings, setIsSavingSettings] = useState(false);
+  const [saveSuccess, setSaveSuccess] = useState(false);
   const [isPinnedMessagesOpen, setIsPinnedMessagesOpen] = useState(false);
   const [isHighlightMode, setIsHighlightMode] = useState(false);
   const [isEraserMode, setIsEraserMode] = useState(false);
@@ -3011,13 +3013,23 @@ export default function ChatPage() {
         return;
       }
 
-      updateSettings(tempSettings);
+      setIsSavingSettings(true);
+      setShowSettingsConfirm(false);
+      setTimeout(() => {
+        updateSettings(tempSettings);
+        setSaveSuccess(true);
+        setTimeout(() => {
+          setSaveSuccess(false);
+          setIsSavingSettings(false);
+          setIsSettingsOpen(false);
+        }, 2000);
+      }, 1500);
     } else {
       setTempSettings(settings);
+      setSettingsError(null);
+      setShowSettingsConfirm(false);
+      setIsSettingsOpen(false);
     }
-    setSettingsError(null);
-    setShowSettingsConfirm(false);
-    setIsSettingsOpen(false);
   };
 
   useEffect(() => {
@@ -3660,7 +3672,7 @@ export default function ChatPage() {
                   disabled={
                     !input.trim() && selectedImages.length === 0 && !isLoading
                   }
-                  className={`p-3 ${isLoading ? "bg-transparent border-2 border-[var(--color-sec)]" : "bg-[var(--color-sec)]"} hover:opacity-80 disabled:opacity-50 text-white rounded-2xl transition-all flex items-center justify-center shadow-lg disabled:shadow-none shrink-0`}
+                  className={`p-3 ${isLoading ? "bg-transparent border-2 border-[var(--color-sec)]" : "bg-[var(--color-sec)]"} hover:opacity-80 disabled:opacity-50 text-white rounded-2xl transition-all flex items-center justify-center shadow-lg disabled:shadow-none shrink-0 btn-send-overrides`}
                 >
                   {isLoading ? (
                     <div className="w-4 h-4 bg-[var(--color-sec)] rounded-sm" />
@@ -6384,14 +6396,14 @@ export default function ChatPage() {
                                 ].map((lang) => (
                                   <button
                                     key={lang.code}
-                                    onClick={() => updateSetting("language", lang.code)}
-                                    className={`flex items-center gap-3 p-4 rounded-xl border-2 transition-all ${settings.language === lang.code ? "border-[var(--color-sec)] bg-[var(--color-sec)]/5" : "border-[var(--border-strong)] hover:border-[var(--text-muted)] bg-[var(--bg-surface)]"}`}
+                                    onClick={() => setTempSettings({ ...tempSettings, language: lang.code })}
+                                    className={`flex items-center gap-3 p-4 rounded-xl border-2 transition-all ${(tempSettings.language || settings.language) === lang.code ? "border-[var(--color-sec)] bg-[var(--color-sec)]/5" : "border-[var(--border-strong)] hover:border-[var(--text-muted)] bg-[var(--bg-surface)]"}`}
                                   >
                                     <span className="text-2xl">{lang.flag}</span>
                                     <span className="font-medium text-[var(--text-base)]">
                                       {lang.label}
                                     </span>
-                                    {settings.language === lang.code && (
+                                    {(tempSettings.language || settings.language) === lang.code && (
                                       <Check className="w-4 h-4 text-[var(--color-sec)] ml-auto" />
                                     )}
                                   </button>
@@ -6516,25 +6528,36 @@ export default function ChatPage() {
                         </div>
                       </div>
                       <div>
-                        <h2 className="text-lg font-semibold text-[var(--text-base)] mb-3">
+                        <h2 className="text-lg font-semibold text-[var(--text-base)] mb-3 flex items-center gap-2">
                           Cor Secundária
+                          {tempSettings.theme === "light" && (
+                            <span className="text-xs bg-red-500/10 text-red-500 px-2 py-0.5 rounded-full font-bold uppercase tracking-wider">
+                              Bloqueado
+                            </span>
+                          )}
                         </h2>
-                        <ColorPickerDropdown
-                          valueColor={tempSettings.secondaryColor || "#22c55e"}
-                          colorMap={[
-                            { value: "#22c55e", label: "Verde" },
-                            { value: "#eab308", label: "Amarelo" },
-                            { value: "#ec4899", label: "Rosa" },
-                            { value: "#3b82f6", label: "Azul" },
-                            { value: "#a855f7", label: "Roxo" },
-                          ]}
-                          onSelect={(color) =>
-                            setTempSettings({
-                              ...tempSettings,
-                              secondaryColor: color,
-                            })
-                          }
-                        />
+                        <div className={tempSettings.theme === "light" ? "opacity-50 pointer-events-none" : ""}>
+                          <ColorPickerDropdown
+                            valueColor={tempSettings.theme === "light" ? "#000000" : (tempSettings.secondaryColor || "#22c55e")}
+                            colorMap={
+                              tempSettings.theme === "light"
+                                ? [{ value: "#000000", label: "Preto (Tema Claro)" }]
+                                : [
+                                    { value: "#22c55e", label: "Verde" },
+                                    { value: "#eab308", label: "Amarelo" },
+                                    { value: "#ec4899", label: "Rosa" },
+                                    { value: "#3b82f6", label: "Azul" },
+                                    { value: "#a855f7", label: "Roxo" },
+                                  ]
+                            }
+                            onSelect={(color) =>
+                              setTempSettings({
+                                ...tempSettings,
+                                secondaryColor: color,
+                              })
+                            }
+                          />
+                        </div>
                       </div>
                       {streakDays >= 15 && (
                         <div>
@@ -7123,6 +7146,41 @@ export default function ChatPage() {
                   </button>
                 </div>
               </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        <AnimatePresence>
+          {isSavingSettings && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-[300] flex items-center justify-center bg-black/90 backdrop-blur-md"
+            >
+              <div className="flex flex-col items-center">
+                {!saveSuccess ? (
+                  <>
+                    <div className="w-16 h-16 border-4 border-white border-t-transparent rounded-full animate-spin mb-4 shadow-[0_0_15px_rgba(255,255,255,0.5)]"></div>
+                    <span className="text-xl font-bold text-white tracking-widest animate-pulse">
+                      Realizando alterações...
+                    </span>
+                  </>
+                ) : (
+                  <motion.div
+                    initial={{ scale: 0.5, opacity: 0 }}
+                    animate={{ scale: 1, opacity: 1 }}
+                    className="flex flex-col items-center"
+                  >
+                    <div className="w-24 h-24 bg-green-500 rounded-full flex items-center justify-center shadow-[0_0_30px_rgba(34,197,94,0.5)] mb-4">
+                      <Check className="w-12 h-12 text-white" strokeWidth={3} />
+                    </div>
+                    <span className="text-2xl font-bold text-white tracking-wide">
+                      Salvo com sucesso!
+                    </span>
+                  </motion.div>
+                )}
+              </div>
             </motion.div>
           )}
         </AnimatePresence>

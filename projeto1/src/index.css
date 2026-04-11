@@ -103,7 +103,14 @@
   --text-muted: #71717a;
   --border-subtle: rgba(0, 0, 0, 0.05);
   --border-strong: rgba(0, 0, 0, 0.1);
+  --color-sec: #000000 !important;
   color: #000000;
+}
+
+.theme-light .btn-send-overrides {
+  background-color: transparent !important;
+  border: 1px solid #000000 !important;
+  color: #000000 !important;
 }
 
 .theme-grey {
