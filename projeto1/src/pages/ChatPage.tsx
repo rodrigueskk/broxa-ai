@@ -1626,10 +1626,6 @@ const translations: any = {
 };
 
 export default function ChatPage() {
-  const t = (key: string) => {
-    const lang = settings.language || "pt";
-    return translations[lang]?.[key] || translations["pt"][key] || key;
-  };
 
   const navigate = useNavigate();
   const [historyLoadStatus, setHistoryLoadStatus] = useState<
@@ -1716,6 +1712,11 @@ export default function ChatPage() {
     deleteGroup,
     updateGroupMessage,
   } = useGroupStore();
+
+  const t = (key: string) => {
+    const lang = settings.language || "pt";
+    return translations[lang]?.[key] || translations["pt"][key] || key;
+  };
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -8298,6 +8299,7 @@ const Calculator = ({ isOpen, onClose, mode, setMode, display, setDisplay, t }: 
                       className="text-4xl md:text-5xl claude-font text-[var(--text-base)] mb-3 tracking-tight"
                       style={{ fontWeight: 400 }}
                     >
+                      {(() => {
                         const name =
                           displayName?.split(" ")[0] ||
                           auth.currentUser?.displayName?.split(" ")[0] ||
